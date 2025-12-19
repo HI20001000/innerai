@@ -12,3 +12,15 @@ export const prisma = new PrismaClient({
     },
   },
 });
+
+// Lightweight query/action logging without dumping full parameters to avoid leaking secrets
+prisma.$use(async (params, next) => {
+  const start = Date.now();
+  const result = await next(params);
+  const duration = Date.now() - start;
+  // eslint-disable-next-line no-console
+  console.log(
+    `[prisma] ${params.model ?? 'raw'}.${params.action} took ${duration}ms`,
+  );
+  return result;
+});

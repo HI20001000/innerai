@@ -57,6 +57,12 @@ npm run dev:web      # or: npm run web      | starts Vite dev server on 5173
 ```
 Or run both: `npm run dev`.
 
+### Troubleshooting connection issues
+- Ensure MySQL is up: `docker-compose up -d mysql`.
+- Confirm `.env` is in the repo root and `PORT`/`HOST` match your desired bind address (default HOST=0.0.0.0 so the frontend can reach it).
+- Watch backend logs: requests are logged in the server console, and Prisma actions are logged as `[prisma] <model>.<action> ...`.
+- Verify the backend is listening: `curl http://localhost:3001/health`.
+
 ## Build for Production
 ```bash
 npm run build
