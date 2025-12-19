@@ -62,6 +62,7 @@ Or run both: `npm run dev`.
 - Confirm `.env` is in the repo root and `PORT`/`HOST` match your desired bind address (default HOST=0.0.0.0 so the frontend can reach it).
 - Watch backend logs: requests are logged in the server console, and Prisma actions are logged as `[prisma] <model>.<action> ...`.
 - Verify the backend is listening: `curl http://localhost:3001/health`.
+- If `npm run dev:server` fails on Windows with `tsx`/ESM errors, ensure dependencies are installed (`npm install` at repo root) and Node 20+. The dev script now uses `node --loader ts-node/esm --watch src/index.ts` to work cross-platform.
 
 ## Build for Production
 ```bash
