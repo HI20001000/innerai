@@ -1,0 +1,113 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum FollowUpStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+enum FollowUpPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+model User {
+  id           Int       @id @default(autoincrement())
+  email        String    @unique
+  passwordHash String
+  name         String?
+  role         String?   @default("user")
+  createdAt    DateTime  @default(now())
+
+  meetings     Meeting[] @relation("MeetingCreatedBy")
+  assigned     FollowUp[] @relation("AssignedFollowups")
+  comments     FollowUpComment[]
+}
+
+model Customer {
+  id        Int       @id @default(autoincrement())
+  name      String    @unique
+  meetings  Meeting[]
+  createdAt DateTime  @default(now())
+}
+
+model Manufacturer {
+  id        Int       @id @default(autoincrement())
+  name      String    @unique
+  products  Product[]
+  meetings  Meeting[]
+  createdAt DateTime  @default(now())
+}
+
+model Product {
+  id             Int           @id @default(autoincrement())
+  manufacturer   Manufacturer  @relation(fields: [manufacturerId], references: [id])
+  manufacturerId Int
+  name           String
+  meetings       Meeting[]
+  createdAt      DateTime      @default(now())
+
+  @@unique([manufacturerId, name])
+}
+
+model Meeting {
+  id               Int                @id @default(autoincrement())
+  title            String
+  content          String             @db.Text
+  occurredAt       DateTime
+  customer         Customer          @relation(fields: [customerId], references: [id])
+  customerId       Int
+  manufacturer     Manufacturer      @relation(fields: [manufacturerId], references: [id])
+  manufacturerId   Int
+  product          Product           @relation(fields: [productId], references: [id])
+  productId        Int
+  createdByUser    User              @relation("MeetingCreatedBy", fields: [createdByUserId], references: [id])
+  createdByUserId  Int
+  createdAt        DateTime          @default(now())
+  followups        FollowUp[]
+  analysis         MeetingAIAnalysis?
+}
+
+model MeetingAIAnalysis {
+  id        Int      @id @default(autoincrement())
+  meeting   Meeting  @relation(fields: [meetingId], references: [id])
+  meetingId Int      @unique
+  summary   String   @db.Text
+  rawJson   String   @db.Text
+  createdAt DateTime @default(now())
+}
+
+model FollowUp {
+  id                  Int              @id @default(autoincrement())
+  meeting             Meeting          @relation(fields: [meetingId], references: [id])
+  meetingId           Int
+  title               String
+  description         String?          @db.Text
+  status              FollowUpStatus   @default(TODO)
+  dueAt               DateTime?
+  suggestedOwnerName  String?
+  assigneeUser        User?            @relation("AssignedFollowups", fields: [assigneeUserId], references: [id])
+  assigneeUserId      Int?
+  priority            FollowUpPriority?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  comments            FollowUpComment[]
+}
+
+model FollowUpComment {
+  id         Int      @id @default(autoincrement())
+  followup   FollowUp @relation(fields: [followupId], references: [id])
+  followupId Int
+  user       User     @relation(fields: [userId], references: [id])
+  userId     Int
+  content    String
+  createdAt  DateTime @default(now())
+}
