@@ -52,8 +52,8 @@ The migration SQL is available at `server/prisma/migrations/0001_init/migration.
 ## Development Servers
 In two terminals (after `npm install`):
 ```bash
-npm run dev:server   # starts Express API on PORT (default 3001)
-npm run dev:web      # starts Vite dev server on 5173
+npm run dev:server   # or: npm run server   | starts Express API on PORT (default 3001)
+npm run dev:web      # or: npm run web      | starts Vite dev server on 5173
 ```
 Or run both: `npm run dev`.
 

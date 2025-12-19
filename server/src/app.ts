@@ -10,6 +10,13 @@ import { errorHandler } from './middlewares/errorHandler.js';
 
 export const buildApp = () => {
   const app = express();
+  app.use((req, _res, next) => {
+    // lightweight request log to help diagnose connectivity issues
+    // avoid dumping bodies to keep secrets safe
+    // eslint-disable-next-line no-console
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
+    next();
+  });
   app.use(
     cors({
       origin: config.corsOrigins.length ? config.corsOrigins : '*',

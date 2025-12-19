@@ -7,6 +7,8 @@
     "dev": "npm-run-all -p dev:server dev:web",
     "dev:server": "npm --workspace server run dev",
     "dev:web": "npm --workspace web run dev",
+    "server": "npm run dev:server",
+    "web": "npm run dev:web",
     "build": "npm-run-all build:server build:web",
     "build:server": "npm --workspace server run build",
     "build:web": "npm --workspace web run build",
