@@ -6,107 +6,109 @@ const activeTab = ref('login')
 
 <template>
   <div class="login-page">
-    <div class="login-card">
-      <div class="brand">
-        <div class="logo-circle">AI</div>
-        <div>
-          <p class="brand-title">InnerAI</p>
-          <p class="brand-subtitle">Sign in to continue</p>
-        </div>
-      </div>
-
-      <div class="tab-group">
-        <button
-          type="button"
-          :class="['tab', { active: activeTab === 'login' }]"
-          @click="activeTab = 'login'"
-        >
-          登入
-        </button>
-        <button
-          type="button"
-          :class="['tab', { active: activeTab === 'register' }]"
-          @click="activeTab = 'register'"
-        >
-          註冊
-        </button>
-      </div>
-
-      <form class="login-form" @submit.prevent>
-        <div class="form-grid">
-          <label class="field">
-            <span>電子郵件</span>
-            <input type="email" placeholder="name@company.com" />
-          </label>
-
-          <label class="field">
-            <span>密碼</span>
-            <input type="password" placeholder="••••••••" />
-          </label>
-
-          <label v-if="activeTab === 'register'" class="field">
-            <span>確認密碼</span>
-            <input type="password" placeholder="再次輸入密碼" />
-          </label>
-
-          <label v-if="activeTab === 'register'" class="field">
-            <span>公司名稱</span>
-            <input type="text" placeholder="InnerAI Studio" />
-          </label>
+    <div class="login-shell">
+      <div class="login-card">
+        <div class="brand">
+          <div class="logo-circle">AI</div>
+          <div>
+            <p class="brand-title">InnerAI</p>
+            <p class="brand-subtitle">Sign in to continue</p>
+          </div>
         </div>
 
-        <div class="helper-row" v-if="activeTab === 'login'">
-          <label class="checkbox">
-            <input type="checkbox" />
-            <span>記住我</span>
-          </label>
-          <a class="link" href="#">忘記密碼？</a>
+        <div class="tab-group">
+          <button
+            type="button"
+            :class="['tab', { active: activeTab === 'login' }]"
+            @click="activeTab = 'login'"
+          >
+            登入
+          </button>
+          <button
+            type="button"
+            :class="['tab', { active: activeTab === 'register' }]"
+            @click="activeTab = 'register'"
+          >
+            註冊
+          </button>
         </div>
 
-        <button class="primary-button" type="submit">
-          {{ activeTab === 'login' ? '登入帳號' : '建立帳號' }}
-        </button>
+        <form class="login-form" @submit.prevent>
+          <div class="form-grid">
+            <label class="field">
+              <span>電子郵件</span>
+              <input type="email" placeholder="name@company.com" />
+            </label>
 
-        <div class="divider">
-          <span>或使用</span>
-        </div>
+            <label class="field">
+              <span>密碼</span>
+              <input type="password" placeholder="••••••••" />
+            </label>
 
-        <button class="secondary-button" type="button">
-          <span class="google-icon" aria-hidden="true"></span>
-          使用 Google 登入
-        </button>
-      </form>
+            <label v-if="activeTab === 'register'" class="field">
+              <span>確認密碼</span>
+              <input type="password" placeholder="再次輸入密碼" />
+            </label>
 
-      <p class="switch-text">
-        {{ activeTab === 'login' ? '還沒有帳號？' : '已經有帳號？' }}
-        <button class="link-button" type="button" @click="activeTab = activeTab === 'login' ? 'register' : 'login'">
-          {{ activeTab === 'login' ? '免費註冊' : '立即登入' }}
-        </button>
-      </p>
-    </div>
+            <label v-if="activeTab === 'register'" class="field">
+              <span>公司名稱</span>
+              <input type="text" placeholder="InnerAI Studio" />
+            </label>
+          </div>
 
-    <div class="promo-panel">
-      <div class="promo-content">
-        <p class="promo-title">智慧登入體驗</p>
-        <p class="promo-text">
-          透過現代化的帳號流程與社群登入，讓團隊快速開始協作。
+          <div class="helper-row" v-if="activeTab === 'login'">
+            <label class="checkbox">
+              <input type="checkbox" />
+              <span>記住我</span>
+            </label>
+            <a class="link" href="#">忘記密碼？</a>
+          </div>
+
+          <button class="primary-button" type="submit">
+            {{ activeTab === 'login' ? '登入帳號' : '建立帳號' }}
+          </button>
+
+          <div class="divider">
+            <span>或使用</span>
+          </div>
+
+          <button class="secondary-button" type="button">
+            <span class="google-icon" aria-hidden="true"></span>
+            使用 Google 登入
+          </button>
+        </form>
+
+        <p class="switch-text">
+          {{ activeTab === 'login' ? '還沒有帳號？' : '已經有帳號？' }}
+          <button class="link-button" type="button" @click="activeTab = activeTab === 'login' ? 'register' : 'login'">
+            {{ activeTab === 'login' ? '免費註冊' : '立即登入' }}
+          </button>
         </p>
-        <div class="promo-metrics">
-          <div>
-            <p class="metric-value">98%</p>
-            <p class="metric-label">完成率</p>
-          </div>
-          <div>
-            <p class="metric-value">2 分鐘</p>
-            <p class="metric-label">建立帳號</p>
-          </div>
-          <div>
-            <p class="metric-value">24/7</p>
-            <p class="metric-label">安全保護</p>
+      </div>
+
+      <div class="promo-panel">
+        <div class="promo-content">
+          <p class="promo-title">智慧登入體驗</p>
+          <p class="promo-text">
+            透過現代化的帳號流程與社群登入，讓團隊快速開始協作。
+          </p>
+          <div class="promo-metrics">
+            <div>
+              <p class="metric-value">98%</p>
+              <p class="metric-label">完成率</p>
+            </div>
+            <div>
+              <p class="metric-value">2 分鐘</p>
+              <p class="metric-label">建立帳號</p>
+            </div>
+            <div>
+              <p class="metric-value">24/7</p>
+              <p class="metric-label">安全保護</p>
+            </div>
           </div>
         </div>
+        <div class="promo-gradient"></div>
       </div>
-      <div class="promo-gradient"></div>
     </div>
   </div>
 </template>
@@ -114,22 +116,27 @@ const activeTab = ref('login')
 <style scoped>
 .login-page {
   min-height: 100vh;
+  background: radial-gradient(circle at top, #edf2ff, #f5f6fb 45%, #eef0ff 100%);
+  padding: 4.5rem 6vw;
+  display: grid;
+  place-items: center;
+}
+
+.login-shell {
+  width: min(1120px, 100%);
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  align-items: center;
-  gap: 2rem;
-  padding: 4rem 6vw;
-  background: #f5f6fb;
+  gap: 2.5rem;
+  align-items: stretch;
 }
 
 .login-card {
   background: #ffffff;
-  border-radius: 24px;
-  padding: 3rem;
-  box-shadow: 0 25px 60px rgba(15, 23, 42, 0.1);
-  max-width: 480px;
+  border-radius: 28px;
+  padding: 3.5rem 3.25rem;
+  box-shadow: 0 30px 70px rgba(15, 23, 42, 0.12);
   width: 100%;
-  margin: 0 auto;
+  border: 1px solid rgba(148, 163, 184, 0.2);
 }
 
 .brand {
@@ -140,19 +147,20 @@ const activeTab = ref('login')
 }
 
 .logo-circle {
-  width: 48px;
-  height: 48px;
-  border-radius: 16px;
+  width: 52px;
+  height: 52px;
+  border-radius: 18px;
   background: linear-gradient(135deg, #5b8cff, #7c5cff);
   color: #fff;
   display: grid;
   place-items: center;
   font-weight: 700;
   font-size: 1.2rem;
+  box-shadow: 0 12px 28px rgba(91, 140, 255, 0.35);
 }
 
 .brand-title {
-  font-size: 1.35rem;
+  font-size: 1.45rem;
   font-weight: 600;
   margin: 0;
 }
@@ -167,15 +175,16 @@ const activeTab = ref('login')
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   background: #f4f6ff;
-  border-radius: 14px;
-  padding: 0.35rem;
-  margin-bottom: 2rem;
+  border-radius: 16px;
+  padding: 0.4rem;
+  margin-bottom: 2.25rem;
+  border: 1px solid rgba(148, 163, 184, 0.2);
 }
 
 .tab {
   border: none;
   background: transparent;
-  padding: 0.6rem 1rem;
+  padding: 0.7rem 1rem;
   border-radius: 12px;
   font-weight: 600;
   color: #6b7280;
@@ -186,40 +195,47 @@ const activeTab = ref('login')
 .tab.active {
   background: #ffffff;
   color: #111827;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
 }
 
 .login-form {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1.75rem;
 }
 
 .form-grid {
   display: grid;
-  gap: 1rem;
+  gap: 1.1rem;
 }
 
 .field {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.55rem;
   font-weight: 500;
   color: #111827;
 }
 
+.field span {
+  font-size: 0.9rem;
+  color: #4b5563;
+}
+
 .field input {
   border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  padding: 0.85rem 1rem;
+  border-radius: 14px;
+  padding: 0.95rem 1rem;
   font-size: 0.95rem;
-  transition: border-color 0.2s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  background: #fafafa;
 }
 
 .field input:focus {
   outline: none;
   border-color: #5b8cff;
-  box-shadow: 0 0 0 3px rgba(91, 140, 255, 0.15);
+  box-shadow: 0 0 0 4px rgba(91, 140, 255, 0.15);
+  background: #fff;
 }
 
 .helper-row {
@@ -246,24 +262,36 @@ const activeTab = ref('login')
   background: linear-gradient(135deg, #5b8cff, #7c5cff);
   color: #fff;
   border: none;
-  border-radius: 12px;
-  padding: 0.9rem;
+  border-radius: 14px;
+  padding: 1rem;
   font-weight: 600;
   cursor: pointer;
-  box-shadow: 0 12px 28px rgba(91, 140, 255, 0.3);
+  box-shadow: 0 16px 34px rgba(91, 140, 255, 0.3);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.primary-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 20px 40px rgba(91, 140, 255, 0.35);
 }
 
 .secondary-button {
   border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  padding: 0.85rem;
+  border-radius: 14px;
+  padding: 0.9rem;
   background: #fff;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
+  gap: 0.6rem;
   font-weight: 600;
   cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.secondary-button:hover {
+  border-color: #cbd5f5;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
 }
 
 .divider {
@@ -312,14 +340,14 @@ const activeTab = ref('login')
 
 .promo-panel {
   position: relative;
-  border-radius: 28px;
-  padding: 3rem;
-  background: #111827;
+  border-radius: 30px;
+  padding: 3.5rem;
+  background: linear-gradient(160deg, #111827, #1f2937 65%, #111827);
   color: #fff;
   overflow: hidden;
-  min-height: 420px;
-  max-width: 520px;
-  margin: 0 auto;
+  min-height: 440px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 30px 70px rgba(15, 23, 42, 0.4);
 }
 
 .promo-content {
@@ -330,24 +358,26 @@ const activeTab = ref('login')
 }
 
 .promo-title {
-  font-size: 2rem;
+  font-size: 2.1rem;
   font-weight: 600;
   margin: 0;
 }
 
 .promo-text {
   margin: 0;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 1rem;
+  line-height: 1.6;
 }
 
 .promo-metrics {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1rem;
+  gap: 1.2rem;
 }
 
 .metric-value {
-  font-size: 1.4rem;
+  font-size: 1.5rem;
   font-weight: 600;
   margin: 0;
 }
@@ -361,14 +391,14 @@ const activeTab = ref('login')
 .promo-gradient {
   position: absolute;
   inset: auto -40% -40% auto;
-  width: 380px;
-  height: 380px;
+  width: 420px;
+  height: 420px;
   background: radial-gradient(circle, rgba(91, 140, 255, 0.6), transparent 70%);
-  filter: blur(10px);
+  filter: blur(6px);
 }
 
 @media (min-width: 960px) {
-  .login-page {
+  .login-shell {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
 }
@@ -380,6 +410,16 @@ const activeTab = ref('login')
 
   .login-page {
     padding: 3rem 1.5rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .login-card {
+    padding: 2.5rem 1.75rem;
+  }
+
+  .tab-group {
+    margin-bottom: 1.75rem;
   }
 }
 </style>
