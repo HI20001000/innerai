@@ -2,12 +2,15 @@ import { h, shallowRef } from 'vue'
 import LoginView from '../views/Login.vue'
 
 const routes = new Map([['/', LoginView]])
-const currentPath = shallowRef(window.location.pathname || '/')
-
 const normalizePath = (path) => (path === '/login' ? '/' : path)
 
+const currentPath = shallowRef(normalizePath(window.location.pathname || '/'))
+const currentRoute = shallowRef({ path: currentPath.value })
+
 const updatePath = (path) => {
-  currentPath.value = normalizePath(path)
+  const nextPath = normalizePath(path)
+  currentPath.value = nextPath
+  currentRoute.value = { path: nextPath }
 }
 
 window.addEventListener('popstate', () => {
@@ -25,9 +28,16 @@ const RouterView = {
 }
 
 const router = {
+  currentRoute,
+  options: {
+    history: {
+      base: '/',
+    },
+  },
   install(app) {
     app.component('RouterView', RouterView)
     app.config.globalProperties.$router = router
+    app.config.globalProperties.$route = currentRoute
   },
   push(path) {
     const nextPath = normalizePath(path)

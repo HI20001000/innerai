@@ -6,33 +6,25 @@ const activeTab = ref('login')
 
 <template>
   <div class="login-page">
-    <div class="login-hero">
+    <aside class="login-hero">
       <div class="hero-content">
         <div class="logo-circle">AI</div>
-        <p class="hero-title">InnerAI Workspace</p>
-        <p class="hero-subtitle">簡潔的帳號入口，讓團隊快速啟動。</p>
-        <div class="hero-highlights">
-          <div>
-            <p class="highlight-value">3 秒</p>
-            <p class="highlight-label">快速登入</p>
-          </div>
-          <div>
-            <p class="highlight-value">全新 UI</p>
-            <p class="highlight-label">清晰操作</p>
-          </div>
-          <div>
-            <p class="highlight-value">安全</p>
-            <p class="highlight-label">信任保障</p>
-          </div>
-        </div>
+        <p class="hero-title">InnerAI</p>
+        <p class="hero-subtitle">用一個清爽的入口，快速啟動你的工作空間。</p>
+        <ul class="hero-list">
+          <li>單一入口，登入/註冊切換</li>
+          <li>支援 Google 快速登入</li>
+          <li>完整 UI 結構，方便後續接 API</li>
+        </ul>
       </div>
-    </div>
+      <div class="hero-accent"></div>
+    </aside>
 
-    <div class="login-panel">
-      <div class="panel-header">
-        <p class="panel-title">歡迎回來</p>
-        <p class="panel-subtitle">請使用你的帳號登入或建立新帳號。</p>
-      </div>
+    <section class="login-panel">
+      <header class="panel-header">
+        <p class="panel-title">{{ activeTab === 'login' ? '歡迎回來' : '建立新帳號' }}</p>
+        <p class="panel-subtitle">請輸入你的帳號資訊以繼續。</p>
+      </header>
 
       <div class="tab-group">
         <button
@@ -102,7 +94,7 @@ const activeTab = ref('login')
           {{ activeTab === 'login' ? '免費註冊' : '立即登入' }}
         </button>
       </p>
-    </div>
+    </section>
   </div>
 </template>
 
@@ -110,24 +102,28 @@ const activeTab = ref('login')
 .login-page {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
   background: #f6f7fb;
 }
 
 .login-hero {
-  background: linear-gradient(135deg, #1f2937, #111827 60%, #0f172a);
+  position: relative;
+  background: linear-gradient(140deg, #111827 20%, #1f2937 85%);
   color: #fff;
-  padding: 4.5rem 8vw;
+  padding: 5rem 8vw;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
+  overflow: hidden;
 }
 
 .hero-content {
   max-width: 520px;
   display: grid;
-  gap: 1.5rem;
+  gap: 1.25rem;
   text-align: left;
+  position: relative;
+  z-index: 1;
 }
 
 .logo-circle {
@@ -144,7 +140,7 @@ const activeTab = ref('login')
 }
 
 .hero-title {
-  font-size: 2.2rem;
+  font-size: 2.4rem;
   font-weight: 600;
   margin: 0;
 }
@@ -156,22 +152,24 @@ const activeTab = ref('login')
   line-height: 1.6;
 }
 
-.hero-highlights {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1.25rem;
-}
-
-.highlight-value {
-  font-size: 1.2rem;
-  font-weight: 600;
+.hero-list {
   margin: 0;
+  padding-left: 1.25rem;
+  color: rgba(255, 255, 255, 0.75);
+  display: grid;
+  gap: 0.6rem;
+  font-size: 0.95rem;
 }
 
-.highlight-label {
-  margin: 0.35rem 0 0;
-  color: rgba(255, 255, 255, 0.6);
-  font-size: 0.85rem;
+.hero-accent {
+  position: absolute;
+  width: 340px;
+  height: 340px;
+  right: -120px;
+  top: 20%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(91, 140, 255, 0.45), transparent 70%);
+  filter: blur(8px);
 }
 
 .login-panel {
@@ -186,7 +184,7 @@ const activeTab = ref('login')
 }
 
 .panel-title {
-  font-size: 1.8rem;
+  font-size: 1.7rem;
   font-weight: 600;
   margin: 0;
   color: #0f172a;
@@ -197,17 +195,13 @@ const activeTab = ref('login')
   color: #64748b;
 }
 
-.brand {
-  display: none;
-}
-
 .tab-group {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   background: #f1f5f9;
   border-radius: 14px;
   padding: 0.35rem;
-  margin-bottom: 2.25rem;
+  margin-bottom: 2rem;
   border: 1px solid rgba(148, 163, 184, 0.15);
 }
 
@@ -380,11 +374,11 @@ const activeTab = ref('login')
   }
 
   .login-hero {
-    padding: 3rem 8vw;
+    padding: 3rem 8vw 2.5rem;
   }
 
   .login-panel {
-    padding: 3rem 8vw;
+    padding: 2.5rem 8vw 3rem;
   }
 }
 </style>
