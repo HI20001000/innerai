@@ -6,109 +6,102 @@ const activeTab = ref('login')
 
 <template>
   <div class="login-page">
-    <div class="login-shell">
-      <div class="login-card">
-        <div class="brand">
-          <div class="logo-circle">AI</div>
+    <div class="login-hero">
+      <div class="hero-content">
+        <div class="logo-circle">AI</div>
+        <p class="hero-title">InnerAI Workspace</p>
+        <p class="hero-subtitle">簡潔的帳號入口，讓團隊快速啟動。</p>
+        <div class="hero-highlights">
           <div>
-            <p class="brand-title">InnerAI</p>
-            <p class="brand-subtitle">Sign in to continue</p>
+            <p class="highlight-value">3 秒</p>
+            <p class="highlight-label">快速登入</p>
+          </div>
+          <div>
+            <p class="highlight-value">全新 UI</p>
+            <p class="highlight-label">清晰操作</p>
+          </div>
+          <div>
+            <p class="highlight-value">安全</p>
+            <p class="highlight-label">信任保障</p>
           </div>
         </div>
+      </div>
+    </div>
 
-        <div class="tab-group">
-          <button
-            type="button"
-            :class="['tab', { active: activeTab === 'login' }]"
-            @click="activeTab = 'login'"
-          >
-            登入
-          </button>
-          <button
-            type="button"
-            :class="['tab', { active: activeTab === 'register' }]"
-            @click="activeTab = 'register'"
-          >
-            註冊
-          </button>
-        </div>
-
-        <form class="login-form" @submit.prevent>
-          <div class="form-grid">
-            <label class="field">
-              <span>電子郵件</span>
-              <input type="email" placeholder="name@company.com" />
-            </label>
-
-            <label class="field">
-              <span>密碼</span>
-              <input type="password" placeholder="••••••••" />
-            </label>
-
-            <label v-if="activeTab === 'register'" class="field">
-              <span>確認密碼</span>
-              <input type="password" placeholder="再次輸入密碼" />
-            </label>
-
-            <label v-if="activeTab === 'register'" class="field">
-              <span>公司名稱</span>
-              <input type="text" placeholder="InnerAI Studio" />
-            </label>
-          </div>
-
-          <div class="helper-row" v-if="activeTab === 'login'">
-            <label class="checkbox">
-              <input type="checkbox" />
-              <span>記住我</span>
-            </label>
-            <a class="link" href="#">忘記密碼？</a>
-          </div>
-
-          <button class="primary-button" type="submit">
-            {{ activeTab === 'login' ? '登入帳號' : '建立帳號' }}
-          </button>
-
-          <div class="divider">
-            <span>或使用</span>
-          </div>
-
-          <button class="secondary-button" type="button">
-            <span class="google-icon" aria-hidden="true"></span>
-            使用 Google 登入
-          </button>
-        </form>
-
-        <p class="switch-text">
-          {{ activeTab === 'login' ? '還沒有帳號？' : '已經有帳號？' }}
-          <button class="link-button" type="button" @click="activeTab = activeTab === 'login' ? 'register' : 'login'">
-            {{ activeTab === 'login' ? '免費註冊' : '立即登入' }}
-          </button>
-        </p>
+    <div class="login-panel">
+      <div class="panel-header">
+        <p class="panel-title">歡迎回來</p>
+        <p class="panel-subtitle">請使用你的帳號登入或建立新帳號。</p>
       </div>
 
-      <div class="promo-panel">
-        <div class="promo-content">
-          <p class="promo-title">智慧登入體驗</p>
-          <p class="promo-text">
-            透過現代化的帳號流程與社群登入，讓團隊快速開始協作。
-          </p>
-          <div class="promo-metrics">
-            <div>
-              <p class="metric-value">98%</p>
-              <p class="metric-label">完成率</p>
-            </div>
-            <div>
-              <p class="metric-value">2 分鐘</p>
-              <p class="metric-label">建立帳號</p>
-            </div>
-            <div>
-              <p class="metric-value">24/7</p>
-              <p class="metric-label">安全保護</p>
-            </div>
-          </div>
-        </div>
-        <div class="promo-gradient"></div>
+      <div class="tab-group">
+        <button
+          type="button"
+          :class="['tab', { active: activeTab === 'login' }]"
+          @click="activeTab = 'login'"
+        >
+          登入
+        </button>
+        <button
+          type="button"
+          :class="['tab', { active: activeTab === 'register' }]"
+          @click="activeTab = 'register'"
+        >
+          註冊
+        </button>
       </div>
+
+      <form class="login-form" @submit.prevent>
+        <div class="form-grid">
+          <label class="field">
+            <span>電子郵件</span>
+            <input type="email" placeholder="name@company.com" />
+          </label>
+
+          <label class="field">
+            <span>密碼</span>
+            <input type="password" placeholder="••••••••" />
+          </label>
+
+          <label v-if="activeTab === 'register'" class="field">
+            <span>確認密碼</span>
+            <input type="password" placeholder="再次輸入密碼" />
+          </label>
+
+          <label v-if="activeTab === 'register'" class="field">
+            <span>公司名稱</span>
+            <input type="text" placeholder="InnerAI Studio" />
+          </label>
+        </div>
+
+        <div class="helper-row" v-if="activeTab === 'login'">
+          <label class="checkbox">
+            <input type="checkbox" />
+            <span>記住我</span>
+          </label>
+          <a class="link" href="#">忘記密碼？</a>
+        </div>
+
+        <button class="primary-button" type="submit">
+          {{ activeTab === 'login' ? '登入帳號' : '建立帳號' }}
+        </button>
+
+        <div class="divider">
+          <span>或使用</span>
+        </div>
+
+        <button class="secondary-button" type="button">
+          <span class="google-icon" aria-hidden="true"></span>
+          使用 Google 登入
+        </button>
+      </form>
+
+      <p class="switch-text">
+        {{ activeTab === 'login' ? '還沒有帳號？' : '已經有帳號？' }}
+        <button class="link-button" type="button" @click="activeTab = activeTab === 'login' ? 'register' : 'login'">
+          {{ activeTab === 'login' ? '免費註冊' : '立即登入' }}
+        </button>
+      </p>
     </div>
   </div>
 </template>
@@ -116,34 +109,25 @@ const activeTab = ref('login')
 <style scoped>
 .login-page {
   min-height: 100vh;
-  background: radial-gradient(circle at top, #edf2ff, #f5f6fb 45%, #eef0ff 100%);
-  padding: 4.5rem 6vw;
-  display: grid;
-  place-items: center;
-}
-
-.login-shell {
-  width: min(1120px, 100%);
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 2.5rem;
-  align-items: stretch;
+  background: #f6f7fb;
 }
 
-.login-card {
-  background: #ffffff;
-  border-radius: 28px;
-  padding: 3.5rem 3.25rem;
-  box-shadow: 0 30px 70px rgba(15, 23, 42, 0.12);
-  width: 100%;
-  border: 1px solid rgba(148, 163, 184, 0.2);
-}
-
-.brand {
+.login-hero {
+  background: linear-gradient(135deg, #1f2937, #111827 60%, #0f172a);
+  color: #fff;
+  padding: 4.5rem 8vw;
   display: flex;
   align-items: center;
-  gap: 1rem;
-  margin-bottom: 2rem;
+  justify-content: center;
+}
+
+.hero-content {
+  max-width: 520px;
+  display: grid;
+  gap: 1.5rem;
+  text-align: left;
 }
 
 .logo-circle {
@@ -159,26 +143,72 @@ const activeTab = ref('login')
   box-shadow: 0 12px 28px rgba(91, 140, 255, 0.35);
 }
 
-.brand-title {
-  font-size: 1.45rem;
+.hero-title {
+  font-size: 2.2rem;
   font-weight: 600;
   margin: 0;
 }
 
-.brand-subtitle {
-  margin: 0.25rem 0 0;
-  color: #6b7280;
-  font-size: 0.95rem;
+.hero-subtitle {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.hero-highlights {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.25rem;
+}
+
+.highlight-value {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.highlight-label {
+  margin: 0.35rem 0 0;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.85rem;
+}
+
+.login-panel {
+  background: #ffffff;
+  padding: 4.5rem 10vw;
+  display: grid;
+  align-content: center;
+}
+
+.panel-header {
+  margin-bottom: 2rem;
+}
+
+.panel-title {
+  font-size: 1.8rem;
+  font-weight: 600;
+  margin: 0;
+  color: #0f172a;
+}
+
+.panel-subtitle {
+  margin: 0.5rem 0 0;
+  color: #64748b;
+}
+
+.brand {
+  display: none;
 }
 
 .tab-group {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  background: #f4f6ff;
-  border-radius: 16px;
-  padding: 0.4rem;
+  background: #f1f5f9;
+  border-radius: 14px;
+  padding: 0.35rem;
   margin-bottom: 2.25rem;
-  border: 1px solid rgba(148, 163, 184, 0.2);
+  border: 1px solid rgba(148, 163, 184, 0.15);
 }
 
 .tab {
@@ -219,16 +249,16 @@ const activeTab = ref('login')
 
 .field span {
   font-size: 0.9rem;
-  color: #4b5563;
+  color: #475569;
 }
 
 .field input {
   border: 1px solid #e5e7eb;
-  border-radius: 14px;
-  padding: 0.95rem 1rem;
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
   font-size: 0.95rem;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
-  background: #fafafa;
+  background: #fff;
 }
 
 .field input:focus {
@@ -259,26 +289,26 @@ const activeTab = ref('login')
 }
 
 .primary-button {
-  background: linear-gradient(135deg, #5b8cff, #7c5cff);
+  background: #1f2937;
   color: #fff;
   border: none;
-  border-radius: 14px;
-  padding: 1rem;
+  border-radius: 12px;
+  padding: 0.95rem;
   font-weight: 600;
   cursor: pointer;
-  box-shadow: 0 16px 34px rgba(91, 140, 255, 0.3);
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.2);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .primary-button:hover {
   transform: translateY(-1px);
-  box-shadow: 0 20px 40px rgba(91, 140, 255, 0.35);
+  box-shadow: 0 18px 30px rgba(15, 23, 42, 0.25);
 }
 
 .secondary-button {
   border: 1px solid #e5e7eb;
-  border-radius: 14px;
-  padding: 0.9rem;
+  border-radius: 12px;
+  padding: 0.85rem;
   background: #fff;
   display: inline-flex;
   align-items: center;
@@ -290,7 +320,7 @@ const activeTab = ref('login')
 }
 
 .secondary-button:hover {
-  border-color: #cbd5f5;
+  border-color: #cbd5e1;
   box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
 }
 
@@ -338,88 +368,23 @@ const activeTab = ref('login')
   margin-left: 0.5rem;
 }
 
-.promo-panel {
-  position: relative;
-  border-radius: 30px;
-  padding: 3.5rem;
-  background: linear-gradient(160deg, #111827, #1f2937 65%, #111827);
-  color: #fff;
-  overflow: hidden;
-  min-height: 440px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 30px 70px rgba(15, 23, 42, 0.4);
-}
-
-.promo-content {
-  position: relative;
-  z-index: 2;
-  display: grid;
-  gap: 1.5rem;
-}
-
-.promo-title {
-  font-size: 2.1rem;
-  font-weight: 600;
-  margin: 0;
-}
-
-.promo-text {
-  margin: 0;
-  color: rgba(255, 255, 255, 0.75);
-  font-size: 1rem;
-  line-height: 1.6;
-}
-
-.promo-metrics {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1.2rem;
-}
-
-.metric-value {
-  font-size: 1.5rem;
-  font-weight: 600;
-  margin: 0;
-}
-
-.metric-label {
-  margin: 0.2rem 0 0;
-  font-size: 0.85rem;
-  color: rgba(255, 255, 255, 0.6);
-}
-
-.promo-gradient {
-  position: absolute;
-  inset: auto -40% -40% auto;
-  width: 420px;
-  height: 420px;
-  background: radial-gradient(circle, rgba(91, 140, 255, 0.6), transparent 70%);
-  filter: blur(6px);
-}
-
 @media (min-width: 960px) {
-  .login-shell {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  }
-}
-
-@media (max-width: 960px) {
-  .promo-panel {
-    display: none;
-  }
-
   .login-page {
-    padding: 3rem 1.5rem;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
   }
 }
 
 @media (max-width: 640px) {
-  .login-card {
-    padding: 2.5rem 1.75rem;
+  .login-page {
+    grid-template-columns: minmax(0, 1fr);
   }
 
-  .tab-group {
-    margin-bottom: 1.75rem;
+  .login-hero {
+    padding: 3rem 8vw;
+  }
+
+  .login-panel {
+    padding: 3rem 8vw;
   }
 }
 </style>
