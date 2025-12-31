@@ -1,7 +1,8 @@
 import { h, shallowRef } from 'vue'
 import LoginView from '../views/Login.vue'
 
-const routes = new Map([['/', LoginView]])
+const routeRecords = [{ path: '/', name: 'login', component: LoginView }]
+const routes = new Map(routeRecords.map((route) => [route.path, route.component]))
 const normalizePath = (path) => (path === '/login' ? '/' : path)
 
 const currentPath = shallowRef(normalizePath(window.location.pathname || '/'))
@@ -33,11 +34,15 @@ const router = {
     history: {
       base: '/',
     },
+    routes: routeRecords,
   },
   install(app) {
     app.component('RouterView', RouterView)
     app.config.globalProperties.$router = router
     app.config.globalProperties.$route = currentRoute
+  },
+  getRoutes() {
+    return routeRecords
   },
   push(path) {
     const nextPath = normalizePath(path)
