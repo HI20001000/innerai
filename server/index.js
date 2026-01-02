@@ -110,6 +110,7 @@ const ensureTables = async (connection) => {
       mail VARCHAR(255) NOT NULL UNIQUE,
       password_hash VARCHAR(255) NOT NULL,
       password_salt VARCHAR(255) NOT NULL,
+      icon VARCHAR(16) NOT NULL DEFAULT '🙂',
       username VARCHAR(255) NOT NULL DEFAULT 'hi',
       role VARCHAR(50) NOT NULL DEFAULT 'normal',
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -128,6 +129,13 @@ const ensureTables = async (connection) => {
   ]
   for (const statement of statements) {
     await connection.query(statement)
+  }
+  try {
+    await connection.query("ALTER TABLE users ADD COLUMN icon VARCHAR(16) NOT NULL DEFAULT '🙂'")
+  } catch (error) {
+    if (error?.code !== 'ER_DUP_FIELDNAME') {
+      throw error
+    }
   }
 }
 
@@ -319,8 +327,8 @@ const registerUser = async (req, res) => {
     const passwordHash = await hashPassword(password, salt)
     const connection = await getConnection()
     await connection.query(
-      'INSERT INTO users (mail, password_hash, password_salt, username, role) VALUES (?, ?, ?, ?, ?)',
-      [email, passwordHash, salt, 'hi', 'normal']
+      'INSERT INTO users (mail, password_hash, password_salt, icon, username, role) VALUES (?, ?, ?, ?, ?, ?)',
+      [email, passwordHash, salt, '🙂', 'hi', 'normal']
     )
     verificationCodes.delete(email)
     sendJson(res, 201, { message: 'User registered' })
@@ -345,7 +353,7 @@ const loginUser = async (req, res) => {
   try {
     const connection = await getConnection()
     const [rows] = await connection.query(
-      'SELECT mail, password_hash, password_salt, username, role FROM users WHERE mail = ? LIMIT 1',
+      'SELECT mail, password_hash, password_salt, icon, username, role FROM users WHERE mail = ? LIMIT 1',
       [email]
     )
     const user = rows[0]
@@ -358,10 +366,52 @@ const loginUser = async (req, res) => {
       sendJson(res, 401, { message: 'Invalid credentials' })
       return
     }
-    sendJson(res, 200, { mail: user.mail, username: user.username, role: user.role })
+    sendJson(res, 200, { mail: user.mail, icon: user.icon, username: user.username, role: user.role })
   } catch (error) {
     console.error(error)
     sendJson(res, 500, { message: 'Failed to login' })
+  }
+}
+
+const updateUser = async (req, res) => {
+  const body = await parseBody(req)
+  const email = body?.email?.trim()
+  if (!email) {
+    sendJson(res, 400, { message: 'Email is required' })
+    return
+  }
+  const updates = []
+  const values = []
+  if (body.icon) {
+    updates.push('icon = ?')
+    values.push(body.icon)
+  }
+  if (body.username) {
+    updates.push('username = ?')
+    values.push(body.username)
+  }
+  if (body.role) {
+    updates.push('role = ?')
+    values.push(body.role)
+  }
+  if (body.password) {
+    const salt = crypto.randomBytes(16).toString('hex')
+    const passwordHash = await hashPassword(body.password, salt)
+    updates.push('password_hash = ?', 'password_salt = ?')
+    values.push(passwordHash, salt)
+  }
+  if (updates.length === 0) {
+    sendJson(res, 400, { message: 'No updates provided' })
+    return
+  }
+  try {
+    const connection = await getConnection()
+    values.push(email)
+    await connection.query(`UPDATE users SET ${updates.join(', ')} WHERE mail = ?`, values)
+    sendJson(res, 200, { message: 'User updated' })
+  } catch (error) {
+    console.error(error)
+    sendJson(res, 500, { message: 'Failed to update user' })
   }
 }
 
@@ -409,6 +459,10 @@ const start = async () => {
     }
     if (url.pathname === '/api/auth/login' && req.method === 'POST') {
       await loginUser(req, res)
+      return
+    }
+    if (url.pathname === '/api/users/update' && req.method === 'POST') {
+      await updateUser(req, res)
       return
     }
     sendJson(res, 404, { message: 'Not found' })

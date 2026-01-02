@@ -10,14 +10,23 @@
       </button>
     </div>
     <div class="sidebar-bottom">
-      <button class="profile-button" type="button" aria-label="個人檔案">
-        <span class="profile-avatar">MT</span>
+      <button class="profile-button" type="button" aria-label="個人檔案" @click="openProfile">
+        <span class="profile-avatar">{{ currentUser.icon || '🙂' }}</span>
       </button>
     </div>
+    <ProfileEditorModal
+      :open="showProfile"
+      :user="currentUser"
+      :on-close="closeProfile"
+      :on-save="saveProfile"
+    />
   </aside>
 </template>
 
 <script setup>
+import { ref } from 'vue'
+import ProfileEditorModal from './ProfileEditorModal.vue'
+
 const { onCreateTask, onGoHome } = defineProps({
   onCreateTask: {
     type: Function,
@@ -28,6 +37,66 @@ const { onCreateTask, onGoHome } = defineProps({
     default: () => {},
   },
 })
+
+const apiBaseUrl = 'http://localhost:3001'
+const showProfile = ref(false)
+const currentUser = ref({})
+
+const loadUser = () => {
+  const raw = window.localStorage.getItem('innerai_user')
+  if (!raw) {
+    currentUser.value = {}
+    return
+  }
+  try {
+    currentUser.value = JSON.parse(raw)
+  } catch {
+    currentUser.value = {}
+  }
+}
+
+const openProfile = () => {
+  loadUser()
+  showProfile.value = true
+}
+
+const closeProfile = () => {
+  showProfile.value = false
+}
+
+const saveProfile = async (payload) => {
+  if (!currentUser.value?.mail) {
+    return { message: '尚未登入，無法編輯' }
+  }
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/users/update`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: currentUser.value.mail,
+        icon: payload.icon,
+        username: payload.username,
+        role: payload.role,
+        password: payload.password,
+      }),
+    })
+    const data = await response.json()
+    if (!response.ok) {
+      return { message: data.message || '更新失敗' }
+    }
+    currentUser.value = {
+      ...currentUser.value,
+      icon: payload.icon,
+      username: payload.username,
+      role: payload.role,
+    }
+    window.localStorage.setItem('innerai_user', JSON.stringify(currentUser.value))
+    return { message: '已更新' }
+  } catch (error) {
+    console.error(error)
+    return { message: '更新失敗' }
+  }
+}
 </script>
 
 <style scoped>

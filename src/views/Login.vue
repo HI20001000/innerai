@@ -31,11 +31,12 @@ const handleLogin = async () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: loginEmail.value, password: loginPassword.value }),
     })
+    const data = await parseJsonSafe(response)
     if (!response.ok) {
-      const data = await parseJsonSafe(response)
       authMessage.value = data.message || '登入失敗'
       return
     }
+    window.localStorage.setItem('innerai_user', JSON.stringify(data))
     router?.push('/home')
   } catch (error) {
     console.error(error)
