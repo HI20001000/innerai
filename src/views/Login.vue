@@ -13,6 +13,8 @@ const registerPassword = ref('')
 const registerPasswordConfirm = ref('')
 const registerCode = ref('')
 const authMessage = ref('')
+const resendCooldown = ref(0)
+let resendTimer = null
 
 const handleLogin = async () => {
   authMessage.value = ''
@@ -40,6 +42,9 @@ const requestCode = async () => {
     authMessage.value = '請先輸入電子郵件'
     return
   }
+  if (resendCooldown.value > 0) {
+    return
+  }
   try {
     const response = await fetch(`${apiBaseUrl}/api/auth/request-code`, {
       method: 'POST',
@@ -47,7 +52,22 @@ const requestCode = async () => {
       body: JSON.stringify({ email: registerEmail.value }),
     })
     const data = await response.json()
-    authMessage.value = data.message || '已發送驗證碼'
+    if (!response.ok) {
+      authMessage.value = data.message || '無法發送驗證碼'
+      return
+    }
+    authMessage.value = '驗證碼已送出，60 秒內可再發送'
+    resendCooldown.value = 60
+    if (resendTimer) {
+      clearInterval(resendTimer)
+    }
+    resendTimer = window.setInterval(() => {
+      resendCooldown.value -= 1
+      if (resendCooldown.value <= 0) {
+        clearInterval(resendTimer)
+        resendTimer = null
+      }
+    }, 1000)
   } catch (error) {
     console.error(error)
     authMessage.value = '無法發送驗證碼'
@@ -56,6 +76,10 @@ const requestCode = async () => {
 
 const handleRegister = async () => {
   authMessage.value = ''
+  if (!registerCode.value) {
+    authMessage.value = '請先輸入驗證碼'
+    return
+  }
   if (registerPassword.value !== registerPasswordConfirm.value) {
     authMessage.value = '密碼與確認密碼不一致'
     return
@@ -375,6 +399,10 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  if (resendTimer) {
+    clearInterval(resendTimer)
+    resendTimer = null
+  }
   cleanupAnimation?.()
 })
 </script>
@@ -480,7 +508,14 @@ onUnmounted(() => {
             <span>郵件驗證</span>
             <div class="code-row">
               <input v-model="registerCode" type="text" placeholder="輸入驗證碼" />
-              <button class="secondary-button" type="button" @click="requestCode">取得驗證碼</button>
+              <button
+                class="secondary-button"
+                type="button"
+                :disabled="resendCooldown > 0"
+                @click="requestCode"
+              >
+                {{ resendCooldown > 0 ? `再次發送 (${resendCooldown}s)` : '取得驗證碼' }}
+              </button>
             </div>
           </div>
         </div>
@@ -719,6 +754,11 @@ onUnmounted(() => {
   font-weight: 600;
   cursor: pointer;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.secondary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .secondary-button:hover {

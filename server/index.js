@@ -273,10 +273,17 @@ const requestVerificationCode = async (req, res) => {
     sendJson(res, 400, { message: 'Email is required' })
     return
   }
+  const existing = verificationCodes.get(email)
+  const now = Date.now()
+  if (existing?.lastSentAt && now - existing.lastSentAt < 60 * 1000) {
+    const waitSeconds = Math.ceil((60 * 1000 - (now - existing.lastSentAt)) / 1000)
+    sendJson(res, 429, { message: `請${waitSeconds}秒後再試` })
+    return
+  }
   const code = Math.floor(1000 + Math.random() * 9000).toString()
-  const expiresAt = Date.now() + 60 * 1000
-  verificationCodes.set(email, { code, expiresAt })
-  console.log(`Verification code for ${email}: ${code}`)
+  const expiresAt = now + 60 * 1000
+  verificationCodes.set(email, { code, expiresAt, lastSentAt: now })
+  console.log(`Verification code for ${email}: ${code} (valid 60s)`)
   sendJson(res, 200, { message: 'Verification code sent' })
 }
 
