@@ -36,6 +36,10 @@ const handleLogin = async () => {
 
 const requestCode = async () => {
   authMessage.value = ''
+  if (!registerEmail.value) {
+    authMessage.value = '請先輸入電子郵件'
+    return
+  }
   try {
     const response = await fetch(`${apiBaseUrl}/api/auth/request-code`, {
       method: 'POST',

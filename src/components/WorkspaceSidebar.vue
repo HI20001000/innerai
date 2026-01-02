@@ -18,8 +18,6 @@
 </template>
 
 <script setup>
-import { defineProps } from 'vue'
-
 const { onCreateTask, onGoHome } = defineProps({
   onCreateTask: {
     type: Function,
