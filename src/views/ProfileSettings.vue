@@ -39,6 +39,16 @@
             ›
           </button>
         </div>
+        <button class="ghost-button more-toggle" type="button" @click="showCustomIcon = !showCustomIcon">
+          {{ showCustomIcon ? '收起更多' : '更多' }}
+        </button>
+        <div v-if="showCustomIcon" class="custom-row">
+          <label class="field">
+            <span>自訂 Emoji</span>
+            <input v-model="customIcon" type="text" placeholder="輸入 emoji" maxlength="4" />
+          </label>
+          <button class="primary-button small" type="button" @click="applyCustomIcon">套用</button>
+        </div>
         <div class="color-grid">
           <button
             v-for="color in iconColors"
@@ -48,6 +58,15 @@
             :style="{ backgroundColor: color }"
             @click="localIconBg = color"
           ></button>
+        </div>
+        <div class="custom-row">
+          <label class="field">
+            <span>更多顏色</span>
+            <input v-model="customColor" type="color" />
+          </label>
+          <button class="primary-button small" type="button" @click="localIconBg = customColor">
+            套用
+          </button>
         </div>
       </div>
 
@@ -117,6 +136,9 @@ const iconOptions = [
 ]
 const iconColors = ['#e2e8f0', '#fde68a', '#bbf7d0', '#bae6fd', '#ddd6fe', '#fecdd3', '#fed7aa']
 const iconIndex = ref(0)
+const showCustomIcon = ref(false)
+const customIcon = ref('')
+const customColor = ref('#e2e8f0')
 
 const localIcon = ref('🙂')
 const localIconBg = ref('#e2e8f0')
@@ -146,6 +168,11 @@ const loadUser = () => {
   } catch {
     // ignore
   }
+}
+
+const applyCustomIcon = () => {
+  if (!customIcon.value.trim()) return
+  localIcon.value = customIcon.value.trim()
 }
 
 const saveProfile = async () => {
@@ -186,6 +213,7 @@ const saveProfile = async () => {
     message.value = '已更新'
     currentPassword.value = ''
     newPassword.value = ''
+    customIcon.value = ''
   } catch (error) {
     console.error(error)
     message.value = '更新失敗'
@@ -234,6 +262,11 @@ onMounted(loadUser)
   border-radius: 999px;
   font-weight: 600;
   cursor: pointer;
+}
+
+.primary-button.small {
+  padding: 0.5rem 1.1rem;
+  font-size: 0.9rem;
 }
 
 .settings-grid {
@@ -312,6 +345,25 @@ onMounted(loadUser)
   display: flex;
   flex-wrap: wrap;
   gap: 0.6rem;
+}
+
+.more-toggle {
+  width: fit-content;
+}
+
+.custom-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.custom-row input[type='color'] {
+  width: 48px;
+  height: 40px;
+  padding: 0;
+  border: none;
+  background: transparent;
 }
 
 .color-swatch {
