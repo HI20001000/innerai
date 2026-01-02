@@ -14,8 +14,33 @@ const routeRecords = [
 ]
 const routes = new Map(routeRecords.map((route) => [route.path, route.component]))
 const normalizePath = (path) => (path === '/login' ? '/' : path)
+const getAuthState = () => {
+  const raw = window.localStorage.getItem('innerai_auth')
+  if (!raw) return null
+  try {
+    const data = JSON.parse(raw)
+    if (!data?.token || !data?.expiresAt) return null
+    if (Date.now() >= Date.parse(data.expiresAt)) {
+      window.localStorage.removeItem('innerai_auth')
+      return null
+    }
+    return data
+  } catch {
+    window.localStorage.removeItem('innerai_auth')
+    return null
+  }
+}
 
-const currentPath = shallowRef(normalizePath(window.location.pathname || '/'))
+const enforceAuth = (path) => {
+  const authed = Boolean(getAuthState())
+  if (!authed && path !== '/') return '/'
+  if (authed && path === '/') return '/home'
+  return path
+}
+
+const currentPath = shallowRef(
+  enforceAuth(normalizePath(window.location.pathname || '/'))
+)
 const resolveRoute = (path) => {
   const record = routeRecords.find((route) => route.path === path)
   const matchedRecord = record || routeRecords.find((route) => route.name === 'not-found')
@@ -28,7 +53,7 @@ const resolveRoute = (path) => {
 const currentRoute = shallowRef(resolveRoute(currentPath.value))
 
 const updatePath = (path) => {
-  const nextPath = normalizePath(path)
+  const nextPath = enforceAuth(normalizePath(path))
   currentPath.value = nextPath
   currentRoute.value = resolveRoute(nextPath)
 }
@@ -66,7 +91,7 @@ const router = {
     return routeRecords.map((route) => ({ ...route }))
   },
   push(path) {
-    const nextPath = normalizePath(path)
+    const nextPath = enforceAuth(normalizePath(path))
     if (nextPath === currentPath.value) return
     window.history.pushState({}, '', nextPath)
     updatePath(nextPath)

@@ -45,7 +45,7 @@ const TABLES = {
 const withCors = (res) => {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
 }
 
 const sendJson = (res, status, payload) => {
@@ -125,6 +125,13 @@ const ensureTables = async (connection) => {
       scheduled_at DATETIME,
       location VARCHAR(255),
       follow_up TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS auth_tokens (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      mail VARCHAR(255) NOT NULL,
+      token_hash VARCHAR(128) NOT NULL UNIQUE,
+      expires_at DATETIME NOT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
   ]
@@ -284,6 +291,30 @@ const hashPassword = async (password, salt) => {
   })
 }
 
+const TOKEN_TTL_MS = 60 * 60 * 1000
+
+const hashToken = (token) => crypto.createHash('sha256').update(token).digest('hex')
+
+const getBearerToken = (req) => {
+  const authHeader = req.headers.authorization || ''
+  if (!authHeader.startsWith('Bearer ')) return null
+  return authHeader.slice(7).trim()
+}
+
+const createAuthToken = async (email) => {
+  const token = crypto.randomBytes(32).toString('hex')
+  const tokenHash = hashToken(token)
+  const expiresAt = new Date(Date.now() + TOKEN_TTL_MS)
+  const connection = await getConnection()
+  await connection.query('DELETE FROM auth_tokens WHERE mail = ? OR expires_at < NOW()', [email])
+  await connection.query('INSERT INTO auth_tokens (mail, token_hash, expires_at) VALUES (?, ?, ?)', [
+    email,
+    tokenHash,
+    expiresAt,
+  ])
+  return { token, expiresAt: expiresAt.toISOString() }
+}
+
 const requestVerificationCode = async (req, res) => {
   const body = await parseBody(req)
   const email = body?.email?.trim()
@@ -376,16 +407,60 @@ const loginUser = async (req, res) => {
       sendJson(res, 401, { message: 'Invalid credentials' })
       return
     }
+    const tokenData = await createAuthToken(user.mail)
     sendJson(res, 200, {
-      mail: user.mail,
-      icon: user.icon,
-      icon_bg: user.icon_bg,
-      username: user.username,
-      role: user.role,
+      token: tokenData.token,
+      expiresAt: tokenData.expiresAt,
+      user: {
+        mail: user.mail,
+        icon: user.icon,
+        icon_bg: user.icon_bg,
+        username: user.username,
+        role: user.role,
+      },
     })
   } catch (error) {
     console.error(error)
     sendJson(res, 500, { message: 'Failed to login' })
+  }
+}
+
+const verifyAuthToken = async (req, res) => {
+  const token = getBearerToken(req)
+  if (!token) {
+    sendJson(res, 401, { message: 'Auth token is required' })
+    return
+  }
+  try {
+    const tokenHash = hashToken(token)
+    const connection = await getConnection()
+    await connection.query('DELETE FROM auth_tokens WHERE expires_at < NOW()')
+    const [rows] = await connection.query(
+      `SELECT auth_tokens.expires_at, users.mail, users.icon, users.icon_bg, users.username, users.role
+       FROM auth_tokens
+       JOIN users ON users.mail = auth_tokens.mail
+       WHERE auth_tokens.token_hash = ? AND auth_tokens.expires_at > NOW()
+       LIMIT 1`,
+      [tokenHash]
+    )
+    const record = rows[0]
+    if (!record) {
+      sendJson(res, 401, { message: 'Invalid or expired token' })
+      return
+    }
+    sendJson(res, 200, {
+      expiresAt: new Date(record.expires_at).toISOString(),
+      user: {
+        mail: record.mail,
+        icon: record.icon,
+        icon_bg: record.icon_bg,
+        username: record.username,
+        role: record.role,
+      },
+    })
+  } catch (error) {
+    console.error(error)
+    sendJson(res, 500, { message: 'Failed to verify token' })
   }
 }
 
@@ -500,6 +575,10 @@ const start = async () => {
     }
     if (url.pathname === '/api/auth/login' && req.method === 'POST') {
       await loginUser(req, res)
+      return
+    }
+    if (url.pathname === '/api/auth/verify' && req.method === 'POST') {
+      await verifyAuthToken(req, res)
       return
     }
     if (url.pathname === '/api/users/update' && req.method === 'POST') {

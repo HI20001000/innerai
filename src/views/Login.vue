@@ -36,7 +36,15 @@ const handleLogin = async () => {
       authMessage.value = data.message || '登入失敗'
       return
     }
-    window.localStorage.setItem('innerai_user', JSON.stringify(data))
+    if (data?.user) {
+      window.localStorage.setItem('innerai_user', JSON.stringify(data.user))
+    }
+    if (data?.token && data?.expiresAt) {
+      window.localStorage.setItem(
+        'innerai_auth',
+        JSON.stringify({ token: data.token, expiresAt: data.expiresAt })
+      )
+    }
     router?.push('/home')
   } catch (error) {
     console.error(error)
