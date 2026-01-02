@@ -35,7 +35,13 @@
         <div v-if="showCustomIcon" class="custom-row">
           <label class="field">
             <span>自訂 Emoji</span>
-            <input v-model="customIcon" type="text" placeholder="輸入 emoji" maxlength="4" />
+            <input
+              v-model="customIcon"
+              type="text"
+              placeholder="輸入 emoji"
+              maxlength="4"
+              @blur="applyCustomIcon"
+            />
           </label>
           <button class="primary-button small" type="button" @click="applyCustomIcon">套用</button>
         </div>
@@ -154,9 +160,23 @@ const loadUser = () => {
   }
 }
 
+const normalizeEmoji = (value) => {
+  const trimmed = value.trim()
+  if (!trimmed) return ''
+  if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+    const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
+    const iterator = segmenter.segment(trimmed)[Symbol.iterator]()
+    const first = iterator.next().value
+    return first?.segment || ''
+  }
+  return Array.from(trimmed)[0] || ''
+}
+
 const applyCustomIcon = () => {
-  if (!customIcon.value.trim()) return
-  localIcon.value = customIcon.value.trim()
+  const icon = normalizeEmoji(customIcon.value)
+  if (!icon) return
+  customIcon.value = icon
+  localIcon.value = icon
 }
 
 const saveProfile = async () => {
