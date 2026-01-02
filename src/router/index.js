@@ -39,6 +39,8 @@ const router = {
   options: {
     history: {
       base: '/',
+      location: currentPath,
+      state: {},
     },
     routes: routeRecords,
   },
@@ -48,7 +50,7 @@ const router = {
     app.config.globalProperties.$route = currentRoute
   },
   getRoutes() {
-    return routeRecords
+    return routeRecords.map((route) => ({ ...route }))
   },
   push(path) {
     const nextPath = normalizePath(path)
