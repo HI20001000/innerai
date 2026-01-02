@@ -1,6 +1,23 @@
+import fs from 'node:fs/promises'
 import http from 'node:http'
 import mysql from 'mysql2/promise'
 import { URL } from 'node:url'
+
+const loadEnvFile = async (path) => {
+  const content = await fs.readFile(path, 'utf8')
+  for (const line of content.split('\n')) {
+    const trimmed = line.trim()
+    if (!trimmed || trimmed.startsWith('#')) continue
+    const [key, ...rest] = trimmed.split('=')
+    if (!key) continue
+    const value = rest.join('=').trim()
+    if (key && value && !process.env[key]) {
+      process.env[key] = value
+    }
+  }
+}
+
+await loadEnvFile(new URL('../.env', import.meta.url))
 
 const {
   MYSQL_HOST = 'localhost',
