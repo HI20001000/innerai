@@ -181,13 +181,13 @@
 .home-page {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 88px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   background: #f6f7fb;
   color: #0f172a;
 }
 
 .home-content {
-  padding: 3.5rem 6vw 4.5rem;
+  padding: 3.5rem 6vw 4.5rem calc(6vw + 88px);
   background: #f6f7fb;
   color: #0f172a;
   display: grid;
@@ -195,7 +195,15 @@
 }
 
 .sidebar {
-  background: #0f172a;
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  width: 88px;
+  background: rgba(15, 23, 42, 0.55);
+  border-right: 1px solid rgba(148, 163, 184, 0.2);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
   color: #fff;
   display: flex;
   flex-direction: column;
@@ -501,14 +509,15 @@
 }
 
 @media (max-width: 960px) {
-  .home-page {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .sidebar {
+    position: sticky;
+    top: 0;
+    width: 100%;
+    height: auto;
     flex-direction: row;
     justify-content: space-between;
     padding: 1.2rem 6vw;
+    z-index: 10;
   }
 
   .sidebar-button {
@@ -524,6 +533,10 @@
   .sidebar-button {
     display: inline-flex;
     gap: 0.4rem;
+  }
+
+  .home-content {
+    padding: 2.5rem 6vw 3.5rem;
   }
 
   .home-header {
