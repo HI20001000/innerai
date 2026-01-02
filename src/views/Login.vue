@@ -11,20 +11,51 @@ const mouse = {
   active: false,
 }
 
-const createParticles = (count, width, height) =>
-  Array.from({ length: count }, () => {
-    const baseVx = (Math.random() - 0.5) * 0.6
-    const baseVy = (Math.random() - 0.5) * 0.6
-    return {
-      x: Math.random() * width,
-      y: Math.random() * height,
-      vx: baseVx,
-      vy: baseVy,
-      baseVx,
-      baseVy,
-      radius: 1.6 + Math.random() * 1.4,
+const createParticle = (width, height, { edge = false } = {}) => {
+  let baseVx = (Math.random() - 0.5) * 0.6
+  let baseVy = (Math.random() - 0.5) * 0.6
+  const radius = 1.6 + Math.random() * 1.4
+  let x = Math.random() * width
+  let y = Math.random() * height
+
+  if (edge) {
+    const side = Math.floor(Math.random() * 4)
+    if (side === 0) {
+      x = 0
+      y = Math.random() * height
+      baseVx = Math.abs(baseVx)
+      baseVy = (Math.random() - 0.5) * 0.6
+    } else if (side === 1) {
+      x = width
+      y = Math.random() * height
+      baseVx = -Math.abs(baseVx)
+      baseVy = (Math.random() - 0.5) * 0.6
+    } else if (side === 2) {
+      x = Math.random() * width
+      y = 0
+      baseVy = Math.abs(baseVy)
+      baseVx = (Math.random() - 0.5) * 0.6
+    } else {
+      x = Math.random() * width
+      y = height
+      baseVy = -Math.abs(baseVy)
+      baseVx = (Math.random() - 0.5) * 0.6
     }
-  })
+  }
+
+  return {
+    x,
+    y,
+    vx: baseVx,
+    vy: baseVy,
+    baseVx,
+    baseVy,
+    radius,
+  }
+}
+
+const createParticles = (count, width, height) =>
+  Array.from({ length: count }, () => createParticle(width, height))
 
 let cleanupAnimation = null
 
@@ -48,6 +79,11 @@ onMounted(() => {
     ratio: window.devicePixelRatio || 1,
   }
 
+  const particleCount = 100
+  const resetParticleAtEdge = (particle) => {
+    Object.assign(particle, createParticle(state.width, state.height, { edge: true }))
+  }
+
   const resize = () => {
     state.ratio = window.devicePixelRatio || 1
     state.width = heroEl.clientWidth
@@ -57,7 +93,7 @@ onMounted(() => {
     canvas.style.width = `${state.width}px`
     canvas.style.height = `${state.height}px`
     ctx.setTransform(state.ratio, 0, 0, state.ratio, 0, 0)
-    state.particles = createParticles(Math.floor(state.width / 10), state.width, state.height)
+    state.particles = createParticles(particleCount, state.width, state.height)
   }
 
   let lastMouseX = 0
@@ -104,11 +140,14 @@ onMounted(() => {
       particle.x += particle.vx
       particle.y += particle.vy
 
-      if (particle.x <= 0 || particle.x >= state.width) {
-        particle.vx *= -1
-      }
-      if (particle.y <= 0 || particle.y >= state.height) {
-        particle.vy *= -1
+      if (
+        particle.x <= 0 ||
+        particle.x >= state.width ||
+        particle.y <= 0 ||
+        particle.y >= state.height
+      ) {
+        resetParticleAtEdge(particle)
+        continue
       }
 
       if (localMouse.active) {
@@ -138,6 +177,25 @@ onMounted(() => {
         particle.vx += (particle.baseVx - particle.vx) * 0.015
         particle.vy += (particle.baseVy - particle.vy) * 0.015
       }
+    }
+
+    if (localMouse.active) {
+      const glowRadius = 140
+      const glow = ctx.createRadialGradient(
+        localMouse.x,
+        localMouse.y,
+        0,
+        localMouse.x,
+        localMouse.y,
+        glowRadius
+      )
+      glow.addColorStop(0, 'rgba(129, 140, 248, 0.18)')
+      glow.addColorStop(0.5, 'rgba(59, 130, 246, 0.08)')
+      glow.addColorStop(1, 'rgba(15, 23, 42, 0)')
+      ctx.fillStyle = glow
+      ctx.beginPath()
+      ctx.arc(localMouse.x, localMouse.y, glowRadius, 0, Math.PI * 2)
+      ctx.fill()
     }
 
     for (let i = 0; i < state.particles.length; i += 1) {
