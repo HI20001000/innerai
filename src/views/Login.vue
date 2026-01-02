@@ -12,13 +12,19 @@ const mouse = {
 }
 
 const createParticles = (count, width, height) =>
-  Array.from({ length: count }, () => ({
-    x: Math.random() * width,
-    y: Math.random() * height,
-    vx: (Math.random() - 0.5) * 0.6,
-    vy: (Math.random() - 0.5) * 0.6,
-    radius: 1.6 + Math.random() * 1.4,
-  }))
+  Array.from({ length: count }, () => {
+    const baseVx = (Math.random() - 0.5) * 0.6
+    const baseVy = (Math.random() - 0.5) * 0.6
+    return {
+      x: Math.random() * width,
+      y: Math.random() * height,
+      vx: baseVx,
+      vy: baseVy,
+      baseVx,
+      baseVy,
+      radius: 1.6 + Math.random() * 1.4,
+    }
+  })
 
 let cleanupAnimation = null
 
@@ -54,7 +60,18 @@ onMounted(() => {
     state.particles = createParticles(Math.floor(state.width / 10), state.width, state.height)
   }
 
+  let lastMouseX = 0
+  let lastMouseY = 0
+  let mouseVelocityX = 0
+  let mouseVelocityY = 0
+
   const handleMouseMove = (event) => {
+    if (mouse.active) {
+      mouseVelocityX = event.clientX - lastMouseX
+      mouseVelocityY = event.clientY - lastMouseY
+    }
+    lastMouseX = event.clientX
+    lastMouseY = event.clientY
     mouse.x = event.clientX
     mouse.y = event.clientY
     mouse.active = true
@@ -78,6 +95,10 @@ onMounted(() => {
         mouse.y >= rect.top &&
         mouse.y <= rect.bottom,
     }
+    const innerRadius = 70
+    const outerRadius = 160
+    mouseVelocityX *= 0.9
+    mouseVelocityY *= 0.9
 
     for (const particle of state.particles) {
       particle.x += particle.vx
@@ -94,11 +115,28 @@ onMounted(() => {
         const dx = particle.x - localMouse.x
         const dy = particle.y - localMouse.y
         const distance = Math.hypot(dx, dy)
-        if (distance > 0 && distance < 120) {
-          const force = (120 - distance) / 120
-          particle.vx += (dx / distance) * force * 0.06
-          particle.vy += (dy / distance) * force * 0.06
+        if (distance > 0 && distance <= innerRadius) {
+          const nx = dx / distance
+          const ny = dy / distance
+          particle.x = localMouse.x + nx * innerRadius
+          particle.y = localMouse.y + ny * innerRadius
+          particle.vx = mouseVelocityX * 0.4 + particle.baseVx * 0.2
+          particle.vy = mouseVelocityY * 0.4 + particle.baseVy * 0.2
+        } else if (distance > innerRadius && distance < outerRadius) {
+          const nx = dx / distance
+          const ny = dy / distance
+          const targetX = localMouse.x + nx * innerRadius
+          const targetY = localMouse.y + ny * innerRadius
+          const attraction = (outerRadius - distance) / outerRadius
+          particle.vx += (targetX - particle.x) * 0.002 * attraction
+          particle.vy += (targetY - particle.y) * 0.002 * attraction
+        } else {
+          particle.vx += (particle.baseVx - particle.vx) * 0.02
+          particle.vy += (particle.baseVy - particle.vy) * 0.02
         }
+      } else {
+        particle.vx += (particle.baseVx - particle.vx) * 0.015
+        particle.vy += (particle.baseVy - particle.vy) * 0.015
       }
     }
 
