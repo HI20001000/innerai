@@ -1,10 +1,10 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 
-const clients = ref(['日昇科技', '遠誠貿易', '星河設計', '宏達建設'])
-const vendors = ref(['青雲材料', '耀達製造', '風尚供應', '遠景工廠'])
-const products = ref(['智慧儀表 X1', '節能模組 A3', '自動化平台 Pro', '雲端控制盒'])
-const tags = ref(['客戶跟進', '客戶匯報', '需求整理', '合約追蹤'])
+const clients = ref([])
+const vendors = ref([])
+const products = ref([])
+const tags = ref([])
 
 const selectedClient = ref('')
 const selectedVendor = ref('')
@@ -19,10 +19,36 @@ const activeModal = ref(null)
 const newOption = ref('')
 const draftKey = 'innerai_task_draft'
 const showDraftSaved = ref(false)
+const apiBaseUrl = 'http://localhost:3001'
 
 const openModal = (type) => {
   activeModal.value = type
   newOption.value = ''
+}
+
+const fetchOptions = async (type) => {
+  const response = await fetch(`${apiBaseUrl}/api/options/${type}`)
+  if (!response.ok) {
+    throw new Error('Failed to load options')
+  }
+  const data = await response.json()
+  if (type === 'client') clients.value = data
+  if (type === 'vendor') vendors.value = data
+  if (type === 'product') products.value = data
+  if (type === 'tag') tags.value = data
+}
+
+const openList = async (type) => {
+  if (activeList.value === type) {
+    activeList.value = null
+    return
+  }
+  activeList.value = type
+  try {
+    await fetchOptions(type)
+  } catch (error) {
+    console.error(error)
+  }
 }
 
 const selectOption = (type, item) => {
@@ -46,26 +72,39 @@ const closeModal = () => {
   newOption.value = ''
 }
 
-const addOption = () => {
+const addOption = async () => {
   const value = newOption.value.trim()
   if (!value) return
-  if (activeModal.value === 'client' && !clients.value.includes(value)) {
-    clients.value.unshift(value)
-    selectedClient.value = value
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/options/${activeModal.value}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: value }),
+    })
+    if (!response.ok) {
+      throw new Error('Failed to add option')
+    }
+    const created = await response.json()
+    if (activeModal.value === 'client') {
+      clients.value.unshift(created.name)
+      selectedClient.value = created.name
+    }
+    if (activeModal.value === 'vendor') {
+      vendors.value.unshift(created.name)
+      selectedVendor.value = created.name
+    }
+    if (activeModal.value === 'product') {
+      products.value.unshift(created.name)
+      selectedProduct.value = created.name
+    }
+    if (activeModal.value === 'tag') {
+      tags.value.unshift(created.name)
+      selectedTag.value = created.name
+    }
+    closeModal()
+  } catch (error) {
+    console.error(error)
   }
-  if (activeModal.value === 'vendor' && !vendors.value.includes(value)) {
-    vendors.value.unshift(value)
-    selectedVendor.value = value
-  }
-  if (activeModal.value === 'product' && !products.value.includes(value)) {
-    products.value.unshift(value)
-    selectedProduct.value = value
-  }
-  if (activeModal.value === 'tag' && !tags.value.includes(value)) {
-    tags.value.unshift(value)
-    selectedTag.value = value
-  }
-  closeModal()
 }
 
 const saveDraft = () => {
@@ -130,11 +169,7 @@ onMounted(() => {
               <span>客戶</span>
               <button class="ghost-mini" type="button" @click="openModal('client')">新增</button>
             </div>
-            <button
-              class="select-field"
-              type="button"
-              @click="activeList = activeList === 'client' ? null : 'client'"
-            >
+            <button class="select-field" type="button" @click="openList('client')">
               {{ selectedClient || '選擇客戶' }}
             </button>
             <div v-if="activeList === 'client'" class="option-list">
@@ -154,11 +189,7 @@ onMounted(() => {
               <span>廠家</span>
               <button class="ghost-mini" type="button" @click="openModal('vendor')">新增</button>
             </div>
-            <button
-              class="select-field"
-              type="button"
-              @click="activeList = activeList === 'vendor' ? null : 'vendor'"
-            >
+            <button class="select-field" type="button" @click="openList('vendor')">
               {{ selectedVendor || '選擇廠家' }}
             </button>
             <div v-if="activeList === 'vendor'" class="option-list">
@@ -178,11 +209,7 @@ onMounted(() => {
               <span>廠家產品</span>
               <button class="ghost-mini" type="button" @click="openModal('product')">新增</button>
             </div>
-            <button
-              class="select-field"
-              type="button"
-              @click="activeList = activeList === 'product' ? null : 'product'"
-            >
+            <button class="select-field" type="button" @click="openList('product')">
               {{ selectedProduct || '選擇產品' }}
             </button>
             <div v-if="activeList === 'product'" class="option-list">
@@ -202,11 +229,7 @@ onMounted(() => {
               <span>任務標籤</span>
               <button class="ghost-mini" type="button" @click="openModal('tag')">新增</button>
             </div>
-            <button
-              class="select-field"
-              type="button"
-              @click="activeList = activeList === 'tag' ? null : 'tag'"
-            >
+            <button class="select-field" type="button" @click="openList('tag')">
               {{ selectedTag || '選擇標籤' }}
             </button>
             <div v-if="activeList === 'tag'" class="option-list">
