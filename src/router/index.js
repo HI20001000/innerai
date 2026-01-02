@@ -12,12 +12,20 @@ const routes = new Map(routeRecords.map((route) => [route.path, route.component]
 const normalizePath = (path) => (path === '/login' ? '/' : path)
 
 const currentPath = shallowRef(normalizePath(window.location.pathname || '/'))
-const currentRoute = shallowRef({ path: currentPath.value })
+const resolveRoute = (path) => {
+  const record = routeRecords.find((route) => route.path === path)
+  return {
+    path,
+    matched: record ? [record] : [],
+  }
+}
+
+const currentRoute = shallowRef(resolveRoute(currentPath.value))
 
 const updatePath = (path) => {
   const nextPath = normalizePath(path)
   currentPath.value = nextPath
-  currentRoute.value = { path: nextPath }
+  currentRoute.value = resolveRoute(nextPath)
 }
 
 window.addEventListener('popstate', () => {
