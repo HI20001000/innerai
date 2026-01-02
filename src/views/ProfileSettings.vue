@@ -26,24 +26,22 @@
           >
             {{ icon }}
           </button>
-          <button class="icon-option add-option" type="button" @click="showCustomIcon = !showCustomIcon">
+          <div v-if="showCustomIcon" class="icon-option custom-input">
+            <input
+              v-model="customIcon"
+              type="text"
+              inputmode="text"
+              placeholder="＋"
+              maxlength="4"
+              @input="handleCustomIconInput"
+              @blur="handleCustomIconInput"
+            />
+          </div>
+          <button v-else class="icon-option add-option" type="button" @click="openCustomIcon">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
             </svg>
           </button>
-        </div>
-        <div v-if="showCustomIcon" class="custom-row">
-          <label class="field">
-            <span>自訂 Emoji</span>
-            <input
-              v-model="customIcon"
-              type="text"
-              placeholder="輸入 emoji"
-              maxlength="4"
-              @blur="applyCustomIcon"
-            />
-          </label>
-          <button class="primary-button small" type="button" @click="applyCustomIcon">套用</button>
         </div>
         <div class="color-grid">
           <button
@@ -172,11 +170,16 @@ const normalizeEmoji = (value) => {
   return Array.from(trimmed)[0] || ''
 }
 
-const applyCustomIcon = () => {
+const openCustomIcon = () => {
+  showCustomIcon.value = true
+}
+
+const handleCustomIconInput = () => {
   const icon = normalizeEmoji(customIcon.value)
-  if (!icon) return
   customIcon.value = icon
+  if (!icon) return
   localIcon.value = icon
+  showCustomIcon.value = false
 }
 
 const saveProfile = async () => {
@@ -268,11 +271,6 @@ onMounted(loadUser)
   cursor: pointer;
 }
 
-.primary-button.small {
-  padding: 0.5rem 1.1rem;
-  font-size: 0.9rem;
-}
-
 .settings-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
@@ -324,17 +322,24 @@ onMounted(loadUser)
   box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
 }
 
+.custom-input {
+  padding: 0;
+}
+
+.custom-input input {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: transparent;
+  text-align: center;
+  font-size: 1.2rem;
+  outline: none;
+}
+
 .color-grid {
   display: flex;
   flex-wrap: wrap;
   gap: 0.6rem;
-}
-
-.custom-row {
-  display: flex;
-  align-items: flex-end;
-  gap: 0.8rem;
-  flex-wrap: wrap;
 }
 
 .color-swatch {
