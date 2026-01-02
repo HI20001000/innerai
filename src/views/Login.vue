@@ -1,9 +1,16 @@
 <script setup>
-import { onMounted, onUnmounted, ref } from 'vue'
+import { getCurrentInstance, onMounted, onUnmounted, ref } from 'vue'
 
 const activeTab = ref('login')
 const heroRef = ref(null)
 const canvasRef = ref(null)
+const router = getCurrentInstance().appContext.config.globalProperties.$router
+
+const handleSubmit = () => {
+  if (activeTab.value === 'login') {
+    router?.push('/home')
+  }
+}
 
 const mouse = {
   x: 0,
@@ -288,7 +295,7 @@ onUnmounted(() => {
         </button>
       </div>
 
-      <form class="login-form" @submit.prevent>
+      <form class="login-form" @submit.prevent="handleSubmit">
         <div class="form-grid">
           <label class="field">
             <span>電子郵件</span>
