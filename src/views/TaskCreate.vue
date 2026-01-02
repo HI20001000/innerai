@@ -4,10 +4,12 @@ import { ref } from 'vue'
 const clients = ref(['日昇科技', '遠誠貿易', '星河設計', '宏達建設'])
 const vendors = ref(['青雲材料', '耀達製造', '風尚供應', '遠景工廠'])
 const products = ref(['智慧儀表 X1', '節能模組 A3', '自動化平台 Pro', '雲端控制盒'])
+const tags = ref(['客戶跟進', '客戶匯報', '需求整理', '合約追蹤'])
 
 const selectedClient = ref('')
 const selectedVendor = ref('')
 const selectedProduct = ref('')
+const selectedTag = ref('')
 const activeList = ref(null)
 
 const activeModal = ref(null)
@@ -27,6 +29,9 @@ const selectOption = (type, item) => {
   }
   if (type === 'product') {
     selectedProduct.value = item
+  }
+  if (type === 'tag') {
+    selectedTag.value = item
   }
   activeList.value = null
 }
@@ -51,6 +56,10 @@ const addOption = () => {
     products.value.unshift(value)
     selectedProduct.value = value
   }
+  if (activeModal.value === 'tag' && !tags.value.includes(value)) {
+    tags.value.unshift(value)
+    selectedTag.value = value
+  }
   closeModal()
 }
 </script>
@@ -72,7 +81,7 @@ const addOption = () => {
     <section class="task-layout">
       <form class="task-form" @submit.prevent>
         <div class="field-grid">
-          <div class="field">
+          <div class="field select-field-wrapper">
             <div class="field-header">
               <span>客戶</span>
               <button class="ghost-mini" type="button" @click="openModal('client')">新增</button>
@@ -96,7 +105,7 @@ const addOption = () => {
               </button>
             </div>
           </div>
-          <div class="field">
+          <div class="field select-field-wrapper">
             <div class="field-header">
               <span>廠家</span>
               <button class="ghost-mini" type="button" @click="openModal('vendor')">新增</button>
@@ -120,7 +129,7 @@ const addOption = () => {
               </button>
             </div>
           </div>
-          <div class="field">
+          <div class="field select-field-wrapper">
             <div class="field-header">
               <span>廠家產品</span>
               <button class="ghost-mini" type="button" @click="openModal('product')">新增</button>
@@ -139,6 +148,30 @@ const addOption = () => {
                 type="button"
                 class="option-item"
                 @click="selectOption('product', item)"
+              >
+                {{ item }}
+              </button>
+            </div>
+          </div>
+          <div class="field select-field-wrapper">
+            <div class="field-header">
+              <span>任務標籤</span>
+              <button class="ghost-mini" type="button" @click="openModal('tag')">新增</button>
+            </div>
+            <button
+              class="select-field"
+              type="button"
+              @click="activeList = activeList === 'tag' ? null : 'tag'"
+            >
+              {{ selectedTag || '選擇標籤' }}
+            </button>
+            <div v-if="activeList === 'tag'" class="option-list">
+              <button
+                v-for="item in tags"
+                :key="item"
+                type="button"
+                class="option-item"
+                @click="selectOption('tag', item)"
               >
                 {{ item }}
               </button>
@@ -187,7 +220,17 @@ const addOption = () => {
 
     <div v-if="activeModal" class="modal-overlay" @click.self="closeModal">
       <div class="modal-card">
-        <h2>新增{{ activeModal === 'client' ? '客戶' : activeModal === 'vendor' ? '廠家' : '產品' }}</h2>
+        <h2>
+          新增{{
+            activeModal === 'client'
+              ? '客戶'
+              : activeModal === 'vendor'
+                ? '廠家'
+                : activeModal === 'product'
+                  ? '產品'
+                  : '標籤'
+          }}
+        </h2>
         <p>輸入名稱後即可加入搜尋清單。</p>
         <input v-model="newOption" type="text" placeholder="輸入名稱" />
         <div class="modal-actions">
@@ -289,6 +332,10 @@ const addOption = () => {
   font-weight: 500;
 }
 
+.select-field-wrapper {
+  position: relative;
+}
+
 .field-header {
   display: flex;
   align-items: center;
@@ -338,6 +385,10 @@ const addOption = () => {
 }
 
 .option-list {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  left: 0;
+  right: 0;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
   background: #f8fafc;
@@ -346,6 +397,8 @@ const addOption = () => {
   gap: 0.3rem;
   max-height: 160px;
   overflow: auto;
+  z-index: 5;
+  box-shadow: 0 18px 30px rgba(15, 23, 42, 0.12);
 }
 
 .option-item {
