@@ -1,5 +1,6 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { getCurrentInstance, onMounted, ref } from 'vue'
+import WorkspaceSidebar from '../components/WorkspaceSidebar.vue'
 
 const clients = ref([])
 const vendors = ref([])
@@ -20,6 +21,11 @@ const newOption = ref('')
 const draftKey = 'innerai_task_draft'
 const showDraftSaved = ref(false)
 const apiBaseUrl = 'http://localhost:3001'
+const router = getCurrentInstance().appContext.config.globalProperties.$router
+
+const goToNewTask = () => {
+  router?.push('/tasks/new')
+}
 
 const openModal = (type) => {
   activeModal.value = type
@@ -200,6 +206,7 @@ onMounted(() => {
 
 <template>
   <div class="task-page">
+    <WorkspaceSidebar :on-create-task="goToNewTask" />
     <header class="task-header">
       <div>
         <p class="eyebrow">新增任務</p>
@@ -399,7 +406,7 @@ onMounted(() => {
 <style scoped>
 .task-page {
   min-height: 100vh;
-  padding: 3.5rem 6vw 4.5rem;
+  padding: 3.5rem 6vw 4.5rem calc(6vw + 88px);
   background: #f6f7fb;
   color: #0f172a;
   display: grid;
@@ -709,6 +716,10 @@ onMounted(() => {
 }
 
 @media (max-width: 720px) {
+  .task-page {
+    padding: 2.5rem 6vw 3.5rem;
+  }
+
   .task-header {
     flex-direction: column;
     align-items: flex-start;
