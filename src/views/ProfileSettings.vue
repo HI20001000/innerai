@@ -28,6 +28,7 @@
           </button>
           <div v-if="showCustomIcon" class="icon-option custom-input">
             <input
+              ref="customIconInput"
               v-model="customIcon"
               type="text"
               inputmode="text"
@@ -97,7 +98,7 @@
 </template>
 
 <script setup>
-import { getCurrentInstance, onMounted, ref } from 'vue'
+import { getCurrentInstance, nextTick, onMounted, ref } from 'vue'
 import WorkspaceSidebar from '../components/WorkspaceSidebar.vue'
 
 const apiBaseUrl = 'http://localhost:3001'
@@ -129,6 +130,7 @@ const iconColors = ['#e2e8f0', '#fde68a', '#bbf7d0', '#bae6fd', '#ddd6fe', '#fec
 const showCustomIcon = ref(false)
 const customIcon = ref('')
 const customColor = ref('#e2e8f0')
+const customIconInput = ref(null)
 
 const localIcon = ref('🙂')
 const localIconBg = ref('#e2e8f0')
@@ -172,6 +174,13 @@ const normalizeEmoji = (value) => {
 
 const openCustomIcon = () => {
   showCustomIcon.value = true
+  customIcon.value = ''
+  nextTick(() => {
+    if (customIconInput.value) {
+      customIconInput.value.focus()
+      customIconInput.value.select()
+    }
+  })
 }
 
 const handleCustomIconInput = () => {
