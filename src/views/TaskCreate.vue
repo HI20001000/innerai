@@ -18,6 +18,19 @@ const openModal = (type) => {
   newOption.value = ''
 }
 
+const selectOption = (type, item) => {
+  if (type === 'client') {
+    selectedClient.value = item
+  }
+  if (type === 'vendor') {
+    selectedVendor.value = item
+  }
+  if (type === 'product') {
+    selectedProduct.value = item
+  }
+  activeList.value = null
+}
+
 const closeModal = () => {
   activeModal.value = null
   newOption.value = ''
@@ -77,10 +90,7 @@ const addOption = () => {
                 :key="item"
                 type="button"
                 class="option-item"
-                @click="
-                  selectedClient = item
-                  activeList = null
-                "
+                @click="selectOption('client', item)"
               >
                 {{ item }}
               </button>
@@ -104,10 +114,7 @@ const addOption = () => {
                 :key="item"
                 type="button"
                 class="option-item"
-                @click="
-                  selectedVendor = item
-                  activeList = null
-                "
+                @click="selectOption('vendor', item)"
               >
                 {{ item }}
               </button>
@@ -131,10 +138,7 @@ const addOption = () => {
                 :key="item"
                 type="button"
                 class="option-item"
-                @click="
-                  selectedProduct = item
-                  activeList = null
-                "
+                @click="selectOption('product', item)"
               >
                 {{ item }}
               </button>
