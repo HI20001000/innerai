@@ -1,6 +1,9 @@
 <template>
   <aside class="workspace-sidebar">
     <div class="sidebar-top">
+      <button class="home-button" type="button" aria-label="返回首頁" @click="onGoHome">
+        <span class="home-icon">⌂</span>
+      </button>
       <button class="sidebar-button" type="button" aria-label="新增任務" @click="onCreateTask">
         <span class="sidebar-icon">＋</span>
         新增任務
@@ -17,8 +20,12 @@
 <script setup>
 import { defineProps } from 'vue'
 
-const { onCreateTask } = defineProps({
+const { onCreateTask, onGoHome } = defineProps({
   onCreateTask: {
+    type: Function,
+    default: () => {},
+  },
+  onGoHome: {
     type: Function,
     default: () => {},
   },
@@ -50,6 +57,22 @@ const { onCreateTask } = defineProps({
   flex-direction: column;
   gap: 1rem;
   align-items: center;
+}
+
+.home-button {
+  border: none;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  border-radius: 16px;
+  width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.home-icon {
+  font-size: 1.1rem;
 }
 
 .sidebar-button {
@@ -108,6 +131,10 @@ const { onCreateTask } = defineProps({
     justify-content: space-between;
     padding: 1.2rem 6vw;
     z-index: 10;
+  }
+
+  .sidebar-top {
+    flex-direction: row;
   }
 
   .sidebar-button {

@@ -27,6 +27,10 @@ const goToNewTask = () => {
   router?.push('/tasks/new')
 }
 
+const goToHome = () => {
+  router?.push('/home')
+}
+
 const openModal = (type) => {
   activeModal.value = type
   newOption.value = ''
@@ -206,7 +210,7 @@ onMounted(() => {
 
 <template>
   <div class="task-page">
-    <WorkspaceSidebar :on-create-task="goToNewTask" />
+    <WorkspaceSidebar :on-create-task="goToNewTask" :on-go-home="goToHome" />
     <header class="task-header">
       <div>
         <p class="eyebrow">新增任務</p>

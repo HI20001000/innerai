@@ -11,7 +11,7 @@ const goToNewTask = () => {
 
 <template>
   <div class="home-page">
-    <WorkspaceSidebar :on-create-task="goToNewTask" />
+    <WorkspaceSidebar :on-create-task="goToNewTask" :on-go-home="goToHome" />
 
     <main class="home-content">
       <header class="home-header">

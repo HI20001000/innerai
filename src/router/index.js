@@ -2,11 +2,13 @@ import { h, shallowRef } from 'vue'
 import LoginView from '../views/Login.vue'
 import HomeView from '../views/Home.vue'
 import TaskCreateView from '../views/TaskCreate.vue'
+import NotFoundView from '../views/NotFound.vue'
 
 const routeRecords = [
   { path: '/', name: 'login', component: LoginView },
   { path: '/home', name: 'home', component: HomeView },
   { path: '/tasks/new', name: 'task-create', component: TaskCreateView },
+  { path: '/:pathMatch(.*)*', name: 'not-found', component: NotFoundView },
 ]
 const routes = new Map(routeRecords.map((route) => [route.path, route.component]))
 const normalizePath = (path) => (path === '/login' ? '/' : path)
@@ -14,9 +16,10 @@ const normalizePath = (path) => (path === '/login' ? '/' : path)
 const currentPath = shallowRef(normalizePath(window.location.pathname || '/'))
 const resolveRoute = (path) => {
   const record = routeRecords.find((route) => route.path === path)
+  const matchedRecord = record || routeRecords.find((route) => route.name === 'not-found')
   return {
     path,
-    matched: record ? [record] : [],
+    matched: matchedRecord ? [matchedRecord] : [],
   }
 }
 
@@ -36,7 +39,7 @@ const RouterView = {
   name: 'RouterView',
   setup() {
     return () => {
-      const component = routes.get(currentPath.value) || routes.get('/')
+      const component = routes.get(currentPath.value) || routes.get('/:pathMatch(.*)*')
       return component ? h(component) : null
     }
   },
