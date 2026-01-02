@@ -11,7 +11,12 @@
     </div>
     <div class="sidebar-bottom">
       <button class="profile-button" type="button" aria-label="個人檔案" @click="openProfile">
-        <span class="profile-avatar">{{ currentUser.icon || '🙂' }}</span>
+        <span
+          class="profile-avatar"
+          :style="{ backgroundColor: currentUser.icon_bg || '#e2e8f0' }"
+        >
+          {{ currentUser.icon || '🙂' }}
+        </span>
       </button>
     </div>
     <ProfileEditorModal
@@ -75,6 +80,7 @@ const saveProfile = async (payload) => {
       body: JSON.stringify({
         email: currentUser.value.mail,
         icon: payload.icon,
+        icon_bg: payload.icon_bg,
         username: payload.username,
         role: payload.role,
         currentPassword: payload.currentPassword,
@@ -88,6 +94,7 @@ const saveProfile = async (payload) => {
     currentUser.value = {
       ...currentUser.value,
       icon: payload.icon,
+      icon_bg: payload.icon_bg,
       username: payload.username,
       role: payload.role,
     }

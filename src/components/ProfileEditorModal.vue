@@ -6,16 +6,50 @@
       <div class="form-grid">
         <div class="field">
           <span>Icon (Emoji)</span>
-          <div class="icon-grid">
+          <div class="icon-slider">
             <button
-              v-for="icon in iconOptions"
-              :key="icon"
+              class="icon-nav"
               type="button"
-              :class="['icon-option', { active: localIcon === icon }]"
-              @click="localIcon = icon"
+              @click="iconIndex = Math.max(iconIndex - 1, 0)"
             >
-              {{ icon }}
+              ‹
             </button>
+            <div class="icon-window">
+              <div
+                class="icon-track"
+                :style="{ transform: `translateX(-${iconIndex * 64}px)` }"
+              >
+                <button
+                  v-for="icon in iconOptions"
+                  :key="icon"
+                  type="button"
+                  :class="['icon-option', { active: localIcon === icon }]"
+                  @click="localIcon = icon"
+                >
+                  {{ icon }}
+                </button>
+              </div>
+            </div>
+            <button
+              class="icon-nav"
+              type="button"
+              @click="iconIndex = Math.min(iconIndex + 1, iconOptions.length - 4)"
+            >
+              ›
+            </button>
+          </div>
+        </div>
+        <div class="field">
+          <span>Icon 背景</span>
+          <div class="color-grid">
+            <button
+              v-for="color in iconColors"
+              :key="color"
+              type="button"
+              :class="['color-swatch', { active: localIconBg === color }]"
+              :style="{ backgroundColor: color }"
+              @click="localIconBg = color"
+            ></button>
           </div>
         </div>
         <label class="field">
@@ -81,7 +115,31 @@ const localRole = ref('normal')
 const showPasswordFields = ref(false)
 const currentPassword = ref('')
 const newPassword = ref('')
-const iconOptions = ['🙂', '😎', '🎯', '🚀', '🧠', '📌', '✨', '🛠️']
+const iconOptions = [
+  '🙂',
+  '😎',
+  '🎯',
+  '🚀',
+  '🧠',
+  '📌',
+  '✨',
+  '🛠️',
+  '👩‍💻',
+  '👨‍💻',
+  '📊',
+  '🧩',
+  '🧭',
+  '📣',
+  '🧪',
+  '📚',
+  '🎨',
+  '⚡️',
+  '🧱',
+  '💡',
+]
+const iconIndex = ref(0)
+const iconColors = ['#e2e8f0', '#fde68a', '#bbf7d0', '#bae6fd', '#ddd6fe', '#fecdd3', '#fed7aa']
+const localIconBg = ref('#e2e8f0')
 const message = ref('')
 
 const hydratedUser = computed(() => props.user || {})
@@ -93,10 +151,13 @@ watch(
     localIcon.value = hydratedUser.value.icon || '🙂'
     localUsername.value = hydratedUser.value.username || 'hi'
     localRole.value = hydratedUser.value.role || 'normal'
+    localIconBg.value = hydratedUser.value.icon_bg || '#e2e8f0'
     currentPassword.value = ''
     newPassword.value = ''
     showPasswordFields.value = false
     message.value = ''
+    const initialIndex = iconOptions.indexOf(localIcon.value)
+    iconIndex.value = initialIndex >= 0 ? initialIndex : 0
   }
 )
 
@@ -110,6 +171,7 @@ const handleSave = async () => {
   message.value = ''
   const payload = {
     icon: localIcon.value,
+    icon_bg: localIconBg.value,
     username: localUsername.value,
     role: localRole.value,
     currentPassword: showPasswordFields.value ? currentPassword.value : '',
@@ -187,22 +249,65 @@ const handleSave = async () => {
   background: #fff;
 }
 
-.icon-grid {
+.icon-slider {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: 32px minmax(0, 1fr) 32px;
   gap: 0.6rem;
+  align-items: center;
+}
+
+.icon-window {
+  overflow: hidden;
+  width: 256px;
+}
+
+.icon-track {
+  display: flex;
+  gap: 0.4rem;
+  transition: transform 0.2s ease;
 }
 
 .icon-option {
   border: 1px solid #e2e8f0;
   background: #fff;
   border-radius: 12px;
-  padding: 0.6rem;
+  width: 56px;
+  height: 56px;
   font-size: 1.2rem;
   cursor: pointer;
 }
 
 .icon-option.active {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+}
+
+.icon-nav {
+  border: none;
+  background: #f1f5f9;
+  color: #334155;
+  border-radius: 12px;
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+  font-size: 1.2rem;
+}
+
+.color-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.color-swatch {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  cursor: pointer;
+}
+
+.color-swatch.active {
   border-color: #2563eb;
   box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
 }

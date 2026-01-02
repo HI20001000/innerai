@@ -111,6 +111,7 @@ const ensureTables = async (connection) => {
       password_hash VARCHAR(255) NOT NULL,
       password_salt VARCHAR(255) NOT NULL,
       icon VARCHAR(16) NOT NULL DEFAULT '🙂',
+      icon_bg VARCHAR(32) NOT NULL DEFAULT '#e2e8f0',
       username VARCHAR(255) NOT NULL DEFAULT 'hi',
       role VARCHAR(50) NOT NULL DEFAULT 'normal',
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -132,6 +133,15 @@ const ensureTables = async (connection) => {
   }
   try {
     await connection.query("ALTER TABLE users ADD COLUMN icon VARCHAR(16) NOT NULL DEFAULT '🙂'")
+  } catch (error) {
+    if (error?.code !== 'ER_DUP_FIELDNAME') {
+      throw error
+    }
+  }
+  try {
+    await connection.query(
+      "ALTER TABLE users ADD COLUMN icon_bg VARCHAR(32) NOT NULL DEFAULT '#e2e8f0'"
+    )
   } catch (error) {
     if (error?.code !== 'ER_DUP_FIELDNAME') {
       throw error
@@ -327,8 +337,8 @@ const registerUser = async (req, res) => {
     const passwordHash = await hashPassword(password, salt)
     const connection = await getConnection()
     await connection.query(
-      'INSERT INTO users (mail, password_hash, password_salt, icon, username, role) VALUES (?, ?, ?, ?, ?, ?)',
-      [email, passwordHash, salt, '🙂', 'hi', 'normal']
+      'INSERT INTO users (mail, password_hash, password_salt, icon, icon_bg, username, role) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [email, passwordHash, salt, '🙂', '#e2e8f0', 'hi', 'normal']
     )
     verificationCodes.delete(email)
     sendJson(res, 201, { message: 'User registered' })
@@ -353,7 +363,7 @@ const loginUser = async (req, res) => {
   try {
     const connection = await getConnection()
     const [rows] = await connection.query(
-      'SELECT mail, password_hash, password_salt, icon, username, role FROM users WHERE mail = ? LIMIT 1',
+      'SELECT mail, password_hash, password_salt, icon, icon_bg, username, role FROM users WHERE mail = ? LIMIT 1',
       [email]
     )
     const user = rows[0]
@@ -366,7 +376,13 @@ const loginUser = async (req, res) => {
       sendJson(res, 401, { message: 'Invalid credentials' })
       return
     }
-    sendJson(res, 200, { mail: user.mail, icon: user.icon, username: user.username, role: user.role })
+    sendJson(res, 200, {
+      mail: user.mail,
+      icon: user.icon,
+      icon_bg: user.icon_bg,
+      username: user.username,
+      role: user.role,
+    })
   } catch (error) {
     console.error(error)
     sendJson(res, 500, { message: 'Failed to login' })
@@ -387,6 +403,10 @@ const updateUser = async (req, res) => {
   if (body.icon) {
     updates.push('icon = ?')
     values.push(body.icon)
+  }
+  if (body.icon_bg) {
+    updates.push('icon_bg = ?')
+    values.push(body.icon_bg)
   }
   if (body.username) {
     updates.push('username = ?')
