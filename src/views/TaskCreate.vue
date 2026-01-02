@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 
 const clients = ref(['日昇科技', '遠誠貿易', '星河設計', '宏達建設'])
 const vendors = ref(['青雲材料', '耀達製造', '風尚供應', '遠景工廠'])
@@ -11,9 +11,13 @@ const selectedVendor = ref('')
 const selectedProduct = ref('')
 const selectedTag = ref('')
 const activeList = ref(null)
+const selectedTime = ref('')
+const selectedLocation = ref('')
+const followUpContent = ref('')
 
 const activeModal = ref(null)
 const newOption = ref('')
+const draftKey = 'innerai_task_draft'
 
 const openModal = (type) => {
   activeModal.value = type
@@ -62,6 +66,40 @@ const addOption = () => {
   }
   closeModal()
 }
+
+const saveDraft = () => {
+  const payload = {
+    selectedClient: selectedClient.value,
+    selectedVendor: selectedVendor.value,
+    selectedProduct: selectedProduct.value,
+    selectedTag: selectedTag.value,
+    selectedTime: selectedTime.value,
+    selectedLocation: selectedLocation.value,
+    followUpContent: followUpContent.value,
+  }
+  window.localStorage.setItem(draftKey, JSON.stringify(payload))
+}
+
+const loadDraft = () => {
+  const raw = window.localStorage.getItem(draftKey)
+  if (!raw) return
+  try {
+    const payload = JSON.parse(raw)
+    selectedClient.value = payload.selectedClient ?? ''
+    selectedVendor.value = payload.selectedVendor ?? ''
+    selectedProduct.value = payload.selectedProduct ?? ''
+    selectedTag.value = payload.selectedTag ?? ''
+    selectedTime.value = payload.selectedTime ?? ''
+    selectedLocation.value = payload.selectedLocation ?? ''
+    followUpContent.value = payload.followUpContent ?? ''
+  } catch {
+    window.localStorage.removeItem(draftKey)
+  }
+}
+
+onMounted(() => {
+  loadDraft()
+})
 </script>
 
 <template>
@@ -73,7 +111,7 @@ const addOption = () => {
         <p class="subhead">填寫任務設定，快速建立後續追蹤內容。</p>
       </div>
       <div class="header-actions">
-        <button class="ghost-button" type="button">儲存草稿</button>
+        <button class="ghost-button" type="button" @click="saveDraft">儲存草稿</button>
         <button class="primary-button" type="button">建立任務</button>
       </div>
     </header>
@@ -179,15 +217,19 @@ const addOption = () => {
           </div>
           <label class="field">
             <span>時間</span>
-            <input type="datetime-local" />
+            <input v-model="selectedTime" type="datetime-local" />
           </label>
           <label class="field">
             <span>地點</span>
-            <input type="text" placeholder="輸入會議/拜訪地點" />
+            <input v-model="selectedLocation" type="text" placeholder="輸入會議/拜訪地點" />
           </label>
           <label class="field wide">
             <span>需跟進內容</span>
-            <textarea rows="5" placeholder="描述需跟進的重點或待辦事項"></textarea>
+            <textarea
+              v-model="followUpContent"
+              rows="5"
+              placeholder="描述需跟進的重點或待辦事項"
+            ></textarea>
           </label>
         </div>
 
