@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises'
 import http from 'node:http'
 import mysql from 'mysql2/promise'
+import crypto from 'node:crypto'
 import { URL } from 'node:url'
 
 const loadEnvFile = async (path) => {
@@ -104,6 +105,15 @@ const ensureTables = async (connection) => {
       name VARCHAR(255) NOT NULL UNIQUE,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
+    `CREATE TABLE IF NOT EXISTS users (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      mail VARCHAR(255) NOT NULL UNIQUE,
+      password_hash VARCHAR(255) NOT NULL,
+      password_salt VARCHAR(255) NOT NULL,
+      username VARCHAR(255) NOT NULL DEFAULT 'hi',
+      role VARCHAR(50) NOT NULL DEFAULT 'normal',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`,
     `CREATE TABLE IF NOT EXISTS tasks (
       id INT AUTO_INCREMENT PRIMARY KEY,
       client_name VARCHAR(255),
@@ -141,6 +151,7 @@ const initDatabase = async () => {
 }
 
 let dbConnection = null
+const verificationCodes = new Map()
 
 const getConnection = async () => {
   if (!dbConnection) {
@@ -243,6 +254,106 @@ const handlePostTask = async (req, res) => {
   }
 }
 
+const hashPassword = async (password, salt) => {
+  return new Promise((resolve, reject) => {
+    crypto.pbkdf2(password, salt, 100000, 64, 'sha512', (error, derivedKey) => {
+      if (error) {
+        reject(error)
+        return
+      }
+      resolve(derivedKey.toString('hex'))
+    })
+  })
+}
+
+const requestVerificationCode = async (req, res) => {
+  const body = await parseBody(req)
+  const email = body?.email?.trim()
+  if (!email) {
+    sendJson(res, 400, { message: 'Email is required' })
+    return
+  }
+  const code = Math.floor(1000 + Math.random() * 9000).toString()
+  const expiresAt = Date.now() + 60 * 1000
+  verificationCodes.set(email, { code, expiresAt })
+  console.log(`Verification code for ${email}: ${code}`)
+  sendJson(res, 200, { message: 'Verification code sent' })
+}
+
+const registerUser = async (req, res) => {
+  const body = await parseBody(req)
+  const email = body?.email?.trim()
+  const password = body?.password
+  const code = body?.code?.trim()
+  if (!email || !password || !code) {
+    sendJson(res, 400, { message: 'Email, password, and code are required' })
+    return
+  }
+  const record = verificationCodes.get(email)
+  if (!record) {
+    sendJson(res, 400, { message: 'Verification code is invalid or expired' })
+    return
+  }
+  if (record.expiresAt < Date.now()) {
+    verificationCodes.delete(email)
+    sendJson(res, 400, { message: 'Verification code is invalid or expired' })
+    return
+  }
+  if (record.code !== code) {
+    sendJson(res, 400, { message: 'Verification code is invalid or expired' })
+    return
+  }
+  try {
+    const salt = crypto.randomBytes(16).toString('hex')
+    const passwordHash = await hashPassword(password, salt)
+    const connection = await getConnection()
+    await connection.query(
+      'INSERT INTO users (mail, password_hash, password_salt, username, role) VALUES (?, ?, ?, ?, ?)',
+      [email, passwordHash, salt, 'hi', 'normal']
+    )
+    verificationCodes.delete(email)
+    sendJson(res, 201, { message: 'User registered' })
+  } catch (error) {
+    if (error?.code === 'ER_DUP_ENTRY') {
+      sendJson(res, 409, { message: 'Email already registered' })
+      return
+    }
+    console.error(error)
+    sendJson(res, 500, { message: 'Failed to register' })
+  }
+}
+
+const loginUser = async (req, res) => {
+  const body = await parseBody(req)
+  const email = body?.email?.trim()
+  const password = body?.password
+  if (!email || !password) {
+    sendJson(res, 400, { message: 'Email and password are required' })
+    return
+  }
+  try {
+    const connection = await getConnection()
+    const [rows] = await connection.query(
+      'SELECT mail, password_hash, password_salt, username, role FROM users WHERE mail = ? LIMIT 1',
+      [email]
+    )
+    const user = rows[0]
+    if (!user) {
+      sendJson(res, 401, { message: 'Invalid credentials' })
+      return
+    }
+    const passwordHash = await hashPassword(password, user.password_salt)
+    if (passwordHash !== user.password_hash) {
+      sendJson(res, 401, { message: 'Invalid credentials' })
+      return
+    }
+    sendJson(res, 200, { mail: user.mail, username: user.username, role: user.role })
+  } catch (error) {
+    console.error(error)
+    sendJson(res, 500, { message: 'Failed to login' })
+  }
+}
+
 const start = async () => {
   await getConnection()
   const port = process.env.PORT || 3001
@@ -275,6 +386,18 @@ const start = async () => {
     }
     if (url.pathname === '/api/tasks' && req.method === 'POST') {
       await handlePostTask(req, res)
+      return
+    }
+    if (url.pathname === '/api/auth/request-code' && req.method === 'POST') {
+      await requestVerificationCode(req, res)
+      return
+    }
+    if (url.pathname === '/api/auth/register' && req.method === 'POST') {
+      await registerUser(req, res)
+      return
+    }
+    if (url.pathname === '/api/auth/login' && req.method === 'POST') {
+      await loginUser(req, res)
       return
     }
     sendJson(res, 404, { message: 'Not found' })

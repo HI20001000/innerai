@@ -5,10 +5,77 @@ const activeTab = ref('login')
 const heroRef = ref(null)
 const canvasRef = ref(null)
 const router = getCurrentInstance().appContext.config.globalProperties.$router
+const apiBaseUrl = 'http://localhost:3001'
+const loginEmail = ref('')
+const loginPassword = ref('')
+const registerEmail = ref('')
+const registerPassword = ref('')
+const registerPasswordConfirm = ref('')
+const registerCode = ref('')
+const authMessage = ref('')
 
-const handleSubmit = () => {
-  if (activeTab.value === 'login') {
+const handleLogin = async () => {
+  authMessage.value = ''
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: loginEmail.value, password: loginPassword.value }),
+    })
+    if (!response.ok) {
+      const data = await response.json()
+      authMessage.value = data.message || '登入失敗'
+      return
+    }
     router?.push('/home')
+  } catch (error) {
+    console.error(error)
+    authMessage.value = '登入失敗'
+  }
+}
+
+const requestCode = async () => {
+  authMessage.value = ''
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/auth/request-code`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: registerEmail.value }),
+    })
+    const data = await response.json()
+    authMessage.value = data.message || '已發送驗證碼'
+  } catch (error) {
+    console.error(error)
+    authMessage.value = '無法發送驗證碼'
+  }
+}
+
+const handleRegister = async () => {
+  authMessage.value = ''
+  if (registerPassword.value !== registerPasswordConfirm.value) {
+    authMessage.value = '密碼與確認密碼不一致'
+    return
+  }
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: registerEmail.value,
+        password: registerPassword.value,
+        code: registerCode.value,
+      }),
+    })
+    const data = await response.json()
+    if (!response.ok) {
+      authMessage.value = data.message || '註冊失敗'
+      return
+    }
+    authMessage.value = '註冊成功，請登入'
+    activeTab.value = 'login'
+  } catch (error) {
+    console.error(error)
+    authMessage.value = '註冊失敗'
   }
 }
 
@@ -347,26 +414,20 @@ onUnmounted(() => {
         </button>
       </div>
 
-      <form class="login-form" @submit.prevent="handleSubmit">
+      <form
+        v-if="activeTab === 'login'"
+        class="login-form"
+        @submit.prevent="handleLogin"
+      >
         <div class="form-grid">
           <label class="field">
             <span>電子郵件</span>
-            <input type="email" placeholder="name@company.com" />
+            <input v-model="loginEmail" type="email" placeholder="name@company.com" />
           </label>
 
           <label class="field">
             <span>密碼</span>
-            <input type="password" placeholder="••••••••" />
-          </label>
-
-          <label v-if="activeTab === 'register'" class="field">
-            <span>確認密碼</span>
-            <input type="password" placeholder="再次輸入密碼" />
-          </label>
-
-          <label v-if="activeTab === 'register'" class="field">
-            <span>公司名稱</span>
-            <input type="text" placeholder="InnerAI Studio" />
+            <input v-model="loginPassword" type="password" placeholder="••••••••" />
           </label>
         </div>
 
@@ -378,9 +439,7 @@ onUnmounted(() => {
           <a class="link" href="#">忘記密碼？</a>
         </div>
 
-        <button class="primary-button" type="submit">
-          {{ activeTab === 'login' ? '登入帳號' : '建立帳號' }}
-        </button>
+        <button class="primary-button" type="submit">登入帳號</button>
 
         <div class="divider">
           <span>或使用</span>
@@ -391,6 +450,41 @@ onUnmounted(() => {
           使用 Google 登入
         </button>
       </form>
+
+      <form
+        v-else
+        class="login-form"
+        @submit.prevent="handleRegister"
+      >
+        <div class="form-grid">
+          <label class="field">
+            <span>電子郵件</span>
+            <input v-model="registerEmail" type="email" placeholder="name@company.com" />
+          </label>
+
+          <label class="field">
+            <span>密碼</span>
+            <input v-model="registerPassword" type="password" placeholder="••••••••" />
+          </label>
+
+          <label class="field">
+            <span>確認密碼</span>
+            <input v-model="registerPasswordConfirm" type="password" placeholder="再次輸入密碼" />
+          </label>
+
+          <div class="field">
+            <span>郵件驗證</span>
+            <div class="code-row">
+              <input v-model="registerCode" type="text" placeholder="輸入驗證碼" />
+              <button class="secondary-button" type="button" @click="requestCode">取得驗證碼</button>
+            </div>
+          </div>
+        </div>
+
+        <button class="primary-button" type="submit">建立帳號</button>
+      </form>
+
+      <p v-if="authMessage" class="auth-message">{{ authMessage }}</p>
 
       <p class="switch-text">
         {{ activeTab === 'login' ? '還沒有帳號？' : '已經有帳號？' }}
@@ -558,6 +652,13 @@ onUnmounted(() => {
   background: #fff;
 }
 
+.code-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.8rem;
+  align-items: center;
+}
+
 .field input:focus {
   outline: none;
   border-color: #5b8cff;
@@ -654,6 +755,13 @@ onUnmounted(() => {
   text-align: center;
   color: #6b7280;
   font-size: 0.95rem;
+}
+
+.auth-message {
+  margin-top: 1.5rem;
+  text-align: center;
+  color: #2563eb;
+  font-weight: 500;
 }
 
 .link-button {
