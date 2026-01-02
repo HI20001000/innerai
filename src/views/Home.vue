@@ -7,10 +7,6 @@ const router = getCurrentInstance().appContext.config.globalProperties.$router
 const goToNewTask = () => {
   router?.push('/tasks/new')
 }
-
-const goToHome = () => {
-  router?.push('/home')
-}
 </script>
 
 <template>
