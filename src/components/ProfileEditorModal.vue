@@ -4,10 +4,20 @@
       <h2>編輯個人資料</h2>
       <p>更新你的 icon、名稱、權限與密碼。</p>
       <div class="form-grid">
-        <label class="field">
+        <div class="field">
           <span>Icon (Emoji)</span>
-          <input v-model="localIcon" type="text" placeholder="🙂" maxlength="4" />
-        </label>
+          <div class="icon-grid">
+            <button
+              v-for="icon in iconOptions"
+              :key="icon"
+              type="button"
+              :class="['icon-option', { active: localIcon === icon }]"
+              @click="localIcon = icon"
+            >
+              {{ icon }}
+            </button>
+          </div>
+        </div>
         <label class="field">
           <span>Username</span>
           <input v-model="localUsername" type="text" placeholder="hi" />
@@ -19,9 +29,19 @@
             <option value="admin">admin</option>
           </select>
         </label>
-        <label class="field">
+        <div class="field">
+          <span>修改密碼</span>
+          <button class="ghost-button inline" type="button" @click="togglePassword">
+            {{ showPasswordFields ? '取消修改' : '修改密碼' }}
+          </button>
+        </div>
+        <label v-if="showPasswordFields" class="field">
+          <span>舊密碼</span>
+          <input v-model="currentPassword" type="password" placeholder="輸入舊密碼" />
+        </label>
+        <label v-if="showPasswordFields" class="field">
           <span>新密碼</span>
-          <input v-model="localPassword" type="password" placeholder="••••••••" />
+          <input v-model="newPassword" type="password" placeholder="輸入新密碼" />
         </label>
       </div>
       <div class="modal-actions">
@@ -58,7 +78,10 @@ const props = defineProps({
 const localIcon = ref('')
 const localUsername = ref('')
 const localRole = ref('normal')
-const localPassword = ref('')
+const showPasswordFields = ref(false)
+const currentPassword = ref('')
+const newPassword = ref('')
+const iconOptions = ['🙂', '😎', '🎯', '🚀', '🧠', '📌', '✨', '🛠️']
 const message = ref('')
 
 const hydratedUser = computed(() => props.user || {})
@@ -70,10 +93,18 @@ watch(
     localIcon.value = hydratedUser.value.icon || '🙂'
     localUsername.value = hydratedUser.value.username || 'hi'
     localRole.value = hydratedUser.value.role || 'normal'
-    localPassword.value = ''
+    currentPassword.value = ''
+    newPassword.value = ''
+    showPasswordFields.value = false
     message.value = ''
   }
 )
+
+const togglePassword = () => {
+  showPasswordFields.value = !showPasswordFields.value
+  currentPassword.value = ''
+  newPassword.value = ''
+}
 
 const handleSave = async () => {
   message.value = ''
@@ -81,7 +112,8 @@ const handleSave = async () => {
     icon: localIcon.value,
     username: localUsername.value,
     role: localRole.value,
-    password: localPassword.value,
+    currentPassword: showPasswordFields.value ? currentPassword.value : '',
+    newPassword: showPasswordFields.value ? newPassword.value : '',
   }
   const result = await props.onSave(payload)
   if (result?.message) {
@@ -123,13 +155,20 @@ const handleSave = async () => {
 
 .form-grid {
   display: grid;
-  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.2rem;
 }
 
 .field {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
+}
+
+.field:first-child,
+.field:nth-child(4),
+.field:nth-child(5) {
+  grid-column: 1 / -1;
 }
 
 .field span {
@@ -146,6 +185,26 @@ const handleSave = async () => {
   background: #fff;
 }
 
+.icon-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.icon-option {
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  border-radius: 12px;
+  padding: 0.6rem;
+  font-size: 1.2rem;
+  cursor: pointer;
+}
+
+.icon-option.active {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+}
+
 .modal-actions {
   display: flex;
   justify-content: flex-end;
@@ -160,6 +219,10 @@ const handleSave = async () => {
   font-weight: 600;
   cursor: pointer;
   color: #475569;
+}
+
+.ghost-button.inline {
+  width: fit-content;
 }
 
 .primary-button {

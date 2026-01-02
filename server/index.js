@@ -380,6 +380,8 @@ const updateUser = async (req, res) => {
     sendJson(res, 400, { message: 'Email is required' })
     return
   }
+  const currentPassword = body?.currentPassword
+  const newPassword = body?.newPassword
   const updates = []
   const values = []
   if (body.icon) {
@@ -394,9 +396,28 @@ const updateUser = async (req, res) => {
     updates.push('role = ?')
     values.push(body.role)
   }
-  if (body.password) {
+  if (newPassword || currentPassword) {
+    if (!currentPassword || !newPassword) {
+      sendJson(res, 400, { message: 'Current and new password are required' })
+      return
+    }
+    const connection = await getConnection()
+    const [rows] = await connection.query(
+      'SELECT password_hash, password_salt FROM users WHERE mail = ? LIMIT 1',
+      [email]
+    )
+    const user = rows[0]
+    if (!user) {
+      sendJson(res, 404, { message: 'User not found' })
+      return
+    }
+    const currentHash = await hashPassword(currentPassword, user.password_salt)
+    if (currentHash !== user.password_hash) {
+      sendJson(res, 401, { message: 'Current password is incorrect' })
+      return
+    }
     const salt = crypto.randomBytes(16).toString('hex')
-    const passwordHash = await hashPassword(body.password, salt)
+    const passwordHash = await hashPassword(newPassword, salt)
     updates.push('password_hash = ?', 'password_salt = ?')
     values.push(passwordHash, salt)
   }

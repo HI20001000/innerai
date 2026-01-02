@@ -77,7 +77,8 @@ const saveProfile = async (payload) => {
         icon: payload.icon,
         username: payload.username,
         role: payload.role,
-        password: payload.password,
+        currentPassword: payload.currentPassword,
+        newPassword: payload.newPassword,
       }),
     })
     const data = await response.json()
