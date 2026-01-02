@@ -18,6 +18,7 @@ const followUpContent = ref('')
 const activeModal = ref(null)
 const newOption = ref('')
 const draftKey = 'innerai_task_draft'
+const showDraftSaved = ref(false)
 
 const openModal = (type) => {
   activeModal.value = type
@@ -78,6 +79,11 @@ const saveDraft = () => {
     followUpContent: followUpContent.value,
   }
   window.localStorage.setItem(draftKey, JSON.stringify(payload))
+  showDraftSaved.value = true
+}
+
+const submitTask = () => {
+  window.localStorage.removeItem(draftKey)
 }
 
 const loadDraft = () => {
@@ -117,7 +123,7 @@ onMounted(() => {
     </header>
 
     <section class="task-layout">
-      <form class="task-form" @submit.prevent>
+      <form class="task-form" @submit.prevent="submitTask">
         <div class="field-grid">
           <div class="field select-field-wrapper">
             <div class="field-header">
@@ -278,6 +284,16 @@ onMounted(() => {
         <div class="modal-actions">
           <button class="ghost-button" type="button" @click="closeModal">取消</button>
           <button class="primary-button" type="button" @click="addOption">新增</button>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="showDraftSaved" class="modal-overlay" @click.self="showDraftSaved = false">
+      <div class="modal-card">
+        <h2>儲存成功</h2>
+        <p>任務草稿已保存到本機。</p>
+        <div class="modal-actions">
+          <button class="primary-button" type="button" @click="showDraftSaved = false">確定</button>
         </div>
       </div>
     </div>
