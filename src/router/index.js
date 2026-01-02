@@ -3,11 +3,13 @@ import LoginView from '../views/Login.vue'
 import HomeView from '../views/Home.vue'
 import TaskCreateView from '../views/TaskCreate.vue'
 import NotFoundView from '../views/NotFound.vue'
+import ProfileSettingsView from '../views/ProfileSettings.vue'
 
 const routeRecords = [
   { path: '/', name: 'login', component: LoginView },
   { path: '/home', name: 'home', component: HomeView },
   { path: '/tasks/new', name: 'task-create', component: TaskCreateView },
+  { path: '/settings', name: 'settings', component: ProfileSettingsView },
   { path: '/:pathMatch(.*)*', name: 'not-found', component: NotFoundView },
 ]
 const routes = new Map(routeRecords.map((route) => [route.path, route.component]))

@@ -11,11 +11,15 @@ const goToNewTask = () => {
 const goToHome = () => {
   router?.push('/home')
 }
+
+const goToProfile = () => {
+  router?.push('/settings')
+}
 </script>
 
 <template>
   <div class="home-page">
-    <WorkspaceSidebar :on-create-task="goToNewTask" :on-go-home="goToHome" />
+    <WorkspaceSidebar :on-create-task="goToNewTask" :on-go-home="goToHome" :on-go-profile="goToProfile" />
 
     <main class="home-content">
       <header class="home-header">

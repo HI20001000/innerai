@@ -10,7 +10,7 @@
       </button>
     </div>
     <div class="sidebar-bottom">
-      <button class="profile-button" type="button" aria-label="個人檔案" @click="openProfile">
+      <button class="profile-button" type="button" aria-label="個人設定" @click="goToProfile">
         <span
           class="profile-avatar"
           :style="{ backgroundColor: currentUser.icon_bg || '#e2e8f0' }"
@@ -19,20 +19,13 @@
         </span>
       </button>
     </div>
-    <ProfileEditorModal
-      :open="showProfile"
-      :user="currentUser"
-      :on-close="closeProfile"
-      :on-save="saveProfile"
-    />
   </aside>
 </template>
 
 <script setup>
 import { ref } from 'vue'
-import ProfileEditorModal from './ProfileEditorModal.vue'
 
-const { onCreateTask, onGoHome } = defineProps({
+const { onCreateTask, onGoHome, onGoProfile } = defineProps({
   onCreateTask: {
     type: Function,
     default: () => {},
@@ -41,10 +34,12 @@ const { onCreateTask, onGoHome } = defineProps({
     type: Function,
     default: () => {},
   },
+  onGoProfile: {
+    type: Function,
+    default: () => {},
+  },
 })
 
-const apiBaseUrl = 'http://localhost:3001'
-const showProfile = ref(false)
 const currentUser = ref({})
 
 const loadUser = () => {
@@ -60,50 +55,9 @@ const loadUser = () => {
   }
 }
 
-const openProfile = () => {
+const goToProfile = () => {
   loadUser()
-  showProfile.value = true
-}
-
-const closeProfile = () => {
-  showProfile.value = false
-}
-
-const saveProfile = async (payload) => {
-  if (!currentUser.value?.mail) {
-    return { message: '尚未登入，無法編輯' }
-  }
-  try {
-    const response = await fetch(`${apiBaseUrl}/api/users/update`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email: currentUser.value.mail,
-        icon: payload.icon,
-        icon_bg: payload.icon_bg,
-        username: payload.username,
-        role: payload.role,
-        currentPassword: payload.currentPassword,
-        newPassword: payload.newPassword,
-      }),
-    })
-    const data = await response.json()
-    if (!response.ok) {
-      return { message: data.message || '更新失敗' }
-    }
-    currentUser.value = {
-      ...currentUser.value,
-      icon: payload.icon,
-      icon_bg: payload.icon_bg,
-      username: payload.username,
-      role: payload.role,
-    }
-    window.localStorage.setItem('innerai_user', JSON.stringify(currentUser.value))
-    return { message: '已更新' }
-  } catch (error) {
-    console.error(error)
-    return { message: '更新失敗' }
-  }
+  onGoProfile()
 }
 </script>
 
