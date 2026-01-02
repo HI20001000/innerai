@@ -1,37 +1,162 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 
 const activeTab = ref('login')
-const heroGlow = ref({ x: 48, y: 32 })
+const heroRef = ref(null)
+const canvasRef = ref(null)
 
-const heroStyle = computed(() => ({
-  '--glow-x': `${heroGlow.value.x}%`,
-  '--glow-y': `${heroGlow.value.y}%`,
-}))
+const mouse = {
+  x: 0,
+  y: 0,
+  active: false,
+}
 
-const handleHeroMove = (event) => {
-  const rect = event.currentTarget.getBoundingClientRect()
-  const x = ((event.clientX - rect.left) / rect.width) * 100
-  const y = ((event.clientY - rect.top) / rect.height) * 100
-  heroGlow.value = {
-    x: Math.min(85, Math.max(15, x)),
-    y: Math.min(80, Math.max(20, y)),
+const createParticles = (count, width, height) =>
+  Array.from({ length: count }, () => ({
+    x: Math.random() * width,
+    y: Math.random() * height,
+    vx: (Math.random() - 0.5) * 0.6,
+    vy: (Math.random() - 0.5) * 0.6,
+    radius: 1.6 + Math.random() * 1.4,
+  }))
+
+let cleanupAnimation = null
+
+onMounted(() => {
+  const heroEl = heroRef.value
+  const canvas = canvasRef.value
+  if (!heroEl || !canvas) {
+    return
   }
-}
 
-const resetHeroGlow = () => {
-  heroGlow.value = { x: 48, y: 32 }
-}
+  const ctx = canvas.getContext('2d')
+  if (!ctx) {
+    return
+  }
+
+  const state = {
+    animationId: 0,
+    particles: [],
+    width: 0,
+    height: 0,
+    ratio: window.devicePixelRatio || 1,
+  }
+
+  const resize = () => {
+    state.ratio = window.devicePixelRatio || 1
+    state.width = heroEl.clientWidth
+    state.height = heroEl.clientHeight
+    canvas.width = state.width * state.ratio
+    canvas.height = state.height * state.ratio
+    canvas.style.width = `${state.width}px`
+    canvas.style.height = `${state.height}px`
+    ctx.setTransform(state.ratio, 0, 0, state.ratio, 0, 0)
+    state.particles = createParticles(Math.floor(state.width / 10), state.width, state.height)
+  }
+
+  const handleMouseMove = (event) => {
+    mouse.x = event.clientX
+    mouse.y = event.clientY
+    mouse.active = true
+  }
+
+  const handleMouseLeave = () => {
+    mouse.active = false
+  }
+
+  const tick = () => {
+    ctx.clearRect(0, 0, state.width, state.height)
+
+    const rect = heroEl.getBoundingClientRect()
+    const localMouse = {
+      x: mouse.x - rect.left,
+      y: mouse.y - rect.top,
+      active:
+        mouse.active &&
+        mouse.x >= rect.left &&
+        mouse.x <= rect.right &&
+        mouse.y >= rect.top &&
+        mouse.y <= rect.bottom,
+    }
+
+    for (const particle of state.particles) {
+      particle.x += particle.vx
+      particle.y += particle.vy
+
+      if (particle.x <= 0 || particle.x >= state.width) {
+        particle.vx *= -1
+      }
+      if (particle.y <= 0 || particle.y >= state.height) {
+        particle.vy *= -1
+      }
+
+      if (localMouse.active) {
+        const dx = particle.x - localMouse.x
+        const dy = particle.y - localMouse.y
+        const distance = Math.hypot(dx, dy)
+        if (distance > 0 && distance < 120) {
+          const force = (120 - distance) / 120
+          particle.vx += (dx / distance) * force * 0.06
+          particle.vy += (dy / distance) * force * 0.06
+        }
+      }
+    }
+
+    for (let i = 0; i < state.particles.length; i += 1) {
+      const p1 = state.particles[i]
+      for (let j = i + 1; j < state.particles.length; j += 1) {
+        const p2 = state.particles[j]
+        const dx = p1.x - p2.x
+        const dy = p1.y - p2.y
+        const distance = Math.hypot(dx, dy)
+        if (distance < 110) {
+          const opacity = 1 - distance / 110
+          ctx.strokeStyle = `rgba(99, 102, 241, ${opacity * 0.35})`
+          ctx.lineWidth = 1
+          ctx.beginPath()
+          ctx.moveTo(p1.x, p1.y)
+          ctx.lineTo(p2.x, p2.y)
+          ctx.stroke()
+        }
+      }
+    }
+
+    for (const particle of state.particles) {
+      ctx.fillStyle = 'rgba(148, 163, 184, 0.9)'
+      ctx.beginPath()
+      ctx.arc(particle.x, particle.y, particle.radius, 0, Math.PI * 2)
+      ctx.fill()
+    }
+
+    state.animationId = window.requestAnimationFrame(tick)
+  }
+
+  resize()
+  window.addEventListener('resize', resize)
+  window.addEventListener('mousemove', handleMouseMove)
+  window.addEventListener('mouseleave', handleMouseLeave)
+  window.addEventListener('blur', handleMouseLeave)
+
+  state.animationId = window.requestAnimationFrame(tick)
+
+  cleanupAnimation = () => {
+    window.removeEventListener('resize', resize)
+    window.removeEventListener('mousemove', handleMouseMove)
+    window.removeEventListener('mouseleave', handleMouseLeave)
+    window.removeEventListener('blur', handleMouseLeave)
+    window.cancelAnimationFrame(state.animationId)
+  }
+})
+
+onUnmounted(() => {
+  cleanupAnimation?.()
+})
 </script>
 
 <template>
   <div class="login-page">
-    <aside
-      class="login-hero"
-      :style="heroStyle"
-      @mousemove="handleHeroMove"
-      @mouseleave="resetHeroGlow"
-    >
+    <aside class="login-hero" ref="heroRef">
+      <canvas class="hero-canvas" ref="canvasRef" aria-hidden="true"></canvas>
       <div class="hero-content">
         <div class="logo-circle">AI</div>
         <p class="hero-title">InnerAI</p>
@@ -42,7 +167,6 @@ const resetHeroGlow = () => {
           <li>完整 UI 結構，方便後續接 API</li>
         </ul>
       </div>
-      <div class="hero-accent"></div>
     </aside>
 
     <section class="login-panel">
@@ -133,18 +257,7 @@ const resetHeroGlow = () => {
 
 .login-hero {
   position: relative;
-  background:
-    radial-gradient(
-      540px circle at var(--glow-x, 50%) var(--glow-y, 35%),
-      rgba(124, 92, 255, 0.35),
-      transparent 60%
-    ),
-    radial-gradient(
-      420px circle at calc(var(--glow-x, 50%) + 10%) calc(var(--glow-y, 35%) + 6%),
-      rgba(16, 185, 129, 0.22),
-      transparent 58%
-    ),
-    linear-gradient(140deg, #111827 20%, #1f2937 85%);
+  background: #0b1220;
   color: #fff;
   padding: 5rem 8vw;
   display: flex;
@@ -153,33 +266,13 @@ const resetHeroGlow = () => {
   overflow: hidden;
 }
 
-.login-hero::before,
-.login-hero::after {
-  content: '';
+.hero-canvas {
   position: absolute;
   inset: 0;
+  width: 100%;
+  height: 100%;
   pointer-events: none;
-}
-
-.login-hero::before {
-  background: radial-gradient(
-    220px circle at var(--glow-x, 50%) var(--glow-y, 35%),
-    rgba(255, 255, 255, 0.16),
-    transparent 65%
-  );
-  mix-blend-mode: screen;
-  opacity: 0.7;
-  transition: opacity 0.3s ease;
-}
-
-.login-hero::after {
-  background: radial-gradient(
-    160px circle at calc(var(--glow-x, 50%) - 12%) calc(var(--glow-y, 35%) - 10%),
-    rgba(148, 163, 184, 0.18),
-    transparent 70%
-  );
-  filter: blur(6px);
-  opacity: 0.8;
+  opacity: 0.9;
 }
 
 .hero-content {
@@ -188,7 +281,7 @@ const resetHeroGlow = () => {
   gap: 1.25rem;
   text-align: left;
   position: relative;
-  z-index: 1;
+  z-index: 2;
 }
 
 .logo-circle {
@@ -226,16 +319,6 @@ const resetHeroGlow = () => {
   font-size: 0.95rem;
 }
 
-.hero-accent {
-  position: absolute;
-  width: 340px;
-  height: 340px;
-  right: -120px;
-  top: 20%;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(91, 140, 255, 0.45), transparent 70%);
-  filter: blur(8px);
-}
 
 .login-panel {
   background: #ffffff;
