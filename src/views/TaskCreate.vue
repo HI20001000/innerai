@@ -24,6 +24,7 @@ const apiBaseUrl = 'http://localhost:3001'
 const openModal = (type) => {
   activeModal.value = type
   newOption.value = ''
+  fetchOptions(type).catch((error) => console.error(error))
 }
 
 const fetchOptions = async (type) => {
@@ -107,6 +108,38 @@ const addOption = async () => {
   }
 }
 
+const deleteOption = async (type, name) => {
+  try {
+    const response = await fetch(
+      `${apiBaseUrl}/api/options/${type}?name=${encodeURIComponent(name)}`,
+      {
+        method: 'DELETE',
+      }
+    )
+    if (!response.ok) {
+      throw new Error('Failed to delete option')
+    }
+    if (type === 'client') {
+      clients.value = clients.value.filter((item) => item !== name)
+      if (selectedClient.value === name) selectedClient.value = ''
+    }
+    if (type === 'vendor') {
+      vendors.value = vendors.value.filter((item) => item !== name)
+      if (selectedVendor.value === name) selectedVendor.value = ''
+    }
+    if (type === 'product') {
+      products.value = products.value.filter((item) => item !== name)
+      if (selectedProduct.value === name) selectedProduct.value = ''
+    }
+    if (type === 'tag') {
+      tags.value = tags.value.filter((item) => item !== name)
+      if (selectedTag.value === name) selectedTag.value = ''
+    }
+  } catch (error) {
+    console.error(error)
+  }
+}
+
 const saveDraft = () => {
   const payload = {
     selectedClient: selectedClient.value,
@@ -121,7 +154,25 @@ const saveDraft = () => {
   showDraftSaved.value = true
 }
 
-const submitTask = () => {
+const submitTask = async () => {
+  const payload = {
+    client: selectedClient.value,
+    vendor: selectedVendor.value,
+    product: selectedProduct.value,
+    tag: selectedTag.value,
+    scheduled_at: selectedTime.value,
+    location: selectedLocation.value,
+    follow_up: followUpContent.value,
+  }
+  try {
+    await fetch(`${apiBaseUrl}/api/tasks`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+  } catch (error) {
+    console.error(error)
+  }
   window.localStorage.removeItem(draftKey)
 }
 
@@ -167,7 +218,7 @@ onMounted(() => {
           <div class="field select-field-wrapper">
             <div class="field-header">
               <span>客戶</span>
-              <button class="ghost-mini" type="button" @click="openModal('client')">新增</button>
+              <button class="ghost-mini" type="button" @click="openModal('client')">編輯</button>
             </div>
             <button class="select-field" type="button" @click="openList('client')">
               {{ selectedClient || '選擇客戶' }}
@@ -187,7 +238,7 @@ onMounted(() => {
           <div class="field select-field-wrapper">
             <div class="field-header">
               <span>廠家</span>
-              <button class="ghost-mini" type="button" @click="openModal('vendor')">新增</button>
+              <button class="ghost-mini" type="button" @click="openModal('vendor')">編輯</button>
             </div>
             <button class="select-field" type="button" @click="openList('vendor')">
               {{ selectedVendor || '選擇廠家' }}
@@ -207,7 +258,7 @@ onMounted(() => {
           <div class="field select-field-wrapper">
             <div class="field-header">
               <span>廠家產品</span>
-              <button class="ghost-mini" type="button" @click="openModal('product')">新增</button>
+              <button class="ghost-mini" type="button" @click="openModal('product')">編輯</button>
             </div>
             <button class="select-field" type="button" @click="openList('product')">
               {{ selectedProduct || '選擇產品' }}
@@ -227,7 +278,7 @@ onMounted(() => {
           <div class="field select-field-wrapper">
             <div class="field-header">
               <span>任務標籤</span>
-              <button class="ghost-mini" type="button" @click="openModal('tag')">新增</button>
+              <button class="ghost-mini" type="button" @click="openModal('tag')">編輯</button>
             </div>
             <button class="select-field" type="button" @click="openList('tag')">
               {{ selectedTag || '選擇標籤' }}
@@ -292,7 +343,7 @@ onMounted(() => {
     <div v-if="activeModal" class="modal-overlay" @click.self="closeModal">
       <div class="modal-card">
         <h2>
-          新增{{
+          編輯{{
             activeModal === 'client'
               ? '客戶'
               : activeModal === 'vendor'
@@ -302,8 +353,30 @@ onMounted(() => {
                   : '標籤'
           }}
         </h2>
-        <p>輸入名稱後即可加入搜尋清單。</p>
-        <input v-model="newOption" type="text" placeholder="輸入名稱" />
+        <p>可新增或刪除清單中的項目。</p>
+        <div class="modal-list">
+          <div
+            v-for="item in activeModal === 'client'
+              ? clients
+              : activeModal === 'vendor'
+                ? vendors
+                : activeModal === 'product'
+                  ? products
+                  : tags"
+            :key="item"
+            class="modal-list-item"
+          >
+            <span>{{ item }}</span>
+            <button
+              class="danger-button"
+              type="button"
+              @click="deleteOption(activeModal, item)"
+            >
+              刪除
+            </button>
+          </div>
+        </div>
+        <input v-model="newOption" type="text" placeholder="新增項目名稱" />
         <div class="modal-actions">
           <button class="ghost-button" type="button" @click="closeModal">取消</button>
           <button class="primary-button" type="button" @click="addOption">新增</button>
@@ -592,6 +665,35 @@ onMounted(() => {
   border-radius: 12px;
   padding: 0.85rem 1rem;
   font-size: 0.95rem;
+}
+
+.modal-list {
+  display: grid;
+  gap: 0.6rem;
+  max-height: 220px;
+  overflow: auto;
+  padding-right: 0.2rem;
+}
+
+.modal-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.55rem 0.8rem;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.danger-button {
+  border: none;
+  background: rgba(239, 68, 68, 0.12);
+  color: #b91c1c;
+  font-weight: 600;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  cursor: pointer;
 }
 
 .modal-actions {

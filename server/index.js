@@ -104,6 +104,17 @@ const ensureTables = async (connection) => {
       name VARCHAR(255) NOT NULL UNIQUE,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
+    `CREATE TABLE IF NOT EXISTS tasks (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      client_name VARCHAR(255),
+      vendor_name VARCHAR(255),
+      product_name VARCHAR(255),
+      tag_name VARCHAR(255),
+      scheduled_at DATETIME,
+      location VARCHAR(255),
+      follow_up TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`,
   ]
   for (const statement of statements) {
     await connection.query(statement)
@@ -180,6 +191,58 @@ const handlePostOptions = async (type, req, res) => {
   }
 }
 
+const handleDeleteOptions = async (type, req, res) => {
+  const table = TABLES[type]
+  if (!table) {
+    sendJson(res, 400, { message: 'Unknown option type' })
+    return
+  }
+  const url = new URL(req.url, `http://${req.headers.host}`)
+  const name = url.searchParams.get('name')
+  if (!name) {
+    sendJson(res, 400, { message: 'Name is required' })
+    return
+  }
+  try {
+    const connection = await getConnection()
+    await connection.query(`DELETE FROM \`${table}\` WHERE name = ?`, [name])
+    sendJson(res, 200, { name })
+  } catch (error) {
+    console.error(error)
+    sendJson(res, 500, { message: 'Failed to delete option' })
+  }
+}
+
+const handlePostTask = async (req, res) => {
+  const body = await parseBody(req)
+  if (!body) {
+    sendJson(res, 400, { message: 'Payload is required' })
+    return
+  }
+  const {
+    client,
+    vendor,
+    product,
+    tag,
+    scheduled_at: scheduledAt,
+    location,
+    follow_up: followUp,
+  } = body
+  try {
+    const connection = await getConnection()
+    await connection.query(
+      `INSERT INTO tasks
+      (client_name, vendor_name, product_name, tag_name, scheduled_at, location, follow_up)
+      VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [client || null, vendor || null, product || null, tag || null, scheduledAt || null, location || null, followUp || null]
+    )
+    sendJson(res, 201, { message: 'Task created' })
+  } catch (error) {
+    console.error(error)
+    sendJson(res, 500, { message: 'Failed to create task' })
+  }
+}
+
 const start = async () => {
   await getConnection()
   const port = process.env.PORT || 3001
@@ -205,6 +268,14 @@ const start = async () => {
         await handlePostOptions(type, req, res)
         return
       }
+      if (req.method === 'DELETE') {
+        await handleDeleteOptions(type, req, res)
+        return
+      }
+    }
+    if (url.pathname === '/api/tasks' && req.method === 'POST') {
+      await handlePostTask(req, res)
+      return
     }
     sendJson(res, 404, { message: 'Not found' })
   })
