@@ -137,7 +137,9 @@ const handleSave = async () => {
   background: #fff;
   border-radius: 20px;
   padding: 2rem;
-  width: min(480px, 100%);
+  width: fit-content;
+  max-width: 92vw;
+  min-width: 320px;
   box-shadow: 0 24px 60px rgba(15, 23, 42, 0.2);
   display: grid;
   gap: 1rem;
@@ -155,7 +157,7 @@ const handleSave = async () => {
 
 .form-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 1.2rem;
 }
 
