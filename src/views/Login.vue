@@ -1,12 +1,37 @@
 <script setup>
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 
 const activeTab = ref('login')
+const heroGlow = ref({ x: 48, y: 32 })
+
+const heroStyle = computed(() => ({
+  '--glow-x': `${heroGlow.value.x}%`,
+  '--glow-y': `${heroGlow.value.y}%`,
+}))
+
+const handleHeroMove = (event) => {
+  const rect = event.currentTarget.getBoundingClientRect()
+  const x = ((event.clientX - rect.left) / rect.width) * 100
+  const y = ((event.clientY - rect.top) / rect.height) * 100
+  heroGlow.value = {
+    x: Math.min(85, Math.max(15, x)),
+    y: Math.min(80, Math.max(20, y)),
+  }
+}
+
+const resetHeroGlow = () => {
+  heroGlow.value = { x: 48, y: 32 }
+}
 </script>
 
 <template>
   <div class="login-page">
-    <aside class="login-hero">
+    <aside
+      class="login-hero"
+      :style="heroStyle"
+      @mousemove="handleHeroMove"
+      @mouseleave="resetHeroGlow"
+    >
       <div class="hero-content">
         <div class="logo-circle">AI</div>
         <p class="hero-title">InnerAI</p>
@@ -108,13 +133,53 @@ const activeTab = ref('login')
 
 .login-hero {
   position: relative;
-  background: linear-gradient(140deg, #111827 20%, #1f2937 85%);
+  background:
+    radial-gradient(
+      540px circle at var(--glow-x, 50%) var(--glow-y, 35%),
+      rgba(124, 92, 255, 0.35),
+      transparent 60%
+    ),
+    radial-gradient(
+      420px circle at calc(var(--glow-x, 50%) + 10%) calc(var(--glow-y, 35%) + 6%),
+      rgba(16, 185, 129, 0.22),
+      transparent 58%
+    ),
+    linear-gradient(140deg, #111827 20%, #1f2937 85%);
   color: #fff;
   padding: 5rem 8vw;
   display: flex;
   align-items: center;
   justify-content: flex-start;
   overflow: hidden;
+}
+
+.login-hero::before,
+.login-hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.login-hero::before {
+  background: radial-gradient(
+    220px circle at var(--glow-x, 50%) var(--glow-y, 35%),
+    rgba(255, 255, 255, 0.16),
+    transparent 65%
+  );
+  mix-blend-mode: screen;
+  opacity: 0.7;
+  transition: opacity 0.3s ease;
+}
+
+.login-hero::after {
+  background: radial-gradient(
+    160px circle at calc(var(--glow-x, 50%) - 12%) calc(var(--glow-y, 35%) - 10%),
+    rgba(148, 163, 184, 0.18),
+    transparent 70%
+  );
+  filter: blur(6px);
+  opacity: 0.8;
 }
 
 .hero-content {
