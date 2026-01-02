@@ -23,7 +23,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 
 const { onCreateTask, onGoHome, onGoProfile } = defineProps({
   onCreateTask: {
@@ -59,6 +59,21 @@ const goToProfile = () => {
   loadUser()
   onGoProfile()
 }
+
+const handleStorage = (event) => {
+  if (event.key === 'innerai_user') {
+    loadUser()
+  }
+}
+
+onMounted(() => {
+  loadUser()
+  window.addEventListener('storage', handleStorage)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('storage', handleStorage)
+})
 </script>
 
 <style scoped>

@@ -1,8 +1,9 @@
 <script setup>
-import { getCurrentInstance } from 'vue'
+import { getCurrentInstance, onMounted, ref } from 'vue'
 import WorkspaceSidebar from '../components/WorkspaceSidebar.vue'
 
 const router = getCurrentInstance().appContext.config.globalProperties.$router
+const username = ref('hi')
 
 const goToNewTask = () => {
   router?.push('/tasks/new')
@@ -15,6 +16,19 @@ const goToHome = () => {
 const goToProfile = () => {
   router?.push('/settings')
 }
+
+const loadUser = () => {
+  const raw = window.localStorage.getItem('innerai_user')
+  if (!raw) return
+  try {
+    const user = JSON.parse(raw)
+    username.value = user.username || 'hi'
+  } catch {
+    // ignore
+  }
+}
+
+onMounted(loadUser)
 </script>
 
 <template>
@@ -25,7 +39,7 @@ const goToProfile = () => {
       <header class="home-header">
         <div>
           <p class="eyebrow">工作面板</p>
-          <h1 class="headline">今日進度總覽</h1>
+          <h1 class="headline">{{ username }}的工作面板</h1>
           <p class="subhead">快速掌握正在推進的項目、待辦與今日跟進事項。</p>
         </div>
         <div class="header-actions">

@@ -7,7 +7,10 @@
         <h1>個人資料與權限</h1>
         <p class="subhead">更新你的頭像、名稱、權限與密碼。</p>
       </div>
-      <button class="primary-button" type="button" @click="saveProfile">儲存設定</button>
+      <div class="header-actions">
+        <button class="ghost-button" type="button" @click="handleLogout">登出</button>
+        <button class="primary-button" type="button" @click="saveProfile">儲存設定</button>
+      </div>
     </header>
 
     <section class="settings-grid">
@@ -145,6 +148,12 @@ const goToHome = () => router?.push('/home')
 const goToNewTask = () => router?.push('/tasks/new')
 const goToProfile = () => router?.push('/settings')
 
+const handleLogout = () => {
+  window.localStorage.clear()
+  window.sessionStorage.clear()
+  router?.push('/')
+}
+
 const loadUser = () => {
   const raw = window.localStorage.getItem('innerai_user')
   if (!raw) return
@@ -254,6 +263,22 @@ onMounted(loadUser)
   justify-content: space-between;
   align-items: flex-end;
   gap: 2rem;
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.8rem;
+  align-items: center;
+}
+
+.ghost-button {
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #0f172a;
+  padding: 0.7rem 1.4rem;
+  border-radius: 999px;
+  font-weight: 600;
+  cursor: pointer;
 }
 
 .eyebrow {
