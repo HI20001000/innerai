@@ -1,10 +1,12 @@
 import { h, shallowRef } from 'vue'
 import LoginView from '../views/Login.vue'
 import HomeView from '../views/Home.vue'
+import TaskCreateView from '../views/TaskCreate.vue'
 
 const routeRecords = [
   { path: '/', name: 'login', component: LoginView },
   { path: '/home', name: 'home', component: HomeView },
+  { path: '/tasks/new', name: 'task-create', component: TaskCreateView },
 ]
 const routes = new Map(routeRecords.map((route) => [route.path, route.component]))
 const normalizePath = (path) => (path === '/login' ? '/' : path)

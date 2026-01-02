@@ -1,8 +1,18 @@
+<script setup>
+import { getCurrentInstance } from 'vue'
+
+const router = getCurrentInstance().appContext.config.globalProperties.$router
+
+const goToNewTask = () => {
+  router?.push('/tasks/new')
+}
+</script>
+
 <template>
   <div class="home-page">
     <aside class="sidebar">
       <div class="sidebar-top">
-        <button class="sidebar-button" type="button" aria-label="新增任務">
+        <button class="sidebar-button" type="button" aria-label="新增任務" @click="goToNewTask">
           <span class="sidebar-icon">＋</span>
           新增任務
         </button>
