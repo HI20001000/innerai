@@ -149,7 +149,11 @@ const goToNewTask = () => router?.push('/tasks/new')
 const goToProfile = () => router?.push('/settings')
 
 const handleLogout = () => {
+  const rememberedEmail = window.localStorage.getItem('innerai_remember_email')
   window.localStorage.clear()
+  if (rememberedEmail) {
+    window.localStorage.setItem('innerai_remember_email', rememberedEmail)
+  }
   window.sessionStorage.clear()
   router?.push('/')
 }

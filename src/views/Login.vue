@@ -8,12 +8,14 @@ const router = getCurrentInstance().appContext.config.globalProperties.$router
 const apiBaseUrl = 'http://localhost:3001'
 const loginEmail = ref('')
 const loginPassword = ref('')
+const rememberMe = ref(false)
 const registerEmail = ref('')
 const registerPassword = ref('')
 const registerPasswordConfirm = ref('')
 const registerCode = ref('')
 const authMessage = ref('')
 const resendCooldown = ref(0)
+const rememberEmailKey = 'innerai_remember_email'
 let resendTimer = null
 const parseJsonSafe = async (response) => {
   try {
@@ -44,6 +46,11 @@ const handleLogin = async () => {
         'innerai_auth',
         JSON.stringify({ token: data.token, expiresAt: data.expiresAt })
       )
+    }
+    if (rememberMe.value && loginEmail.value) {
+      window.localStorage.setItem(rememberEmailKey, loginEmail.value)
+    } else {
+      window.localStorage.removeItem(rememberEmailKey)
     }
     router?.push('/home')
   } catch (error) {
@@ -180,6 +187,11 @@ const createParticles = (count, width, height) =>
 let cleanupAnimation = null
 
 onMounted(() => {
+  const rememberedEmail = window.localStorage.getItem(rememberEmailKey)
+  if (rememberedEmail) {
+    loginEmail.value = rememberedEmail
+    rememberMe.value = true
+  }
   const heroEl = heroRef.value
   const canvas = canvasRef.value
   if (!heroEl || !canvas) {
@@ -481,7 +493,7 @@ onUnmounted(() => {
 
         <div class="helper-row" v-if="activeTab === 'login'">
           <label class="checkbox">
-            <input type="checkbox" />
+            <input v-model="rememberMe" type="checkbox" />
             <span>記住我</span>
           </label>
           <a class="link" href="#">忘記密碼？</a>
