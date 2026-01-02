@@ -1,3 +1,56 @@
+<script setup>
+import { computed, ref } from 'vue'
+
+const searchClient = ref('')
+const searchVendor = ref('')
+const searchProduct = ref('')
+
+const clients = ref(['日昇科技', '遠誠貿易', '星河設計', '宏達建設'])
+const vendors = ref(['青雲材料', '耀達製造', '風尚供應', '遠景工廠'])
+const products = ref(['智慧儀表 X1', '節能模組 A3', '自動化平台 Pro', '雲端控制盒'])
+
+const activeModal = ref(null)
+const newOption = ref('')
+
+const openModal = (type) => {
+  activeModal.value = type
+  newOption.value = ''
+}
+
+const closeModal = () => {
+  activeModal.value = null
+  newOption.value = ''
+}
+
+const addOption = () => {
+  const value = newOption.value.trim()
+  if (!value) return
+  if (activeModal.value === 'client' && !clients.value.includes(value)) {
+    clients.value.unshift(value)
+    searchClient.value = value
+  }
+  if (activeModal.value === 'vendor' && !vendors.value.includes(value)) {
+    vendors.value.unshift(value)
+    searchVendor.value = value
+  }
+  if (activeModal.value === 'product' && !products.value.includes(value)) {
+    products.value.unshift(value)
+    searchProduct.value = value
+  }
+  closeModal()
+}
+
+const filteredClients = computed(() =>
+  clients.value.filter((item) => item.toLowerCase().includes(searchClient.value.toLowerCase()))
+)
+const filteredVendors = computed(() =>
+  vendors.value.filter((item) => item.toLowerCase().includes(searchVendor.value.toLowerCase()))
+)
+const filteredProducts = computed(() =>
+  products.value.filter((item) => item.toLowerCase().includes(searchProduct.value.toLowerCase()))
+)
+</script>
+
 <template>
   <div class="task-page">
     <header class="task-header">
@@ -15,18 +68,63 @@
     <section class="task-layout">
       <form class="task-form" @submit.prevent>
         <div class="field-grid">
-          <label class="field">
-            <span>客戶</span>
-            <input type="text" placeholder="輸入客戶名稱" />
-          </label>
-          <label class="field">
-            <span>廠家</span>
-            <input type="text" placeholder="輸入廠家名稱" />
-          </label>
-          <label class="field">
-            <span>廠家產品</span>
-            <input type="text" placeholder="輸入產品或型號" />
-          </label>
+          <div class="field">
+            <div class="field-header">
+              <span>客戶</span>
+              <button class="ghost-mini" type="button" @click="openModal('client')">新增</button>
+            </div>
+            <input v-model="searchClient" type="text" placeholder="搜尋或選擇客戶" />
+            <div class="option-list">
+              <button
+                v-for="item in filteredClients"
+                :key="item"
+                type="button"
+                class="option-item"
+                @click="searchClient = item"
+              >
+                {{ item }}
+              </button>
+              <p v-if="filteredClients.length === 0" class="option-empty">沒有符合的客戶</p>
+            </div>
+          </div>
+          <div class="field">
+            <div class="field-header">
+              <span>廠家</span>
+              <button class="ghost-mini" type="button" @click="openModal('vendor')">新增</button>
+            </div>
+            <input v-model="searchVendor" type="text" placeholder="搜尋或選擇廠家" />
+            <div class="option-list">
+              <button
+                v-for="item in filteredVendors"
+                :key="item"
+                type="button"
+                class="option-item"
+                @click="searchVendor = item"
+              >
+                {{ item }}
+              </button>
+              <p v-if="filteredVendors.length === 0" class="option-empty">沒有符合的廠家</p>
+            </div>
+          </div>
+          <div class="field">
+            <div class="field-header">
+              <span>廠家產品</span>
+              <button class="ghost-mini" type="button" @click="openModal('product')">新增</button>
+            </div>
+            <input v-model="searchProduct" type="text" placeholder="搜尋或選擇產品" />
+            <div class="option-list">
+              <button
+                v-for="item in filteredProducts"
+                :key="item"
+                type="button"
+                class="option-item"
+                @click="searchProduct = item"
+              >
+                {{ item }}
+              </button>
+              <p v-if="filteredProducts.length === 0" class="option-empty">沒有符合的產品</p>
+            </div>
+          </div>
           <label class="field">
             <span>時間</span>
             <input type="datetime-local" />
@@ -67,6 +165,18 @@
         </div>
       </aside>
     </section>
+
+    <div v-if="activeModal" class="modal-overlay" @click.self="closeModal">
+      <div class="modal-card">
+        <h2>新增{{ activeModal === 'client' ? '客戶' : activeModal === 'vendor' ? '廠家' : '產品' }}</h2>
+        <p>輸入名稱後即可加入搜尋清單。</p>
+        <input v-model="newOption" type="text" placeholder="輸入名稱" />
+        <div class="modal-actions">
+          <button class="ghost-button" type="button" @click="closeModal">取消</button>
+          <button class="primary-button" type="button" @click="addOption">新增</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -160,6 +270,12 @@
   font-weight: 500;
 }
 
+.field-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
 .field span {
   font-size: 0.9rem;
   color: #475569;
@@ -173,6 +289,49 @@
   font-size: 0.95rem;
   background: #fff;
   resize: vertical;
+}
+
+.ghost-mini {
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  padding: 0.2rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+}
+
+.option-list {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+  padding: 0.4rem;
+  display: grid;
+  gap: 0.3rem;
+  max-height: 140px;
+  overflow: auto;
+}
+
+.option-item {
+  border: none;
+  background: transparent;
+  text-align: left;
+  padding: 0.5rem 0.7rem;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 500;
+  color: #1f2937;
+}
+
+.option-item:hover {
+  background: #e2e8f0;
+}
+
+.option-empty {
+  margin: 0.3rem 0.4rem;
+  font-size: 0.8rem;
+  color: #94a3b8;
 }
 
 .field textarea {
@@ -233,6 +392,49 @@
   color: #4338ca;
   font-size: 0.85rem;
   font-weight: 600;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.4);
+  display: grid;
+  place-items: center;
+  padding: 2rem;
+  z-index: 20;
+}
+
+.modal-card {
+  background: #fff;
+  border-radius: 20px;
+  padding: 2rem;
+  width: min(420px, 100%);
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.2);
+  display: grid;
+  gap: 1rem;
+}
+
+.modal-card h2 {
+  margin: 0;
+  font-size: 1.4rem;
+}
+
+.modal-card p {
+  margin: 0;
+  color: #64748b;
+}
+
+.modal-card input {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+  font-size: 0.95rem;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
 }
 
 @media (max-width: 1024px) {
