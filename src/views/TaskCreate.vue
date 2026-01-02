@@ -1,13 +1,14 @@
 <script setup>
-import { computed, ref } from 'vue'
-
-const searchClient = ref('')
-const searchVendor = ref('')
-const searchProduct = ref('')
+import { ref } from 'vue'
 
 const clients = ref(['日昇科技', '遠誠貿易', '星河設計', '宏達建設'])
 const vendors = ref(['青雲材料', '耀達製造', '風尚供應', '遠景工廠'])
 const products = ref(['智慧儀表 X1', '節能模組 A3', '自動化平台 Pro', '雲端控制盒'])
+
+const selectedClient = ref('')
+const selectedVendor = ref('')
+const selectedProduct = ref('')
+const activeList = ref(null)
 
 const activeModal = ref(null)
 const newOption = ref('')
@@ -27,28 +28,18 @@ const addOption = () => {
   if (!value) return
   if (activeModal.value === 'client' && !clients.value.includes(value)) {
     clients.value.unshift(value)
-    searchClient.value = value
+    selectedClient.value = value
   }
   if (activeModal.value === 'vendor' && !vendors.value.includes(value)) {
     vendors.value.unshift(value)
-    searchVendor.value = value
+    selectedVendor.value = value
   }
   if (activeModal.value === 'product' && !products.value.includes(value)) {
     products.value.unshift(value)
-    searchProduct.value = value
+    selectedProduct.value = value
   }
   closeModal()
 }
-
-const filteredClients = computed(() =>
-  clients.value.filter((item) => item.toLowerCase().includes(searchClient.value.toLowerCase()))
-)
-const filteredVendors = computed(() =>
-  vendors.value.filter((item) => item.toLowerCase().includes(searchVendor.value.toLowerCase()))
-)
-const filteredProducts = computed(() =>
-  products.value.filter((item) => item.toLowerCase().includes(searchProduct.value.toLowerCase()))
-)
 </script>
 
 <template>
@@ -73,18 +64,26 @@ const filteredProducts = computed(() =>
               <span>客戶</span>
               <button class="ghost-mini" type="button" @click="openModal('client')">新增</button>
             </div>
-            <input v-model="searchClient" type="text" placeholder="搜尋或選擇客戶" />
-            <div class="option-list">
+            <button
+              class="select-field"
+              type="button"
+              @click="activeList = activeList === 'client' ? null : 'client'"
+            >
+              {{ selectedClient || '選擇客戶' }}
+            </button>
+            <div v-if="activeList === 'client'" class="option-list">
               <button
-                v-for="item in filteredClients"
+                v-for="item in clients"
                 :key="item"
                 type="button"
                 class="option-item"
-                @click="searchClient = item"
+                @click="
+                  selectedClient = item
+                  activeList = null
+                "
               >
                 {{ item }}
               </button>
-              <p v-if="filteredClients.length === 0" class="option-empty">沒有符合的客戶</p>
             </div>
           </div>
           <div class="field">
@@ -92,18 +91,26 @@ const filteredProducts = computed(() =>
               <span>廠家</span>
               <button class="ghost-mini" type="button" @click="openModal('vendor')">新增</button>
             </div>
-            <input v-model="searchVendor" type="text" placeholder="搜尋或選擇廠家" />
-            <div class="option-list">
+            <button
+              class="select-field"
+              type="button"
+              @click="activeList = activeList === 'vendor' ? null : 'vendor'"
+            >
+              {{ selectedVendor || '選擇廠家' }}
+            </button>
+            <div v-if="activeList === 'vendor'" class="option-list">
               <button
-                v-for="item in filteredVendors"
+                v-for="item in vendors"
                 :key="item"
                 type="button"
                 class="option-item"
-                @click="searchVendor = item"
+                @click="
+                  selectedVendor = item
+                  activeList = null
+                "
               >
                 {{ item }}
               </button>
-              <p v-if="filteredVendors.length === 0" class="option-empty">沒有符合的廠家</p>
             </div>
           </div>
           <div class="field">
@@ -111,18 +118,26 @@ const filteredProducts = computed(() =>
               <span>廠家產品</span>
               <button class="ghost-mini" type="button" @click="openModal('product')">新增</button>
             </div>
-            <input v-model="searchProduct" type="text" placeholder="搜尋或選擇產品" />
-            <div class="option-list">
+            <button
+              class="select-field"
+              type="button"
+              @click="activeList = activeList === 'product' ? null : 'product'"
+            >
+              {{ selectedProduct || '選擇產品' }}
+            </button>
+            <div v-if="activeList === 'product'" class="option-list">
               <button
-                v-for="item in filteredProducts"
+                v-for="item in products"
                 :key="item"
                 type="button"
                 class="option-item"
-                @click="searchProduct = item"
+                @click="
+                  selectedProduct = item
+                  activeList = null
+                "
               >
                 {{ item }}
               </button>
-              <p v-if="filteredProducts.length === 0" class="option-empty">沒有符合的產品</p>
             </div>
           </div>
           <label class="field">
@@ -291,6 +306,22 @@ const filteredProducts = computed(() =>
   resize: vertical;
 }
 
+.select-field {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+  font-size: 0.95rem;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+}
+
+.select-field::after {
+  content: '▾';
+  float: right;
+  color: #94a3b8;
+}
+
 .ghost-mini {
   border: 1px solid #e2e8f0;
   background: #fff;
@@ -309,7 +340,7 @@ const filteredProducts = computed(() =>
   padding: 0.4rem;
   display: grid;
   gap: 0.3rem;
-  max-height: 140px;
+  max-height: 160px;
   overflow: auto;
 }
 
@@ -326,12 +357,6 @@ const filteredProducts = computed(() =>
 
 .option-item:hover {
   background: #e2e8f0;
-}
-
-.option-empty {
-  margin: 0.3rem 0.4rem;
-  font-size: 0.8rem;
-  color: #94a3b8;
 }
 
 .field textarea {
