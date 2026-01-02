@@ -15,6 +15,13 @@ const registerCode = ref('')
 const authMessage = ref('')
 const resendCooldown = ref(0)
 let resendTimer = null
+const parseJsonSafe = async (response) => {
+  try {
+    return await response.json()
+  } catch {
+    return {}
+  }
+}
 
 const handleLogin = async () => {
   authMessage.value = ''
@@ -25,7 +32,7 @@ const handleLogin = async () => {
       body: JSON.stringify({ email: loginEmail.value, password: loginPassword.value }),
     })
     if (!response.ok) {
-      const data = await response.json()
+      const data = await parseJsonSafe(response)
       authMessage.value = data.message || '登入失敗'
       return
     }
@@ -51,7 +58,7 @@ const requestCode = async () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: registerEmail.value }),
     })
-    const data = await response.json()
+    const data = await parseJsonSafe(response)
     if (!response.ok) {
       authMessage.value = data.message || '無法發送驗證碼'
       return
@@ -94,7 +101,7 @@ const handleRegister = async () => {
         code: registerCode.value,
       }),
     })
-    const data = await response.json()
+    const data = await parseJsonSafe(response)
     if (!response.ok) {
       authMessage.value = data.message || '註冊失敗'
       return
