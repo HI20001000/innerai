@@ -16,32 +16,22 @@
         <div class="avatar-preview" :style="{ backgroundColor: localIconBg }">
           {{ localIcon }}
         </div>
-        <div class="icon-slider">
-          <button class="icon-nav" type="button" @click="iconIndex = Math.max(iconIndex - 1, 0)">‹</button>
-          <div class="icon-window">
-            <div class="icon-track" :style="{ transform: `translateX(-${iconIndex * 64}px)` }">
-              <button
-                v-for="icon in iconOptions"
-                :key="icon"
-                type="button"
-                :class="['icon-option', { active: localIcon === icon }]"
-                @click="localIcon = icon"
-              >
-                {{ icon }}
-              </button>
-            </div>
-          </div>
+        <div class="icon-grid">
           <button
-            class="icon-nav"
+            v-for="icon in iconOptions"
+            :key="icon"
             type="button"
-            @click="iconIndex = Math.min(iconIndex + 1, iconOptions.length - 4)"
+            :class="['icon-option', { active: localIcon === icon }]"
+            @click="localIcon = icon"
           >
-            ›
+            {{ icon }}
+          </button>
+          <button class="icon-option add-option" type="button" @click="showCustomIcon = !showCustomIcon">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            </svg>
           </button>
         </div>
-        <button class="ghost-button more-toggle" type="button" @click="showCustomIcon = !showCustomIcon">
-          {{ showCustomIcon ? '收起更多' : '更多' }}
-        </button>
         <div v-if="showCustomIcon" class="custom-row">
           <label class="field">
             <span>自訂 Emoji</span>
@@ -58,15 +48,12 @@
             :style="{ backgroundColor: color }"
             @click="localIconBg = color"
           ></button>
-        </div>
-        <div class="custom-row">
-          <label class="field">
-            <span>更多顏色</span>
-            <input v-model="customColor" type="color" />
+          <label class="color-swatch add-option">
+            <input v-model="customColor" type="color" @input="localIconBg = customColor" />
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            </svg>
           </label>
-          <button class="primary-button small" type="button" @click="localIconBg = customColor">
-            套用
-          </button>
         </div>
       </div>
 
@@ -135,7 +122,6 @@ const iconOptions = [
   '💡',
 ]
 const iconColors = ['#e2e8f0', '#fde68a', '#bbf7d0', '#bae6fd', '#ddd6fe', '#fecdd3', '#fed7aa']
-const iconIndex = ref(0)
 const showCustomIcon = ref(false)
 const customIcon = ref('')
 const customColor = ref('#e2e8f0')
@@ -163,8 +149,6 @@ const loadUser = () => {
     localIconBg.value = user.icon_bg || '#e2e8f0'
     localUsername.value = user.username || 'hi'
     localRole.value = user.role || 'normal'
-    const idx = iconOptions.indexOf(localIcon.value)
-    iconIndex.value = idx >= 0 ? idx : 0
   } catch {
     // ignore
   }
@@ -297,22 +281,10 @@ onMounted(loadUser)
   font-size: 2rem;
 }
 
-.icon-slider {
+.icon-grid {
   display: grid;
-  grid-template-columns: 32px minmax(0, 1fr) 32px;
+  grid-template-columns: repeat(auto-fit, minmax(56px, 1fr));
   gap: 0.6rem;
-  align-items: center;
-}
-
-.icon-window {
-  overflow: hidden;
-  width: 256px;
-}
-
-.icon-track {
-  display: flex;
-  gap: 0.4rem;
-  transition: transform 0.2s ease;
 }
 
 .icon-option {
@@ -323,6 +295,8 @@ onMounted(loadUser)
   height: 56px;
   font-size: 1.2rem;
   cursor: pointer;
+  display: grid;
+  place-items: center;
 }
 
 .icon-option.active {
@@ -330,25 +304,10 @@ onMounted(loadUser)
   box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
 }
 
-.icon-nav {
-  border: none;
-  background: #f1f5f9;
-  color: #334155;
-  border-radius: 12px;
-  width: 32px;
-  height: 32px;
-  cursor: pointer;
-  font-size: 1.2rem;
-}
-
 .color-grid {
   display: flex;
   flex-wrap: wrap;
   gap: 0.6rem;
-}
-
-.more-toggle {
-  width: fit-content;
 }
 
 .custom-row {
@@ -358,25 +317,37 @@ onMounted(loadUser)
   flex-wrap: wrap;
 }
 
-.custom-row input[type='color'] {
-  width: 48px;
-  height: 40px;
-  padding: 0;
-  border: none;
-  background: transparent;
-}
-
 .color-swatch {
   width: 32px;
   height: 32px;
   border-radius: 999px;
   border: 2px solid transparent;
   cursor: pointer;
+  display: grid;
+  place-items: center;
+  position: relative;
 }
 
 .color-swatch.active {
   border-color: #2563eb;
   box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+}
+
+.add-option {
+  border: 1px dashed #cbd5f5;
+  color: #6366f1;
+}
+
+.add-option svg {
+  width: 18px;
+  height: 18px;
+}
+
+.color-swatch input[type='color'] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
 }
 
 .field {
