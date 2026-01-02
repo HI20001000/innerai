@@ -1,5 +1,6 @@
-import express from 'express'
+import http from 'node:http'
 import mysql from 'mysql2/promise'
+import { URL } from 'node:url'
 
 const {
   MYSQL_HOST = 'localhost',
@@ -23,18 +24,30 @@ const TABLES = {
   tag: 'task_tags',
 }
 
-const app = express()
-app.use((req, res, next) => {
+const withCors = (res) => {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
-  if (req.method === 'OPTIONS') {
-    res.status(204).end()
-    return
+}
+
+const sendJson = (res, status, payload) => {
+  withCors(res)
+  res.writeHead(status, { 'Content-Type': 'application/json' })
+  res.end(JSON.stringify(payload))
+}
+
+const parseBody = async (req) => {
+  const chunks = []
+  for await (const chunk of req) {
+    chunks.push(chunk)
   }
-  next()
-})
-app.use(express.json())
+  if (chunks.length === 0) return null
+  try {
+    return JSON.parse(Buffer.concat(chunks).toString('utf8'))
+  } catch {
+    return null
+  }
+}
 
 const createConnection = async (withDatabase = false) => {
   return mysql.createConnection({
@@ -108,51 +121,77 @@ const getConnection = async () => {
   return dbConnection
 }
 
-app.get('/api/options/:type', async (req, res) => {
-  const table = TABLES[req.params.type]
+const handleGetOptions = async (type, res) => {
+  const table = TABLES[type]
   if (!table) {
-    res.status(400).json({ message: 'Unknown option type' })
+    sendJson(res, 400, { message: 'Unknown option type' })
     return
   }
   try {
     const connection = await getConnection()
     const [rows] = await connection.query(`SELECT name FROM \`${table}\` ORDER BY name ASC`)
-    res.json(rows.map((row) => row.name))
+    sendJson(res, 200, rows.map((row) => row.name))
   } catch (error) {
     console.error(error)
-    res.status(500).json({ message: 'Failed to load options' })
+    sendJson(res, 500, { message: 'Failed to load options' })
   }
-})
+}
 
-app.post('/api/options/:type', async (req, res) => {
-  const table = TABLES[req.params.type]
+const handlePostOptions = async (type, req, res) => {
+  const table = TABLES[type]
   if (!table) {
-    res.status(400).json({ message: 'Unknown option type' })
+    sendJson(res, 400, { message: 'Unknown option type' })
     return
   }
-  const { name } = req.body ?? {}
+  const body = await parseBody(req)
+  const { name } = body ?? {}
   if (!name || typeof name !== 'string') {
-    res.status(400).json({ message: 'Name is required' })
+    sendJson(res, 400, { message: 'Name is required' })
     return
   }
   try {
     const connection = await getConnection()
     await connection.query(`INSERT INTO \`${table}\` (name) VALUES (?)`, [name.trim()])
-    res.status(201).json({ name: name.trim() })
+    sendJson(res, 201, { name: name.trim() })
   } catch (error) {
     if (error?.code === 'ER_DUP_ENTRY') {
-      res.status(409).json({ message: 'Name already exists' })
+      sendJson(res, 409, { message: 'Name already exists' })
       return
     }
     console.error(error)
-    res.status(500).json({ message: 'Failed to add option' })
+    sendJson(res, 500, { message: 'Failed to add option' })
   }
-})
+}
 
 const start = async () => {
   await getConnection()
   const port = process.env.PORT || 3001
-  app.listen(port, () => {
+  const server = http.createServer(async (req, res) => {
+    withCors(res)
+    if (!req.url) {
+      sendJson(res, 404, { message: 'Not found' })
+      return
+    }
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204)
+      res.end()
+      return
+    }
+    const url = new URL(req.url, `http://${req.headers.host}`)
+    if (url.pathname.startsWith('/api/options/')) {
+      const type = url.pathname.split('/').pop()
+      if (req.method === 'GET') {
+        await handleGetOptions(type, res)
+        return
+      }
+      if (req.method === 'POST') {
+        await handlePostOptions(type, req, res)
+        return
+      }
+    }
+    sendJson(res, 404, { message: 'Not found' })
+  })
+  server.listen(port, () => {
     console.log(`Server listening on ${port}`)
   })
 }
