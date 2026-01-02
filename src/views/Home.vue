@@ -1,174 +1,261 @@
 <template>
   <div class="home-page">
-    <header class="home-header">
-      <div>
-        <p class="eyebrow">工作面板</p>
-        <h1 class="headline">今日進度總覽</h1>
-        <p class="subhead">快速掌握正在推進的項目、待辦與今日跟進事項。</p>
+    <aside class="sidebar">
+      <div class="sidebar-top">
+        <button class="sidebar-button" type="button" aria-label="新增任務">
+          <span class="sidebar-icon">＋</span>
+          新增任務
+        </button>
       </div>
-      <div class="header-actions">
-        <button class="ghost-button" type="button">下載報告</button>
-        <button class="primary-button" type="button">建立新任務</button>
+      <div class="sidebar-bottom">
+        <button class="profile-button" type="button" aria-label="個人檔案">
+          <span class="profile-avatar">MT</span>
+        </button>
       </div>
-    </header>
+    </aside>
 
-    <section class="summary-grid">
-      <article class="summary-card">
-        <p class="card-label">進行中的專案</p>
-        <p class="card-value">6</p>
-        <p class="card-meta">本週新增 2 個</p>
-      </article>
-      <article class="summary-card">
-        <p class="card-label">待完成任務</p>
-        <p class="card-value">18</p>
-        <p class="card-meta">今日需完成 5 項</p>
-      </article>
-      <article class="summary-card">
-        <p class="card-label">即將到期</p>
-        <p class="card-value">3</p>
-        <p class="card-meta">48 小時內</p>
-      </article>
-      <article class="summary-card">
-        <p class="card-label">團隊協作</p>
-        <p class="card-value">12</p>
-        <p class="card-meta">進行中的交接</p>
-      </article>
-    </section>
-
-    <section class="content-grid">
-      <article class="panel">
-        <header class="panel-header">
-          <h2>今日時間線</h2>
-          <p>依時間快速檢視今日需要跟進的項目。</p>
-        </header>
-        <div class="timeline">
-          <div class="time-row">
-            <span class="time">09:30</span>
-            <div class="time-card">
-              <h3>專案 Kickoff 會議</h3>
-              <p>與設計、工程同步新版登入流程需求。</p>
-            </div>
-          </div>
-          <div class="time-row">
-            <span class="time">11:00</span>
-            <div class="time-card highlight">
-              <h3>客戶回覆整理</h3>
-              <p>彙整回饋，更新需求追蹤表。</p>
-            </div>
-          </div>
-          <div class="time-row">
-            <span class="time">14:00</span>
-            <div class="time-card">
-              <h3>進度檢視</h3>
-              <p>確認本週里程碑與交付節點。</p>
-            </div>
-          </div>
-          <div class="time-row">
-            <span class="time">16:30</span>
-            <div class="time-card">
-              <h3>內部討論</h3>
-              <p>討論首頁儀表板數據展示。</p>
-            </div>
-          </div>
+    <main class="home-content">
+      <header class="home-header">
+        <div>
+          <p class="eyebrow">工作面板</p>
+          <h1 class="headline">今日進度總覽</h1>
+          <p class="subhead">快速掌握正在推進的項目、待辦與今日跟進事項。</p>
         </div>
-      </article>
-
-      <article class="panel">
-        <header class="panel-header">
-          <h2>今日追蹤</h2>
-          <p>本日重點提醒，快速查看待辦狀態。</p>
-        </header>
-        <div class="progress-list">
-          <div class="progress-item">
-            <div>
-              <p class="progress-title">登入頁面 UI 完成度</p>
-              <p class="progress-meta">設計校正中</p>
-            </div>
-            <span class="progress-value">78%</span>
-          </div>
-          <div class="progress-bar">
-            <span style="width: 78%"></span>
-          </div>
-
-          <div class="progress-item">
-            <div>
-              <p class="progress-title">API 串接準備</p>
-              <p class="progress-meta">等候後端規格確認</p>
-            </div>
-            <span class="progress-value">52%</span>
-          </div>
-          <div class="progress-bar">
-            <span style="width: 52%"></span>
-          </div>
-
-          <div class="progress-item">
-            <div>
-              <p class="progress-title">測試腳本整理</p>
-              <p class="progress-meta">下班前完成</p>
-            </div>
-            <span class="progress-value">34%</span>
-          </div>
-          <div class="progress-bar">
-            <span style="width: 34%"></span>
-          </div>
+        <div class="header-actions">
+          <button class="ghost-button" type="button">下載報告</button>
+          <button class="primary-button" type="button">建立新任務</button>
         </div>
-      </article>
+      </header>
 
-      <article class="panel wide">
-        <header class="panel-header">
-          <h2>本週行事曆</h2>
-          <p>視覺化本週節奏，拖曳即可安排內容。</p>
-        </header>
-        <div class="calendar">
-          <div class="calendar-day active">
-            <span class="day-label">週一</span>
-            <span class="day-date">04</span>
-            <span class="day-chip">3 件待辦</span>
+      <section class="summary-grid">
+        <article class="summary-card">
+          <p class="card-label">進行中的專案</p>
+          <p class="card-value">6</p>
+          <p class="card-meta">本週新增 2 個</p>
+        </article>
+        <article class="summary-card">
+          <p class="card-label">待完成任務</p>
+          <p class="card-value">18</p>
+          <p class="card-meta">今日需完成 5 項</p>
+        </article>
+        <article class="summary-card">
+          <p class="card-label">即將到期</p>
+          <p class="card-value">3</p>
+          <p class="card-meta">48 小時內</p>
+        </article>
+        <article class="summary-card">
+          <p class="card-label">團隊協作</p>
+          <p class="card-value">12</p>
+          <p class="card-meta">進行中的交接</p>
+        </article>
+      </section>
+
+      <section class="content-grid">
+        <article class="panel">
+          <header class="panel-header">
+            <h2>今日時間線</h2>
+            <p>依時間快速檢視今日需要跟進的項目。</p>
+          </header>
+          <div class="timeline">
+            <div class="time-row">
+              <span class="time">09:30</span>
+              <div class="time-card">
+                <h3>專案 Kickoff 會議</h3>
+                <p>與設計、工程同步新版登入流程需求。</p>
+              </div>
+            </div>
+            <div class="time-row">
+              <span class="time">11:00</span>
+              <div class="time-card highlight">
+                <h3>客戶回覆整理</h3>
+                <p>彙整回饋，更新需求追蹤表。</p>
+              </div>
+            </div>
+            <div class="time-row">
+              <span class="time">14:00</span>
+              <div class="time-card">
+                <h3>進度檢視</h3>
+                <p>確認本週里程碑與交付節點。</p>
+              </div>
+            </div>
+            <div class="time-row">
+              <span class="time">16:30</span>
+              <div class="time-card">
+                <h3>內部討論</h3>
+                <p>討論首頁儀表板數據展示。</p>
+              </div>
+            </div>
           </div>
-          <div class="calendar-day">
-            <span class="day-label">週二</span>
-            <span class="day-date">05</span>
-            <span class="day-chip">2 會議</span>
+        </article>
+
+        <article class="panel">
+          <header class="panel-header">
+            <h2>今日追蹤</h2>
+            <p>本日重點提醒，快速查看待辦狀態。</p>
+          </header>
+          <div class="progress-list">
+            <div class="progress-item">
+              <div>
+                <p class="progress-title">登入頁面 UI 完成度</p>
+                <p class="progress-meta">設計校正中</p>
+              </div>
+              <span class="progress-value">78%</span>
+            </div>
+            <div class="progress-bar">
+              <span style="width: 78%"></span>
+            </div>
+
+            <div class="progress-item">
+              <div>
+                <p class="progress-title">API 串接準備</p>
+                <p class="progress-meta">等候後端規格確認</p>
+              </div>
+              <span class="progress-value">52%</span>
+            </div>
+            <div class="progress-bar">
+              <span style="width: 52%"></span>
+            </div>
+
+            <div class="progress-item">
+              <div>
+                <p class="progress-title">測試腳本整理</p>
+                <p class="progress-meta">下班前完成</p>
+              </div>
+              <span class="progress-value">34%</span>
+            </div>
+            <div class="progress-bar">
+              <span style="width: 34%"></span>
+            </div>
           </div>
-          <div class="calendar-day">
-            <span class="day-label">週三</span>
-            <span class="day-date">06</span>
-            <span class="day-chip">UI 審查</span>
+        </article>
+
+        <article class="panel wide">
+          <header class="panel-header">
+            <h2>本週行事曆</h2>
+            <p>視覺化本週節奏，拖曳即可安排內容。</p>
+          </header>
+          <div class="calendar">
+            <div class="calendar-day active">
+              <span class="day-label">週一</span>
+              <span class="day-date">04</span>
+              <span class="day-chip">3 件待辦</span>
+            </div>
+            <div class="calendar-day">
+              <span class="day-label">週二</span>
+              <span class="day-date">05</span>
+              <span class="day-chip">2 會議</span>
+            </div>
+            <div class="calendar-day">
+              <span class="day-label">週三</span>
+              <span class="day-date">06</span>
+              <span class="day-chip">UI 審查</span>
+            </div>
+            <div class="calendar-day">
+              <span class="day-label">週四</span>
+              <span class="day-date">07</span>
+              <span class="day-chip">回報進度</span>
+            </div>
+            <div class="calendar-day">
+              <span class="day-label">週五</span>
+              <span class="day-date">08</span>
+              <span class="day-chip">交付日</span>
+            </div>
+            <div class="calendar-day muted">
+              <span class="day-label">週六</span>
+              <span class="day-date">09</span>
+              <span class="day-chip">休息</span>
+            </div>
+            <div class="calendar-day muted">
+              <span class="day-label">週日</span>
+              <span class="day-date">10</span>
+              <span class="day-chip">整理</span>
+            </div>
           </div>
-          <div class="calendar-day">
-            <span class="day-label">週四</span>
-            <span class="day-date">07</span>
-            <span class="day-chip">回報進度</span>
-          </div>
-          <div class="calendar-day">
-            <span class="day-label">週五</span>
-            <span class="day-date">08</span>
-            <span class="day-chip">交付日</span>
-          </div>
-          <div class="calendar-day muted">
-            <span class="day-label">週六</span>
-            <span class="day-date">09</span>
-            <span class="day-chip">休息</span>
-          </div>
-          <div class="calendar-day muted">
-            <span class="day-label">週日</span>
-            <span class="day-date">10</span>
-            <span class="day-chip">整理</span>
-          </div>
-        </div>
-      </article>
-    </section>
+        </article>
+      </section>
+    </main>
   </div>
 </template>
 
 <style scoped>
 .home-page {
   min-height: 100vh;
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  background: #f6f7fb;
+  color: #0f172a;
+}
+
+.home-content {
   padding: 3.5rem 6vw 4.5rem;
   background: #f6f7fb;
   color: #0f172a;
   display: grid;
   gap: 2.5rem;
+}
+
+.sidebar {
+  background: #0f172a;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2rem 0 1.5rem;
+}
+
+.sidebar-top,
+.sidebar-bottom {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  align-items: center;
+}
+
+.sidebar-button {
+  border: none;
+  background: #2563eb;
+  color: #fff;
+  border-radius: 18px;
+  padding: 0.75rem 0.6rem;
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  font-weight: 600;
+  font-size: 0.7rem;
+  text-align: center;
+  line-height: 1.1;
+  cursor: pointer;
+  box-shadow: 0 14px 26px rgba(37, 99, 235, 0.4);
+}
+
+.sidebar-icon {
+  font-size: 1.4rem;
+  margin-bottom: 0.1rem;
+}
+
+.profile-button {
+  border: none;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.profile-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #f8fafc;
+  color: #0f172a;
+  font-weight: 600;
+  display: grid;
+  place-items: center;
+  font-size: 0.8rem;
 }
 
 .home-header {
@@ -414,6 +501,31 @@
 }
 
 @media (max-width: 960px) {
+  .home-page {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sidebar {
+    flex-direction: row;
+    justify-content: space-between;
+    padding: 1.2rem 6vw;
+  }
+
+  .sidebar-button {
+    width: auto;
+    height: auto;
+    padding: 0.8rem 1.2rem;
+  }
+
+  .sidebar-icon {
+    margin: 0 0.4rem 0 0;
+  }
+
+  .sidebar-button {
+    display: inline-flex;
+    gap: 0.4rem;
+  }
+
   .home-header {
     flex-direction: column;
     align-items: flex-start;
@@ -425,7 +537,7 @@
 }
 
 @media (max-width: 640px) {
-  .home-page {
+  .home-content {
     padding: 2.5rem 6vw 3.5rem;
   }
 
