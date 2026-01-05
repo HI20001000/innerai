@@ -135,9 +135,9 @@ const ensureTables = async (connection) => {
       vendor_name VARCHAR(255) NOT NULL,
       product_name VARCHAR(255) NOT NULL,
       tag_name VARCHAR(255) NOT NULL,
-      scheduled_at DATETIME NOT NULL,
-      location VARCHAR(255) NOT NULL,
-      follow_up TEXT NOT NULL,
+      scheduled_at DATETIME,
+      location VARCHAR(255),
+      follow_up TEXT,
       created_by_email VARCHAR(255) NOT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       INDEX idx_task_submissions_created_at (created_at)
@@ -175,6 +175,27 @@ const ensureTables = async (connection) => {
     )
   } catch (error) {
     if (error?.code !== 'ER_DUP_FIELDNAME') {
+      throw error
+    }
+  }
+  try {
+    await connection.query('ALTER TABLE task_submissions MODIFY scheduled_at DATETIME NULL')
+  } catch (error) {
+    if (error?.code !== 'ER_INVALID_USE_OF_NULL' && error?.code !== 'ER_BAD_FIELD_ERROR') {
+      throw error
+    }
+  }
+  try {
+    await connection.query('ALTER TABLE task_submissions MODIFY location VARCHAR(255) NULL')
+  } catch (error) {
+    if (error?.code !== 'ER_INVALID_USE_OF_NULL' && error?.code !== 'ER_BAD_FIELD_ERROR') {
+      throw error
+    }
+  }
+  try {
+    await connection.query('ALTER TABLE task_submissions MODIFY follow_up TEXT NULL')
+  } catch (error) {
+    if (error?.code !== 'ER_INVALID_USE_OF_NULL' && error?.code !== 'ER_BAD_FIELD_ERROR') {
       throw error
     }
   }
@@ -342,12 +363,9 @@ const handlePostTaskSubmission = async (req, res) => {
     !isNonEmptyString(client) ||
     !isNonEmptyString(vendor) ||
     !isNonEmptyString(product) ||
-    !isNonEmptyString(tag) ||
-    !isNonEmptyString(scheduledAt) ||
-    !isNonEmptyString(location) ||
-    !isNonEmptyString(followUp)
+    !isNonEmptyString(tag)
   ) {
-    sendJson(res, 400, { success: false, message: '所有欄位皆為必填' })
+    sendJson(res, 400, { success: false, message: '客戶、廠家、產品、標籤為必填' })
     return
   }
   if (
@@ -355,20 +373,20 @@ const handlePostTaskSubmission = async (req, res) => {
     vendor.length > 255 ||
     product.length > 255 ||
     tag.length > 255 ||
-    location.length > 255
+    (location && location.length > 255)
   ) {
     sendJson(res, 400, { success: false, message: '欄位長度超過限制' })
     return
   }
-  if (followUp.length > 2000) {
+  if (followUp && followUp.length > 2000) {
     sendJson(res, 400, { success: false, message: '需跟進內容長度過長' })
     return
   }
-  if (Number.isNaN(Date.parse(scheduledAt))) {
+  if (scheduledAt && Number.isNaN(Date.parse(scheduledAt))) {
     sendJson(res, 400, { success: false, message: '時間格式不正確' })
     return
   }
-  const normalizedScheduledAt = normalizeScheduledAt(scheduledAt)
+  const normalizedScheduledAt = scheduledAt ? normalizeScheduledAt(scheduledAt) : null
   const user = await getRequiredAuthUser(req, res)
   if (!user) {
     return
@@ -387,8 +405,8 @@ const handlePostTaskSubmission = async (req, res) => {
         product.trim(),
         tag.trim(),
         normalizedScheduledAt,
-        location.trim(),
-        followUp.trim(),
+        location ? location.trim() : null,
+        followUp ? followUp.trim() : null,
         user.mail,
       ]
     )
@@ -450,12 +468,9 @@ const handleUpdateTaskSubmission = async (req, res, id) => {
     !isNonEmptyString(client) ||
     !isNonEmptyString(vendor) ||
     !isNonEmptyString(product) ||
-    !isNonEmptyString(tag) ||
-    !isNonEmptyString(scheduledAt) ||
-    !isNonEmptyString(location) ||
-    !isNonEmptyString(followUp)
+    !isNonEmptyString(tag)
   ) {
-    sendJson(res, 400, { success: false, message: '所有欄位皆為必填' })
+    sendJson(res, 400, { success: false, message: '客戶、廠家、產品、標籤為必填' })
     return
   }
   if (
@@ -463,20 +478,20 @@ const handleUpdateTaskSubmission = async (req, res, id) => {
     vendor.length > 255 ||
     product.length > 255 ||
     tag.length > 255 ||
-    location.length > 255
+    (location && location.length > 255)
   ) {
     sendJson(res, 400, { success: false, message: '欄位長度超過限制' })
     return
   }
-  if (followUp.length > 2000) {
+  if (followUp && followUp.length > 2000) {
     sendJson(res, 400, { success: false, message: '需跟進內容長度過長' })
     return
   }
-  if (Number.isNaN(Date.parse(scheduledAt))) {
+  if (scheduledAt && Number.isNaN(Date.parse(scheduledAt))) {
     sendJson(res, 400, { success: false, message: '時間格式不正確' })
     return
   }
-  const normalizedScheduledAt = normalizeScheduledAt(scheduledAt)
+  const normalizedScheduledAt = scheduledAt ? normalizeScheduledAt(scheduledAt) : null
   try {
     const connection = await getConnection()
     const [result] = await connection.query(
@@ -490,8 +505,8 @@ const handleUpdateTaskSubmission = async (req, res, id) => {
         product.trim(),
         tag.trim(),
         normalizedScheduledAt,
-        location.trim(),
-        followUp.trim(),
+        location ? location.trim() : null,
+        followUp ? followUp.trim() : null,
         id,
       ]
     )

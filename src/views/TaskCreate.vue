@@ -74,6 +74,10 @@ const fetchOptions = async (type) => {
   if (type === 'tag') tags.value = data
 }
 
+const loadAllOptions = async () => {
+  await Promise.all(['client', 'vendor', 'product', 'tag'].map((type) => fetchOptions(type)))
+}
+
 const openList = async (type) => {
   if (activeList.value === type) {
     activeList.value = null
@@ -86,6 +90,41 @@ const openList = async (type) => {
   } catch (error) {
     console.error(error)
   }
+}
+
+const optionExists = (type, value) => {
+  if (!value) return false
+  const source =
+    type === 'client'
+      ? clients.value
+      : type === 'vendor'
+        ? vendors.value
+        : type === 'product'
+          ? products.value
+          : tags.value
+  return source.includes(value)
+}
+
+const optionStatus = (type, value) => {
+  if (!value) return ''
+  return optionExists(type, value) ? '已存在' : '不存在，提交後將自動建立'
+}
+
+const ensureOptionExists = async (type, value) => {
+  if (!value || optionExists(type, value)) return
+  const response = await fetch(`${apiBaseUrl}/api/options/${type}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: value }),
+  })
+  if (!response.ok) {
+    throw new Error('Failed to add option')
+  }
+  const created = await response.json()
+  if (type === 'client') clients.value.unshift(created.name)
+  if (type === 'vendor') vendors.value.unshift(created.name)
+  if (type === 'product') products.value.unshift(created.name)
+  if (type === 'tag') tags.value.unshift(created.name)
 }
 
 const getFilteredOptions = (type) => {
@@ -250,6 +289,11 @@ const submitTask = async () => {
       return
     }
     isSubmitting.value = true
+    await loadAllOptions().catch(() => {})
+    await ensureOptionExists('client', selectedClient.value)
+    await ensureOptionExists('vendor', selectedVendor.value)
+    await ensureOptionExists('product', selectedProduct.value)
+    await ensureOptionExists('tag', selectedTag.value)
     const response = await fetch(`${apiBaseUrl}/api/task-submissions`, {
       method: 'POST',
       headers: {
@@ -308,6 +352,7 @@ const loadDraft = () => {
 
 onMounted(() => {
   loadDraft()
+  loadAllOptions().catch((error) => console.error(error))
 })
 </script>
 
@@ -345,6 +390,9 @@ onMounted(() => {
             <button class="select-field" type="button" @click="openList('client')">
               {{ selectedClient || '選擇客戶' }}
             </button>
+            <p v-if="selectedClient" class="option-status">
+              {{ optionStatus('client', selectedClient) }}
+            </p>
             <div v-if="activeList === 'client'" class="option-list">
               <input
                 v-model="searchQuery.client"
@@ -371,6 +419,9 @@ onMounted(() => {
             <button class="select-field" type="button" @click="openList('vendor')">
               {{ selectedVendor || '選擇廠家' }}
             </button>
+            <p v-if="selectedVendor" class="option-status">
+              {{ optionStatus('vendor', selectedVendor) }}
+            </p>
             <div v-if="activeList === 'vendor'" class="option-list">
               <input
                 v-model="searchQuery.vendor"
@@ -397,6 +448,9 @@ onMounted(() => {
             <button class="select-field" type="button" @click="openList('product')">
               {{ selectedProduct || '選擇產品' }}
             </button>
+            <p v-if="selectedProduct" class="option-status">
+              {{ optionStatus('product', selectedProduct) }}
+            </p>
             <div v-if="activeList === 'product'" class="option-list">
               <input
                 v-model="searchQuery.product"
@@ -423,6 +477,9 @@ onMounted(() => {
             <button class="select-field" type="button" @click="openList('tag')">
               {{ selectedTag || '選擇標籤' }}
             </button>
+            <p v-if="selectedTag" class="option-status">
+              {{ optionStatus('tag', selectedTag) }}
+            </p>
             <div v-if="activeList === 'tag'" class="option-list">
               <input
                 v-model="searchQuery.tag"
@@ -710,6 +767,12 @@ onMounted(() => {
   padding: 0.45rem 0.6rem;
   font-size: 0.85rem;
   background: #fff;
+}
+
+.option-status {
+  margin: 0.35rem 0 0;
+  font-size: 0.8rem;
+  color: #64748b;
 }
 
 .option-item {

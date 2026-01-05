@@ -136,13 +136,10 @@ const saveEdit = async (id) => {
     !editForm.value.client?.trim() ||
     !editForm.value.vendor?.trim() ||
     !editForm.value.product?.trim() ||
-    !editForm.value.tag?.trim() ||
-    !editForm.value.scheduled_at?.trim() ||
-    !editForm.value.location?.trim() ||
-    !editForm.value.follow_up?.trim()
+    !editForm.value.tag?.trim()
   ) {
     resultTitle.value = '更新失敗'
-    resultMessage.value = '請完整填寫所有欄位再更新。'
+    resultMessage.value = '請完整填寫客戶、廠家、產品、標籤。'
     showResult.value = true
     return
   }
