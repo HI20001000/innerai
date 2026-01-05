@@ -142,7 +142,7 @@ onUnmounted(() => {
 
 .sidebar-button {
   border: none;
-  background: #2563eb;
+  background: rgb(75, 75, 75);
   color: #fff;
   border-radius: 18px;
   padding: 0.75rem 0.6rem;
@@ -155,12 +155,12 @@ onUnmounted(() => {
   text-align: center;
   line-height: 1.1;
   cursor: pointer;
-  box-shadow: 0 14px 26px rgba(37, 99, 235, 0.4);
+  box-shadow: 0 14px 26px rgba(147, 147, 147, 0.4);
 }
 
 .sidebar-button.active {
-  background: #1d4ed8;
-  box-shadow: 0 16px 28px rgba(29, 78, 216, 0.5);
+  background: rgb(151, 151, 151);
+  box-shadow: 0 16px 28px rgba(215, 215, 215, 0.5);
 }
 
 .sidebar-glyph {
@@ -194,7 +194,7 @@ onUnmounted(() => {
 }
 
 .profile-button.active {
-  background: #38bdf8;
+  background: rgba(203, 203, 203, 0.6);
 }
 
 .profile-button.active .profile-avatar {
