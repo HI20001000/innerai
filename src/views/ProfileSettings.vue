@@ -1,6 +1,13 @@
 <template>
   <div class="settings-page">
-    <WorkspaceSidebar :on-create-task="goToNewTask" :on-go-home="goToHome" :on-go-profile="goToProfile" />
+    <WorkspaceSidebar
+      :on-create-task="goToNewTask"
+      :on-view-tasks="goToTaskList"
+      :on-upload-meeting="goToMeetingUpload"
+      :on-go-home="goToHome"
+      :on-go-profile="goToProfile"
+      :active-path="activePath"
+    />
     <header class="settings-header">
       <div>
         <p class="eyebrow">使用者設定</p>
@@ -101,11 +108,12 @@
 </template>
 
 <script setup>
-import { getCurrentInstance, nextTick, onMounted, ref } from 'vue'
+import { computed, getCurrentInstance, nextTick, onMounted, ref } from 'vue'
 import WorkspaceSidebar from '../components/WorkspaceSidebar.vue'
 
 const apiBaseUrl = 'http://localhost:3001'
 const router = getCurrentInstance().appContext.config.globalProperties.$router
+const activePath = computed(() => router?.currentRoute?.value?.path || '')
 
 const iconOptions = [
   '🙂',
@@ -146,6 +154,8 @@ const userEmail = ref('')
 
 const goToHome = () => router?.push('/home')
 const goToNewTask = () => router?.push('/tasks/new')
+const goToTaskList = () => router?.push('/tasks/view')
+const goToMeetingUpload = () => router?.push('/meetings/upload')
 const goToProfile = () => router?.push('/settings')
 
 const handleLogout = () => {
@@ -239,6 +249,7 @@ const saveProfile = async () => {
         role: localRole.value,
       })
     )
+    window.dispatchEvent(new Event('innerai_user_updated'))
     message.value = '已更新'
     currentPassword.value = ''
     newPassword.value = ''
