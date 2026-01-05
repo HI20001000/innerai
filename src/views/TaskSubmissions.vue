@@ -2,6 +2,7 @@
 import { computed, getCurrentInstance, onMounted, ref } from 'vue'
 import WorkspaceSidebar from '../components/WorkspaceSidebar.vue'
 import ResultModal from '../components/ResultModal.vue'
+import RelatedUsersTooltip from '../components/RelatedUsersTooltip.vue'
 
 const router = getCurrentInstance().appContext.config.globalProperties.$router
 const apiBaseUrl = 'http://localhost:3001'
@@ -79,6 +80,8 @@ const formatDateTimeInput = (value) => {
   }
   return new Date(value).toISOString().slice(0, 16)
 }
+
+const getRelatedUsers = (item) => item.related_users || []
 
 const fetchSubmissions = async () => {
   const auth = readAuthStorage()
@@ -256,6 +259,7 @@ onMounted(fetchSubmissions)
               <th>需跟進內容</th>
               <th>建立者</th>
               <th>建立時間</th>
+              <th>關聯用戶</th>
               <th>操作</th>
             </tr>
           </thead>
@@ -305,6 +309,9 @@ onMounted(fetchSubmissions)
               </td>
               <td>{{ item.created_by_email }}</td>
               <td>{{ formatDateTimeDisplay(item.created_at) }}</td>
+              <td>
+                <RelatedUsersTooltip :users="getRelatedUsers(item)" />
+              </td>
               <td class="action-cell">
                 <template v-if="editingId === item.id">
                   <button class="ghost-button" type="button" @click="cancelEdit">取消</button>

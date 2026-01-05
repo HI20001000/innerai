@@ -472,12 +472,44 @@ const handleGetTaskSubmissions = async (req, res) => {
   try {
     const connection = await getConnection()
     const [rows] = await connection.query(
-      `SELECT id, client_name, vendor_name, product_name, tag_name, scheduled_at,
-        location, follow_up, created_by_email, created_at
+      `SELECT task_submissions.id, task_submissions.client_name, task_submissions.vendor_name,
+        task_submissions.product_name, task_submissions.tag_name, task_submissions.scheduled_at,
+        task_submissions.location, task_submissions.follow_up, task_submissions.created_by_email,
+        task_submissions.created_at,
+        users.mail as related_mail, users.icon as related_icon, users.icon_bg as related_icon_bg,
+        users.username as related_username
        FROM task_submissions
-       ORDER BY created_at DESC`
+       LEFT JOIN task_submission_users ON task_submission_users.submission_id = task_submissions.id
+       LEFT JOIN users ON users.mail = task_submission_users.user_mail
+       ORDER BY task_submissions.created_at DESC`
     )
-    sendJson(res, 200, { success: true, data: rows })
+    const grouped = new Map()
+    for (const row of rows) {
+      if (!grouped.has(row.id)) {
+        grouped.set(row.id, {
+          id: row.id,
+          client_name: row.client_name,
+          vendor_name: row.vendor_name,
+          product_name: row.product_name,
+          tag_name: row.tag_name,
+          scheduled_at: row.scheduled_at,
+          location: row.location,
+          follow_up: row.follow_up,
+          created_by_email: row.created_by_email,
+          created_at: row.created_at,
+          related_users: [],
+        })
+      }
+      if (row.related_mail) {
+        grouped.get(row.id).related_users.push({
+          mail: row.related_mail,
+          icon: row.related_icon,
+          icon_bg: row.related_icon_bg,
+          username: row.related_username,
+        })
+      }
+    }
+    sendJson(res, 200, { success: true, data: Array.from(grouped.values()) })
   } catch (error) {
     console.error(error)
     sendJson(res, 500, { success: false, message: '無法讀取任務資料' })
