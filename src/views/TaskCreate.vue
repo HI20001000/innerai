@@ -1,6 +1,8 @@
 <script setup>
-import { getCurrentInstance, onMounted, ref } from 'vue'
+import { computed, getCurrentInstance, onMounted, reactive, ref } from 'vue'
 import WorkspaceSidebar from '../components/WorkspaceSidebar.vue'
+import ResultModal from '../components/ResultModal.vue'
+import DifyAutoFillPanel from '../components/DifyAutoFillPanel.vue'
 
 const clients = ref([])
 const vendors = ref([])
@@ -15,16 +17,33 @@ const activeList = ref(null)
 const selectedTime = ref('')
 const selectedLocation = ref('')
 const followUpContent = ref('')
+const searchQuery = reactive({
+  client: '',
+  vendor: '',
+  product: '',
+  tag: '',
+})
 
 const activeModal = ref(null)
 const newOption = ref('')
+const optionMessage = ref('')
+const optionMessageType = ref('')
 const draftKey = 'innerai_task_draft'
 const showDraftSaved = ref(false)
+const showResult = ref(false)
+const resultTitle = ref('')
+const resultMessage = ref('')
+const isSubmitting = ref(false)
 const apiBaseUrl = 'http://localhost:3001'
 const router = getCurrentInstance().appContext.config.globalProperties.$router
+const activePath = computed(() => router?.currentRoute?.value?.path || '')
 
 const goToNewTask = () => {
   router?.push('/tasks/new')
+}
+
+const goToTaskList = () => {
+  router?.push('/tasks/view')
 }
 
 const goToHome = () => {
@@ -38,6 +57,8 @@ const goToProfile = () => {
 const openModal = (type) => {
   activeModal.value = type
   newOption.value = ''
+  optionMessage.value = ''
+  optionMessageType.value = ''
   fetchOptions(type).catch((error) => console.error(error))
 }
 
@@ -59,11 +80,26 @@ const openList = async (type) => {
     return
   }
   activeList.value = type
+  searchQuery[type] = ''
   try {
     await fetchOptions(type)
   } catch (error) {
     console.error(error)
   }
+}
+
+const getFilteredOptions = (type) => {
+  const query = searchQuery[type]?.trim().toLowerCase() ?? ''
+  const source =
+    type === 'client'
+      ? clients.value
+      : type === 'vendor'
+        ? vendors.value
+        : type === 'product'
+          ? products.value
+          : tags.value
+  if (!query) return source
+  return source.filter((item) => item.toLowerCase().includes(query))
 }
 
 const selectOption = (type, item) => {
@@ -85,6 +121,8 @@ const selectOption = (type, item) => {
 const closeModal = () => {
   activeModal.value = null
   newOption.value = ''
+  optionMessage.value = ''
+  optionMessageType.value = ''
 }
 
 const addOption = async () => {
@@ -116,9 +154,13 @@ const addOption = async () => {
       tags.value.unshift(created.name)
       selectedTag.value = created.name
     }
-    closeModal()
+    optionMessage.value = `"${created.name}" 新增成功`
+    optionMessageType.value = 'success'
+    newOption.value = ''
   } catch (error) {
     console.error(error)
+    optionMessage.value = '新增失敗'
+    optionMessageType.value = 'error'
   }
 }
 
@@ -168,7 +210,28 @@ const saveDraft = () => {
   showDraftSaved.value = true
 }
 
+const readAuthStorage = () => {
+  const raw = window.localStorage.getItem('innerai_auth')
+  if (!raw) return null
+  try {
+    const data = JSON.parse(raw)
+    if (!data?.token || !data?.expiresAt) return null
+    return data
+  } catch {
+    return null
+  }
+}
+
+const parseJsonSafe = async (response) => {
+  try {
+    return await response.json()
+  } catch {
+    return {}
+  }
+}
+
 const submitTask = async () => {
+  if (isSubmitting.value) return
   const payload = {
     client: selectedClient.value,
     vendor: selectedVendor.value,
@@ -179,15 +242,51 @@ const submitTask = async () => {
     follow_up: followUpContent.value,
   }
   try {
-    await fetch(`${apiBaseUrl}/api/tasks`, {
+    const auth = readAuthStorage()
+    if (!auth) {
+      resultTitle.value = '建立失敗'
+      resultMessage.value = '請先登入再建立任務。'
+      showResult.value = true
+      return
+    }
+    isSubmitting.value = true
+    const response = await fetch(`${apiBaseUrl}/api/task-submissions`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${auth.token}`,
+      },
       body: JSON.stringify(payload),
     })
+    const data = await parseJsonSafe(response)
+    if (!response.ok || !data?.success) {
+      resultTitle.value = '建立失敗'
+      resultMessage.value = data?.message || '任務建立失敗'
+      showResult.value = true
+      return
+    }
+    resultTitle.value = '建立成功'
+    resultMessage.value = data?.message || '任務建立成功'
+    showResult.value = true
+    window.localStorage.removeItem(draftKey)
   } catch (error) {
     console.error(error)
+    resultTitle.value = '建立失敗'
+    resultMessage.value = '任務建立失敗，請稍後再試。'
+    showResult.value = true
+  } finally {
+    isSubmitting.value = false
   }
-  window.localStorage.removeItem(draftKey)
+}
+
+const applyAutoFill = (payload) => {
+  if (typeof payload !== 'object' || !payload) return
+  if (payload.client) selectedClient.value = payload.client
+  if (payload.vendor) selectedVendor.value = payload.vendor
+  if (payload.product) selectedProduct.value = payload.product
+  if (payload.tag) selectedTag.value = payload.tag
+  if (payload.scheduled_at) selectedTime.value = payload.scheduled_at
+  if (payload.follow_up) followUpContent.value = payload.follow_up
 }
 
 const loadDraft = () => {
@@ -214,7 +313,13 @@ onMounted(() => {
 
 <template>
   <div class="task-page">
-    <WorkspaceSidebar :on-create-task="goToNewTask" :on-go-home="goToHome" :on-go-profile="goToProfile" />
+    <WorkspaceSidebar
+      :on-create-task="goToNewTask"
+      :on-view-tasks="goToTaskList"
+      :on-go-home="goToHome"
+      :on-go-profile="goToProfile"
+      :active-path="activePath"
+    />
     <header class="task-header">
       <div>
         <p class="eyebrow">新增任務</p>
@@ -223,7 +328,9 @@ onMounted(() => {
       </div>
       <div class="header-actions">
         <button class="ghost-button" type="button" @click="saveDraft">儲存草稿</button>
-        <button class="primary-button" type="button">建立任務</button>
+        <button class="primary-button" type="button" :disabled="isSubmitting" @click="submitTask">
+          {{ isSubmitting ? '建立中...' : '建立任務' }}
+        </button>
       </div>
     </header>
 
@@ -239,8 +346,14 @@ onMounted(() => {
               {{ selectedClient || '選擇客戶' }}
             </button>
             <div v-if="activeList === 'client'" class="option-list">
+              <input
+                v-model="searchQuery.client"
+                class="option-search"
+                type="text"
+                placeholder="搜尋客戶"
+              />
               <button
-                v-for="item in clients"
+                v-for="item in getFilteredOptions('client')"
                 :key="item"
                 type="button"
                 class="option-item"
@@ -259,8 +372,14 @@ onMounted(() => {
               {{ selectedVendor || '選擇廠家' }}
             </button>
             <div v-if="activeList === 'vendor'" class="option-list">
+              <input
+                v-model="searchQuery.vendor"
+                class="option-search"
+                type="text"
+                placeholder="搜尋廠家"
+              />
               <button
-                v-for="item in vendors"
+                v-for="item in getFilteredOptions('vendor')"
                 :key="item"
                 type="button"
                 class="option-item"
@@ -279,8 +398,14 @@ onMounted(() => {
               {{ selectedProduct || '選擇產品' }}
             </button>
             <div v-if="activeList === 'product'" class="option-list">
+              <input
+                v-model="searchQuery.product"
+                class="option-search"
+                type="text"
+                placeholder="搜尋產品"
+              />
               <button
-                v-for="item in products"
+                v-for="item in getFilteredOptions('product')"
                 :key="item"
                 type="button"
                 class="option-item"
@@ -299,8 +424,14 @@ onMounted(() => {
               {{ selectedTag || '選擇標籤' }}
             </button>
             <div v-if="activeList === 'tag'" class="option-list">
+              <input
+                v-model="searchQuery.tag"
+                class="option-search"
+                type="text"
+                placeholder="搜尋標籤"
+              />
               <button
-                v-for="item in tags"
+                v-for="item in getFilteredOptions('tag')"
                 :key="item"
                 type="button"
                 class="option-item"
@@ -328,10 +459,6 @@ onMounted(() => {
           </label>
         </div>
 
-        <div class="form-actions">
-          <button class="ghost-button" type="button">取消</button>
-          <button class="primary-button" type="submit">送出任務</button>
-        </div>
       </form>
 
       <aside class="task-summary">
@@ -343,15 +470,7 @@ onMounted(() => {
             <li>跟進內容建議拆分為具體事項。</li>
           </ul>
         </div>
-        <div class="summary-card">
-          <h2>今日焦點</h2>
-          <p>3 個任務待建立</p>
-          <div class="focus-list">
-            <span>客戶簡報</span>
-            <span>樣品追蹤</span>
-            <span>合約回覆</span>
-          </div>
-        </div>
+        <DifyAutoFillPanel :on-fill="applyAutoFill" />
       </aside>
     </section>
 
@@ -396,6 +515,9 @@ onMounted(() => {
           <button class="ghost-button" type="button" @click="closeModal">取消</button>
           <button class="primary-button" type="button" @click="addOption">新增</button>
         </div>
+        <p v-if="optionMessage" :class="['modal-message', optionMessageType]">
+          {{ optionMessage }}
+        </p>
       </div>
     </div>
 
@@ -408,6 +530,13 @@ onMounted(() => {
         </div>
       </div>
     </div>
+
+    <ResultModal
+      :is-open="showResult"
+      :title="resultTitle"
+      :message="resultMessage"
+      @close="showResult = false"
+    />
   </div>
 </template>
 
@@ -471,6 +600,11 @@ onMounted(() => {
   border-radius: 999px;
   font-weight: 600;
   cursor: pointer;
+}
+
+.primary-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .task-layout {
@@ -570,6 +704,14 @@ onMounted(() => {
   box-shadow: 0 18px 30px rgba(15, 23, 42, 0.12);
 }
 
+.option-search {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.45rem 0.6rem;
+  font-size: 0.85rem;
+  background: #fff;
+}
+
 .option-item {
   border: none;
   background: transparent;
@@ -591,12 +733,6 @@ onMounted(() => {
 
 .field.wide {
   grid-column: 1 / -1;
-}
-
-.form-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 1rem;
 }
 
 .task-summary {
@@ -715,6 +851,20 @@ onMounted(() => {
   display: flex;
   justify-content: flex-end;
   gap: 1rem;
+}
+
+.modal-message {
+  margin: 0;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.modal-message.success {
+  color: #16a34a;
+}
+
+.modal-message.error {
+  color: #dc2626;
 }
 
 @media (max-width: 1024px) {
