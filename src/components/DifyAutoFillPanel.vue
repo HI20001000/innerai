@@ -1,8 +1,10 @@
 <script setup>
 import { ref } from 'vue'
 const loadMammoth = async () => {
-  const module = await import('mammoth')
-  return module
+  return await import(
+    /* @vite-ignore */
+    'https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js'
+  )
 }
 
 const props = defineProps({
