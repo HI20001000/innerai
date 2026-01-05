@@ -1,6 +1,9 @@
 <script setup>
 import { ref } from 'vue'
-import * as mammoth from 'mammoth/mammoth.browser'
+const loadMammoth = async () => {
+  const module = await import('mammoth')
+  return module
+}
 
 const props = defineProps({
   onFill: {
@@ -43,6 +46,7 @@ const readFileContent = async (file) => {
   }
   if (name.endsWith('.docx')) {
     const buffer = await file.arrayBuffer()
+    const mammoth = await loadMammoth()
     const result = await mammoth.extractRawText({ arrayBuffer: buffer })
     return result.value || ''
   }
