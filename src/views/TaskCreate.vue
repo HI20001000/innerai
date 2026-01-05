@@ -188,6 +188,9 @@ const selectOption = (type, item) => {
   if (type === 'tag') {
     selectedTag.value = item
   }
+  if (type === 'user') {
+    selectedRelatedUser.value = item
+  }
   activeList.value = null
 }
 
