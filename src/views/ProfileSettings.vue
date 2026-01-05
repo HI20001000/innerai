@@ -1,6 +1,11 @@
 <template>
   <div class="settings-page">
-    <WorkspaceSidebar :on-create-task="goToNewTask" :on-go-home="goToHome" :on-go-profile="goToProfile" />
+    <WorkspaceSidebar
+      :on-create-task="goToNewTask"
+      :on-view-tasks="goToTaskList"
+      :on-go-home="goToHome"
+      :on-go-profile="goToProfile"
+    />
     <header class="settings-header">
       <div>
         <p class="eyebrow">使用者設定</p>
@@ -146,6 +151,7 @@ const userEmail = ref('')
 
 const goToHome = () => router?.push('/home')
 const goToNewTask = () => router?.push('/tasks/new')
+const goToTaskList = () => router?.push('/tasks/view')
 const goToProfile = () => router?.push('/settings')
 
 const handleLogout = () => {
