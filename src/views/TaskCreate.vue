@@ -19,6 +19,8 @@ const followUpContent = ref('')
 
 const activeModal = ref(null)
 const newOption = ref('')
+const optionMessage = ref('')
+const optionMessageType = ref('')
 const draftKey = 'innerai_task_draft'
 const showDraftSaved = ref(false)
 const showResult = ref(false)
@@ -48,6 +50,8 @@ const goToProfile = () => {
 const openModal = (type) => {
   activeModal.value = type
   newOption.value = ''
+  optionMessage.value = ''
+  optionMessageType.value = ''
   fetchOptions(type).catch((error) => console.error(error))
 }
 
@@ -95,6 +99,8 @@ const selectOption = (type, item) => {
 const closeModal = () => {
   activeModal.value = null
   newOption.value = ''
+  optionMessage.value = ''
+  optionMessageType.value = ''
 }
 
 const addOption = async () => {
@@ -126,9 +132,13 @@ const addOption = async () => {
       tags.value.unshift(created.name)
       selectedTag.value = created.name
     }
-    closeModal()
+    optionMessage.value = `"${created.name}" 新增成功`
+    optionMessageType.value = 'success'
+    newOption.value = ''
   } catch (error) {
     console.error(error)
+    optionMessage.value = '新增失敗'
+    optionMessageType.value = 'error'
   }
 }
 
@@ -457,6 +467,9 @@ onMounted(() => {
           <button class="ghost-button" type="button" @click="closeModal">取消</button>
           <button class="primary-button" type="button" @click="addOption">新增</button>
         </div>
+        <p v-if="optionMessage" :class="['modal-message', optionMessageType]">
+          {{ optionMessage }}
+        </p>
       </div>
     </div>
 
@@ -782,6 +795,20 @@ onMounted(() => {
   display: flex;
   justify-content: flex-end;
   gap: 1rem;
+}
+
+.modal-message {
+  margin: 0;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.modal-message.success {
+  color: #16a34a;
+}
+
+.modal-message.error {
+  color: #dc2626;
 }
 
 @media (max-width: 1024px) {
