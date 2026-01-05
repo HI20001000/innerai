@@ -13,7 +13,7 @@ const selectedClient = ref('')
 const selectedVendor = ref('')
 const selectedProduct = ref('')
 const selectedTag = ref('')
-const selectedRelatedUser = ref(null)
+const selectedRelatedUsers = ref([])
 const activeList = ref(null)
 const selectedTime = ref('')
 const selectedLocation = ref('')
@@ -194,6 +194,19 @@ const selectOption = (type, item) => {
   activeList.value = null
 }
 
+const isRelatedUserSelected = (item) =>
+  selectedRelatedUsers.value.some((user) => user.mail === item.mail)
+
+const toggleRelatedUser = (item) => {
+  if (isRelatedUserSelected(item)) {
+    selectedRelatedUsers.value = selectedRelatedUsers.value.filter(
+      (user) => user.mail !== item.mail
+    )
+    return
+  }
+  selectedRelatedUsers.value = [...selectedRelatedUsers.value, item]
+}
+
 const closeModal = () => {
   activeModal.value = null
   newOption.value = ''
@@ -278,7 +291,7 @@ const saveDraft = () => {
     selectedVendor: selectedVendor.value,
     selectedProduct: selectedProduct.value,
     selectedTag: selectedTag.value,
-    selectedRelatedUser: selectedRelatedUser.value,
+    selectedRelatedUsers: selectedRelatedUsers.value,
     selectedTime: selectedTime.value,
     selectedLocation: selectedLocation.value,
     followUpContent: followUpContent.value,
@@ -314,7 +327,7 @@ const submitTask = async () => {
     vendor: selectedVendor.value,
     product: selectedProduct.value,
     tag: selectedTag.value,
-    related_user_mail: selectedRelatedUser.value?.mail || '',
+    related_user_mail: selectedRelatedUsers.value.map((user) => user.mail),
     scheduled_at: selectedTime.value,
     location: selectedLocation.value,
     follow_up: followUpContent.value,
@@ -324,7 +337,7 @@ const submitTask = async () => {
     !selectedVendor.value ||
     !selectedProduct.value ||
     !selectedTag.value ||
-    !selectedRelatedUser.value
+    selectedRelatedUsers.value.length === 0
   ) {
     showRequiredHints.value = true
     return
@@ -392,7 +405,7 @@ const loadDraft = () => {
     selectedVendor.value = payload.selectedVendor ?? ''
     selectedProduct.value = payload.selectedProduct ?? ''
     selectedTag.value = payload.selectedTag ?? ''
-    selectedRelatedUser.value = payload.selectedRelatedUser ?? null
+    selectedRelatedUsers.value = payload.selectedRelatedUsers ?? []
     selectedTime.value = payload.selectedTime ?? ''
     selectedLocation.value = payload.selectedLocation ?? ''
     followUpContent.value = payload.followUpContent ?? ''
@@ -560,12 +573,16 @@ onMounted(() => {
             </div>
             <button class="select-field" type="button" @click="openList('user')">
               {{
-                selectedRelatedUser
-                  ? `${selectedRelatedUser.username || ''}<${selectedRelatedUser.mail}>`
+                selectedRelatedUsers.length > 0
+                  ? selectedRelatedUsers
+                      .map((user) => `${user.username || ''} <${user.mail}>`)
+                      .join(', ')
                   : '選擇關聯用戶'
               }}
             </button>
-            <p v-if="showRequiredHints && !selectedRelatedUser" class="required-hint">必填</p>
+            <p v-if="showRequiredHints && selectedRelatedUsers.length === 0" class="required-hint">
+              必填
+            </p>
             <div v-if="activeList === 'user'" class="option-list">
               <input
                 v-model="searchQuery.user"
@@ -578,7 +595,7 @@ onMounted(() => {
                 :key="item.mail"
                 type="button"
                 class="option-item user-option"
-                @click="selectedRelatedUser = item; activeList = null"
+                @click="toggleRelatedUser(item)"
               >
                 <span
                   class="user-avatar"
@@ -587,8 +604,9 @@ onMounted(() => {
                   {{ item.icon || '🙂' }}
                 </span>
                 <span class="user-label">
-                  {{ item.username || 'user' }}&lt;{{ item.mail }}&gt;
+                  {{ item.username || 'user' }} &lt;{{ item.mail }}&gt;
                 </span>
+                <span v-if="isRelatedUserSelected(item)" class="user-selected">已選</span>
               </button>
             </div>
           </div>
@@ -918,6 +936,13 @@ onMounted(() => {
 .user-label {
   font-size: 0.85rem;
   color: #1f2937;
+}
+
+.user-selected {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: #16a34a;
+  font-weight: 600;
 }
 
 .field textarea {

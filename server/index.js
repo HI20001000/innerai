@@ -372,10 +372,16 @@ const handlePostTaskSubmission = async (req, res) => {
     !isNonEmptyString(client) ||
     !isNonEmptyString(vendor) ||
     !isNonEmptyString(product) ||
-    !isNonEmptyString(tag) ||
-    !isNonEmptyString(relatedUserMail)
+    !isNonEmptyString(tag)
   ) {
     sendJson(res, 400, { success: false, message: '客戶、廠家、產品、標籤、關聯用戶為必填' })
+    return
+  }
+  const relatedUserMails = Array.isArray(relatedUserMail)
+    ? relatedUserMail.map((mail) => String(mail).trim()).filter(Boolean)
+    : []
+  if (relatedUserMails.length === 0) {
+    sendJson(res, 400, { success: false, message: '關聯用戶為必填' })
     return
   }
   if (
@@ -405,10 +411,18 @@ const handlePostTaskSubmission = async (req, res) => {
   try {
     connection = await getConnection()
     await connection.beginTransaction()
-    const [users] = await connection.query('SELECT mail FROM users WHERE mail = ? LIMIT 1', [
-      relatedUserMail.trim(),
+    const relatedUserMails = Array.isArray(relatedUserMail)
+      ? relatedUserMail.map((mail) => String(mail).trim()).filter(Boolean)
+      : []
+    if (relatedUserMails.length === 0) {
+      await connection.rollback()
+      sendJson(res, 400, { success: false, message: '關聯用戶為必填' })
+      return
+    }
+    const [users] = await connection.query('SELECT mail FROM users WHERE mail IN (?)', [
+      relatedUserMails,
     ])
-    if (!users[0]) {
+    if (users.length !== relatedUserMails.length) {
       await connection.rollback()
       sendJson(res, 400, { success: false, message: '關聯用戶不存在' })
       return
@@ -428,9 +442,10 @@ const handlePostTaskSubmission = async (req, res) => {
         user.mail,
       ]
     )
+    const relationValues = relatedUserMails.map((mail) => [result.insertId, mail])
     await connection.query(
-      'INSERT INTO task_submission_users (submission_id, user_mail) VALUES (?, ?)',
-      [result.insertId, relatedUserMail.trim()]
+      'INSERT INTO task_submission_users (submission_id, user_mail) VALUES ?',
+      [relationValues]
     )
     await connection.commit()
     sendJson(res, 201, {
@@ -533,10 +548,10 @@ const handleUpdateTaskSubmission = async (req, res, id) => {
   const normalizedScheduledAt = scheduledAt ? normalizeScheduledAt(scheduledAt) : null
   try {
     const connection = await getConnection()
-    const [users] = await connection.query('SELECT mail FROM users WHERE mail = ? LIMIT 1', [
-      relatedUserMail.trim(),
+    const [users] = await connection.query('SELECT mail FROM users WHERE mail IN (?)', [
+      relatedUserMails,
     ])
-    if (!users[0]) {
+    if (users.length !== relatedUserMails.length) {
       sendJson(res, 400, { success: false, message: '關聯用戶不存在' })
       return
     }
@@ -560,9 +575,11 @@ const handleUpdateTaskSubmission = async (req, res, id) => {
       sendJson(res, 404, { success: false, message: '找不到任務資料' })
       return
     }
+    await connection.query('DELETE FROM task_submission_users WHERE submission_id = ?', [id])
+    const relationValues = relatedUserMails.map((mail) => [id, mail])
     await connection.query(
-      'UPDATE task_submission_users SET user_mail = ? WHERE submission_id = ?',
-      [relatedUserMail.trim(), id]
+      'INSERT INTO task_submission_users (submission_id, user_mail) VALUES ?',
+      [relationValues]
     )
     sendJson(res, 200, { success: true, message: '任務更新成功' })
   } catch (error) {
