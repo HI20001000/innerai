@@ -157,6 +157,25 @@ const ensureTables = async (connection) => {
       INDEX idx_task_submission_users_submission (submission_id),
       INDEX idx_task_submission_users_user (user_mail)
     )`,
+    `CREATE TABLE IF NOT EXISTS meeting_folders (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      client_name VARCHAR(255) NOT NULL,
+      vendor_name VARCHAR(255) NOT NULL,
+      product_name VARCHAR(255) NOT NULL,
+      meeting_time DATETIME NOT NULL,
+      created_by_email VARCHAR(255) NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS meeting_records (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      folder_id INT NOT NULL,
+      file_name VARCHAR(512) NOT NULL,
+      file_path VARCHAR(1024),
+      mime_type VARCHAR(255),
+      file_content LONGBLOB,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_meeting_records_folder (folder_id)
+    )`,
   ]
   for (const statement of statements) {
     await connection.query(statement)
@@ -379,8 +398,8 @@ const handlePostTaskSubmission = async (req, res) => {
   }
   const relatedUserMails = Array.isArray(relatedUserMail)
     ? relatedUserMail.map((mail) => String(mail).trim()).filter(Boolean)
-    : []
-  if (relatedUserMails.length === 0) {
+    : null
+  if (!relatedUserMails || relatedUserMails.length === 0) {
     sendJson(res, 400, { success: false, message: '關聯用戶為必填' })
     return
   }
@@ -411,14 +430,6 @@ const handlePostTaskSubmission = async (req, res) => {
   try {
     connection = await getConnection()
     await connection.beginTransaction()
-    const relatedUserMails = Array.isArray(relatedUserMail)
-      ? relatedUserMail.map((mail) => String(mail).trim()).filter(Boolean)
-      : []
-    if (relatedUserMails.length === 0) {
-      await connection.rollback()
-      sendJson(res, 400, { success: false, message: '關聯用戶為必填' })
-      return
-    }
     const [users] = await connection.query('SELECT mail FROM users WHERE mail IN (?)', [
       relatedUserMails,
     ])
@@ -531,6 +542,70 @@ const handleGetUsers = async (req, res) => {
   }
 }
 
+const handlePostMeetingRecords = async (req, res) => {
+  const user = await getRequiredAuthUser(req, res)
+  if (!user) return
+  const body = await parseBody(req)
+  if (!body) {
+    sendJson(res, 400, { success: false, message: '需要提供會議記錄資料' })
+    return
+  }
+  const { client, vendor, product, meeting_time: meetingTime, files } = body
+  if (!isNonEmptyString(client) || !isNonEmptyString(vendor) || !isNonEmptyString(product)) {
+    sendJson(res, 400, { success: false, message: '客戶、廠家、產品為必填' })
+    return
+  }
+  if (!isNonEmptyString(meetingTime) || Number.isNaN(Date.parse(meetingTime))) {
+    sendJson(res, 400, { success: false, message: '會議時間格式不正確' })
+    return
+  }
+  if (!Array.isArray(files) || files.length === 0) {
+    sendJson(res, 400, { success: false, message: '請上傳會議記錄檔案' })
+    return
+  }
+  const normalizedMeetingTime = normalizeScheduledAt(meetingTime)
+  let connection = null
+  try {
+    connection = await getConnection()
+    await connection.beginTransaction()
+    const [folderResult] = await connection.query(
+      `INSERT INTO meeting_folders
+        (client_name, vendor_name, product_name, meeting_time, created_by_email)
+       VALUES (?, ?, ?, ?, ?)`,
+      [client.trim(), vendor.trim(), product.trim(), normalizedMeetingTime, user.mail]
+    )
+    const folderId = folderResult.insertId
+    const records = files.map((file) => {
+      const content = file?.contentBase64
+        ? Buffer.from(String(file.contentBase64), 'base64')
+        : null
+      return [
+        folderId,
+        file?.name || 'unknown',
+        file?.path || null,
+        file?.type || null,
+        content,
+      ]
+    })
+    await connection.query(
+      'INSERT INTO meeting_records (folder_id, file_name, file_path, mime_type, file_content) VALUES ?',
+      [records]
+    )
+    await connection.commit()
+    sendJson(res, 201, { success: true, message: '會議記錄已上傳', data: { id: folderId } })
+  } catch (error) {
+    if (connection) {
+      try {
+        await connection.rollback()
+      } catch (rollbackError) {
+        console.error(rollbackError)
+      }
+    }
+    console.error(error)
+    sendJson(res, 500, { success: false, message: '會議記錄上傳失敗' })
+  }
+}
+
 const handleUpdateTaskSubmission = async (req, res, id) => {
   const user = await getRequiredAuthUser(req, res)
   if (!user) return
@@ -580,12 +655,14 @@ const handleUpdateTaskSubmission = async (req, res, id) => {
   const normalizedScheduledAt = scheduledAt ? normalizeScheduledAt(scheduledAt) : null
   try {
     const connection = await getConnection()
-    const [users] = await connection.query('SELECT mail FROM users WHERE mail IN (?)', [
-      relatedUserMails,
-    ])
-    if (users.length !== relatedUserMails.length) {
-      sendJson(res, 400, { success: false, message: '關聯用戶不存在' })
-      return
+    if (relatedUserMails && relatedUserMails.length > 0) {
+      const [users] = await connection.query('SELECT mail FROM users WHERE mail IN (?)', [
+        relatedUserMails,
+      ])
+      if (users.length !== relatedUserMails.length) {
+        sendJson(res, 400, { success: false, message: '關聯用戶不存在' })
+        return
+      }
     }
     const [result] = await connection.query(
       `UPDATE task_submissions
@@ -607,12 +684,14 @@ const handleUpdateTaskSubmission = async (req, res, id) => {
       sendJson(res, 404, { success: false, message: '找不到任務資料' })
       return
     }
-    await connection.query('DELETE FROM task_submission_users WHERE submission_id = ?', [id])
-    const relationValues = relatedUserMails.map((mail) => [id, mail])
-    await connection.query(
-      'INSERT INTO task_submission_users (submission_id, user_mail) VALUES ?',
-      [relationValues]
-    )
+    if (relatedUserMails && relatedUserMails.length > 0) {
+      await connection.query('DELETE FROM task_submission_users WHERE submission_id = ?', [id])
+      const relationValues = relatedUserMails.map((mail) => [id, mail])
+      await connection.query(
+        'INSERT INTO task_submission_users (submission_id, user_mail) VALUES ?',
+        [relationValues]
+      )
+    }
     sendJson(res, 200, { success: true, message: '任務更新成功' })
   } catch (error) {
     console.error(error)
@@ -988,6 +1067,10 @@ const start = async () => {
     }
     if (url.pathname === '/api/users' && req.method === 'GET') {
       await handleGetUsers(req, res)
+      return
+    }
+    if (url.pathname === '/api/meeting-records' && req.method === 'POST') {
+      await handlePostMeetingRecords(req, res)
       return
     }
     if (url.pathname === '/api/dify/auto-fill' && req.method === 'POST') {

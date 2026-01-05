@@ -31,6 +31,16 @@
         <span class="sidebar-glyph">◎</span>
         檢視任務
       </button>
+      <button
+        class="sidebar-button"
+        :class="{ active: activePath === '/meetings/upload' }"
+        type="button"
+        aria-label="上傳會議記錄"
+        @click="onUploadMeeting"
+      >
+        <span class="sidebar-glyph">⬆</span>
+        會議記錄
+      </button>
     </div>
     <div class="sidebar-bottom">
       <button
@@ -54,12 +64,16 @@
 <script setup>
 import { onMounted, onUnmounted, ref } from 'vue'
 
-const { onCreateTask, onGoHome, onGoProfile, onViewTasks, activePath } = defineProps({
+const { onCreateTask, onGoHome, onGoProfile, onViewTasks, onUploadMeeting, activePath } = defineProps({
   onCreateTask: {
     type: Function,
     default: () => {},
   },
   onViewTasks: {
+    type: Function,
+    default: () => {},
+  },
+  onUploadMeeting: {
     type: Function,
     default: () => {},
   },

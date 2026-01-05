@@ -49,6 +49,10 @@ const goToTaskList = () => {
   router?.push('/tasks/view')
 }
 
+const goToMeetingUpload = () => {
+  router?.push('/meetings/upload')
+}
+
 const goToHome = () => {
   router?.push('/home')
 }
@@ -426,6 +430,7 @@ onMounted(() => {
     <WorkspaceSidebar
       :on-create-task="goToNewTask"
       :on-view-tasks="goToTaskList"
+      :on-upload-meeting="goToMeetingUpload"
       :on-go-home="goToHome"
       :on-go-profile="goToProfile"
       :active-path="activePath"
