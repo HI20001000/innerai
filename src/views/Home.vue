@@ -1,9 +1,10 @@
 <script setup>
-import { getCurrentInstance, onMounted, ref } from 'vue'
+import { computed, getCurrentInstance, onMounted, ref } from 'vue'
 import WorkspaceSidebar from '../components/WorkspaceSidebar.vue'
 
 const router = getCurrentInstance().appContext.config.globalProperties.$router
 const username = ref('hi')
+const activePath = computed(() => router?.currentRoute?.value?.path || '')
 
 const goToNewTask = () => {
   router?.push('/tasks/new')
@@ -42,6 +43,7 @@ onMounted(loadUser)
       :on-view-tasks="goToTaskList"
       :on-go-home="goToHome"
       :on-go-profile="goToProfile"
+      :active-path="activePath"
     />
 
     <main class="home-content">

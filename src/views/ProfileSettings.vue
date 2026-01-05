@@ -5,6 +5,7 @@
       :on-view-tasks="goToTaskList"
       :on-go-home="goToHome"
       :on-go-profile="goToProfile"
+      :active-path="activePath"
     />
     <header class="settings-header">
       <div>
@@ -106,11 +107,12 @@
 </template>
 
 <script setup>
-import { getCurrentInstance, nextTick, onMounted, ref } from 'vue'
+import { computed, getCurrentInstance, nextTick, onMounted, ref } from 'vue'
 import WorkspaceSidebar from '../components/WorkspaceSidebar.vue'
 
 const apiBaseUrl = 'http://localhost:3001'
 const router = getCurrentInstance().appContext.config.globalProperties.$router
+const activePath = computed(() => router?.currentRoute?.value?.path || '')
 
 const iconOptions = [
   '🙂',

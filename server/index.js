@@ -306,6 +306,12 @@ const getRequiredAuthUser = async (req, res) => {
 const isNonEmptyString = (value) => typeof value === 'string' && value.trim().length > 0
 
 const normalizeScheduledAt = (value) => {
+  if (value.includes('T') || value.endsWith('Z')) {
+    const parsed = new Date(value)
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toISOString().slice(0, 19).replace('T', ' ')
+    }
+  }
   if (!value.includes('T')) return value
   return `${value.replace('T', ' ')}${value.length === 16 ? ':00' : ''}`
 }

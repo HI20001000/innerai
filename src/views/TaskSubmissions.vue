@@ -1,10 +1,11 @@
 <script setup>
-import { getCurrentInstance, onMounted, ref } from 'vue'
+import { computed, getCurrentInstance, onMounted, ref } from 'vue'
 import WorkspaceSidebar from '../components/WorkspaceSidebar.vue'
 import ResultModal from '../components/ResultModal.vue'
 
 const router = getCurrentInstance().appContext.config.globalProperties.$router
 const apiBaseUrl = 'http://localhost:3001'
+const activePath = computed(() => router?.currentRoute?.value?.path || '')
 const submissions = ref([])
 const isLoading = ref(false)
 const editingId = ref(null)
@@ -218,6 +219,7 @@ onMounted(fetchSubmissions)
       :on-go-home="goToHome"
       :on-go-profile="goToProfile"
       :on-view-tasks="goToTaskList"
+      :active-path="activePath"
     />
 
     <header class="task-view-header">

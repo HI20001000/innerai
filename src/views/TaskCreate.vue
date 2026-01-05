@@ -1,5 +1,5 @@
 <script setup>
-import { getCurrentInstance, onMounted, ref } from 'vue'
+import { computed, getCurrentInstance, onMounted, ref } from 'vue'
 import WorkspaceSidebar from '../components/WorkspaceSidebar.vue'
 import ResultModal from '../components/ResultModal.vue'
 
@@ -27,6 +27,7 @@ const resultMessage = ref('')
 const isSubmitting = ref(false)
 const apiBaseUrl = 'http://localhost:3001'
 const router = getCurrentInstance().appContext.config.globalProperties.$router
+const activePath = computed(() => router?.currentRoute?.value?.path || '')
 
 const goToNewTask = () => {
   router?.push('/tasks/new')
@@ -275,6 +276,7 @@ onMounted(() => {
       :on-view-tasks="goToTaskList"
       :on-go-home="goToHome"
       :on-go-profile="goToProfile"
+      :active-path="activePath"
     />
     <header class="task-header">
       <div>
