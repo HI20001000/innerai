@@ -167,6 +167,13 @@ const ensureTables = async (connection) => {
       throw error
     }
   }
+  try {
+    await connection.query('ALTER TABLE task_submissions ADD COLUMN follow_up TEXT')
+  } catch (error) {
+    if (error?.code !== 'ER_DUP_FIELDNAME') {
+      throw error
+    }
+  }
 }
 
 const seedDefaults = async (connection) => {

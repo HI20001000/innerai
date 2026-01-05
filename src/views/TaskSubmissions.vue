@@ -130,6 +130,20 @@ const saveEdit = async (id) => {
     showResult.value = true
     return
   }
+  if (
+    !editForm.value.client?.trim() ||
+    !editForm.value.vendor?.trim() ||
+    !editForm.value.product?.trim() ||
+    !editForm.value.tag?.trim() ||
+    !editForm.value.scheduled_at?.trim() ||
+    !editForm.value.location?.trim() ||
+    !editForm.value.follow_up?.trim()
+  ) {
+    resultTitle.value = '更新失敗'
+    resultMessage.value = '請先填寫所有欄位再儲存。'
+    showResult.value = true
+    return
+  }
   try {
     const response = await fetch(`${apiBaseUrl}/api/task-submissions/${id}`, {
       method: 'PUT',
