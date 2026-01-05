@@ -199,7 +199,7 @@ onUnmounted(() => {
 }
 
 .profile-button.active {
-  background: #1d4ed8;
+  background: #38bdf8;
 }
 
 .profile-button.active .profile-avatar {

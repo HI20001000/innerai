@@ -1,5 +1,5 @@
 <script setup>
-import { computed, getCurrentInstance, onMounted, ref } from 'vue'
+import { computed, getCurrentInstance, onMounted, reactive, ref } from 'vue'
 import WorkspaceSidebar from '../components/WorkspaceSidebar.vue'
 import ResultModal from '../components/ResultModal.vue'
 
@@ -16,6 +16,12 @@ const activeList = ref(null)
 const selectedTime = ref('')
 const selectedLocation = ref('')
 const followUpContent = ref('')
+const searchQuery = reactive({
+  client: '',
+  vendor: '',
+  product: '',
+  tag: '',
+})
 
 const activeModal = ref(null)
 const newOption = ref('')
@@ -73,11 +79,26 @@ const openList = async (type) => {
     return
   }
   activeList.value = type
+  searchQuery[type] = ''
   try {
     await fetchOptions(type)
   } catch (error) {
     console.error(error)
   }
+}
+
+const getFilteredOptions = (type) => {
+  const query = searchQuery[type]?.trim().toLowerCase() ?? ''
+  const source =
+    type === 'client'
+      ? clients.value
+      : type === 'vendor'
+        ? vendors.value
+        : type === 'product'
+          ? products.value
+          : tags.value
+  if (!query) return source
+  return source.filter((item) => item.toLowerCase().includes(query))
 }
 
 const selectOption = (type, item) => {
@@ -314,8 +335,14 @@ onMounted(() => {
               {{ selectedClient || '選擇客戶' }}
             </button>
             <div v-if="activeList === 'client'" class="option-list">
+              <input
+                v-model="searchQuery.client"
+                class="option-search"
+                type="text"
+                placeholder="搜尋客戶"
+              />
               <button
-                v-for="item in clients"
+                v-for="item in getFilteredOptions('client')"
                 :key="item"
                 type="button"
                 class="option-item"
@@ -334,8 +361,14 @@ onMounted(() => {
               {{ selectedVendor || '選擇廠家' }}
             </button>
             <div v-if="activeList === 'vendor'" class="option-list">
+              <input
+                v-model="searchQuery.vendor"
+                class="option-search"
+                type="text"
+                placeholder="搜尋廠家"
+              />
               <button
-                v-for="item in vendors"
+                v-for="item in getFilteredOptions('vendor')"
                 :key="item"
                 type="button"
                 class="option-item"
@@ -354,8 +387,14 @@ onMounted(() => {
               {{ selectedProduct || '選擇產品' }}
             </button>
             <div v-if="activeList === 'product'" class="option-list">
+              <input
+                v-model="searchQuery.product"
+                class="option-search"
+                type="text"
+                placeholder="搜尋產品"
+              />
               <button
-                v-for="item in products"
+                v-for="item in getFilteredOptions('product')"
                 :key="item"
                 type="button"
                 class="option-item"
@@ -374,8 +413,14 @@ onMounted(() => {
               {{ selectedTag || '選擇標籤' }}
             </button>
             <div v-if="activeList === 'tag'" class="option-list">
+              <input
+                v-model="searchQuery.tag"
+                class="option-search"
+                type="text"
+                placeholder="搜尋標籤"
+              />
               <button
-                v-for="item in tags"
+                v-for="item in getFilteredOptions('tag')"
                 :key="item"
                 type="button"
                 class="option-item"
@@ -654,6 +699,14 @@ onMounted(() => {
   overflow: auto;
   z-index: 5;
   box-shadow: 0 18px 30px rgba(15, 23, 42, 0.12);
+}
+
+.option-search {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.45rem 0.6rem;
+  font-size: 0.85rem;
+  background: #fff;
 }
 
 .option-item {
