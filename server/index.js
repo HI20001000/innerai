@@ -127,6 +127,19 @@ const ensureTables = async (connection) => {
       follow_up TEXT,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
+    `CREATE TABLE IF NOT EXISTS task_submissions (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      client_name VARCHAR(255) NOT NULL,
+      vendor_name VARCHAR(255) NOT NULL,
+      product_name VARCHAR(255) NOT NULL,
+      tag_name VARCHAR(255) NOT NULL,
+      scheduled_at DATETIME NOT NULL,
+      location VARCHAR(255) NOT NULL,
+      follow_up TEXT NOT NULL,
+      created_by_email VARCHAR(255) NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_task_submissions_created_at (created_at)
+    )`,
     `CREATE TABLE IF NOT EXISTS auth_tokens (
       id INT AUTO_INCREMENT PRIMARY KEY,
       mail VARCHAR(255) NOT NULL,
@@ -249,10 +262,29 @@ const handleDeleteOptions = async (type, req, res) => {
   }
 }
 
-const handlePostTask = async (req, res) => {
+const getAuthenticatedUser = async (req) => {
+  const token = getBearerToken(req)
+  if (!token) return null
+  const tokenHash = hashToken(token)
+  const connection = await getConnection()
+  await connection.query('DELETE FROM auth_tokens WHERE expires_at < NOW()')
+  const [rows] = await connection.query(
+    `SELECT auth_tokens.expires_at, users.mail
+     FROM auth_tokens
+     JOIN users ON users.mail = auth_tokens.mail
+     WHERE auth_tokens.token_hash = ? AND auth_tokens.expires_at > NOW()
+     LIMIT 1`,
+    [tokenHash]
+  )
+  return rows[0] ?? null
+}
+
+const isNonEmptyString = (value) => typeof value === 'string' && value.trim().length > 0
+
+const handlePostTaskSubmission = async (req, res) => {
   const body = await parseBody(req)
   if (!body) {
-    sendJson(res, 400, { message: 'Payload is required' })
+    sendJson(res, 400, { success: false, message: '需要提供表單資料' })
     return
   }
   const {
@@ -264,18 +296,86 @@ const handlePostTask = async (req, res) => {
     location,
     follow_up: followUp,
   } = body
+  if (
+    !isNonEmptyString(client) ||
+    !isNonEmptyString(vendor) ||
+    !isNonEmptyString(product) ||
+    !isNonEmptyString(tag) ||
+    !isNonEmptyString(scheduledAt) ||
+    !isNonEmptyString(location) ||
+    !isNonEmptyString(followUp)
+  ) {
+    sendJson(res, 400, { success: false, message: '所有欄位皆為必填' })
+    return
+  }
+  if (
+    client.length > 255 ||
+    vendor.length > 255 ||
+    product.length > 255 ||
+    tag.length > 255 ||
+    location.length > 255
+  ) {
+    sendJson(res, 400, { success: false, message: '欄位長度超過限制' })
+    return
+  }
+  if (followUp.length > 2000) {
+    sendJson(res, 400, { success: false, message: '需跟進內容長度過長' })
+    return
+  }
+  if (Number.isNaN(Date.parse(scheduledAt))) {
+    sendJson(res, 400, { success: false, message: '時間格式不正確' })
+    return
+  }
+  const normalizedScheduledAt = scheduledAt.includes('T')
+    ? `${scheduledAt.replace('T', ' ')}${scheduledAt.length === 16 ? ':00' : ''}`
+    : scheduledAt
+  let user = null
   try {
-    const connection = await getConnection()
-    await connection.query(
-      `INSERT INTO tasks
-      (client_name, vendor_name, product_name, tag_name, scheduled_at, location, follow_up)
-      VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [client || null, vendor || null, product || null, tag || null, scheduledAt || null, location || null, followUp || null]
-    )
-    sendJson(res, 201, { message: 'Task created' })
+    user = await getAuthenticatedUser(req)
   } catch (error) {
     console.error(error)
-    sendJson(res, 500, { message: 'Failed to create task' })
+    sendJson(res, 500, { success: false, message: '驗證登入資訊失敗' })
+    return
+  }
+  if (!user) {
+    sendJson(res, 401, { success: false, message: '請先登入' })
+    return
+  }
+  let connection = null
+  try {
+    connection = await getConnection()
+    await connection.beginTransaction()
+    const [result] = await connection.query(
+      `INSERT INTO task_submissions
+        (client_name, vendor_name, product_name, tag_name, scheduled_at, location, follow_up, created_by_email)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        client.trim(),
+        vendor.trim(),
+        product.trim(),
+        tag.trim(),
+        normalizedScheduledAt,
+        location.trim(),
+        followUp.trim(),
+        user.mail,
+      ]
+    )
+    await connection.commit()
+    sendJson(res, 201, {
+      success: true,
+      message: '任務建立成功',
+      data: { id: result.insertId },
+    })
+  } catch (error) {
+    if (connection) {
+      try {
+        await connection.rollback()
+      } catch (rollbackError) {
+        console.error(rollbackError)
+      }
+    }
+    console.error(error)
+    sendJson(res, 500, { success: false, message: '任務建立失敗：伺服器錯誤' })
   }
 }
 
@@ -561,8 +661,8 @@ const start = async () => {
         return
       }
     }
-    if (url.pathname === '/api/tasks' && req.method === 'POST') {
-      await handlePostTask(req, res)
+    if (url.pathname === '/api/task-submissions' && req.method === 'POST') {
+      await handlePostTaskSubmission(req, res)
       return
     }
     if (url.pathname === '/api/auth/request-code' && req.method === 'POST') {
