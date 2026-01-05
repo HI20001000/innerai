@@ -9,6 +9,10 @@ const goToNewTask = () => {
   router?.push('/tasks/new')
 }
 
+const goToTaskList = () => {
+  router?.push('/tasks/view')
+}
+
 const goToHome = () => {
   router?.push('/home')
 }
@@ -33,7 +37,12 @@ onMounted(loadUser)
 
 <template>
   <div class="home-page">
-    <WorkspaceSidebar :on-create-task="goToNewTask" :on-go-home="goToHome" :on-go-profile="goToProfile" />
+    <WorkspaceSidebar
+      :on-create-task="goToNewTask"
+      :on-view-tasks="goToTaskList"
+      :on-go-home="goToHome"
+      :on-go-profile="goToProfile"
+    />
 
     <main class="home-content">
       <header class="home-header">
