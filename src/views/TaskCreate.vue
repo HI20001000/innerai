@@ -1,6 +1,8 @@
 <script setup>
-import { getCurrentInstance, onMounted, ref } from 'vue'
+import { computed, getCurrentInstance, onMounted, reactive, ref } from 'vue'
 import WorkspaceSidebar from '../components/WorkspaceSidebar.vue'
+import ResultModal from '../components/ResultModal.vue'
+import DifyAutoFillPanel from '../components/DifyAutoFillPanel.vue'
 
 const clients = ref([])
 const vendors = ref([])
@@ -11,20 +13,40 @@ const selectedClient = ref('')
 const selectedVendor = ref('')
 const selectedProduct = ref('')
 const selectedTag = ref('')
+const selectedRelatedUsers = ref([])
 const activeList = ref(null)
 const selectedTime = ref('')
 const selectedLocation = ref('')
 const followUpContent = ref('')
+const showRequiredHints = ref(false)
+const searchQuery = reactive({
+  client: '',
+  vendor: '',
+  product: '',
+  tag: '',
+  user: '',
+})
 
 const activeModal = ref(null)
 const newOption = ref('')
+const optionMessage = ref('')
+const optionMessageType = ref('')
 const draftKey = 'innerai_task_draft'
 const showDraftSaved = ref(false)
+const showResult = ref(false)
+const resultTitle = ref('')
+const resultMessage = ref('')
+const isSubmitting = ref(false)
 const apiBaseUrl = 'http://localhost:3001'
 const router = getCurrentInstance().appContext.config.globalProperties.$router
+const activePath = computed(() => router?.currentRoute?.value?.path || '')
 
 const goToNewTask = () => {
   router?.push('/tasks/new')
+}
+
+const goToTaskList = () => {
+  router?.push('/tasks/view')
 }
 
 const goToHome = () => {
@@ -38,6 +60,8 @@ const goToProfile = () => {
 const openModal = (type) => {
   activeModal.value = type
   newOption.value = ''
+  optionMessage.value = ''
+  optionMessageType.value = ''
   fetchOptions(type).catch((error) => console.error(error))
 }
 
@@ -53,17 +77,102 @@ const fetchOptions = async (type) => {
   if (type === 'tag') tags.value = data
 }
 
+const fetchUsers = async () => {
+  const auth = readAuthStorage()
+  if (!auth) return
+  const response = await fetch(`${apiBaseUrl}/api/users`, {
+    headers: { Authorization: `Bearer ${auth.token}` },
+  })
+  if (!response.ok) {
+    throw new Error('Failed to load users')
+  }
+  const data = await response.json()
+  relatedUsers.value = data?.data ?? []
+}
+
+const relatedUsers = ref([])
+
+const loadAllOptions = async () => {
+  await Promise.all(['client', 'vendor', 'product', 'tag'].map((type) => fetchOptions(type)))
+}
+
 const openList = async (type) => {
   if (activeList.value === type) {
     activeList.value = null
     return
   }
   activeList.value = type
+  searchQuery[type] = ''
   try {
-    await fetchOptions(type)
+    if (type === 'user') {
+      await fetchUsers()
+    } else {
+      await fetchOptions(type)
+    }
   } catch (error) {
     console.error(error)
   }
+}
+
+const optionExists = (type, value) => {
+  if (!value) return false
+  const source =
+    type === 'client'
+      ? clients.value
+      : type === 'vendor'
+        ? vendors.value
+        : type === 'product'
+          ? products.value
+          : tags.value
+  return source.includes(value)
+}
+
+const optionStatus = (type, value) => {
+  if (!value) return ''
+  return optionExists(type, value) ? '' : '不存在，提交後將自動建立'
+}
+
+const optionStatusClass = (type, value) => {
+  if (!value) return ''
+  return optionExists(type, value) ? 'exists' : 'missing'
+}
+
+const ensureOptionExists = async (type, value) => {
+  if (!value || optionExists(type, value)) return
+  const response = await fetch(`${apiBaseUrl}/api/options/${type}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: value }),
+  })
+  if (!response.ok) {
+    throw new Error('Failed to add option')
+  }
+  const created = await response.json()
+  if (type === 'client') clients.value.unshift(created.name)
+  if (type === 'vendor') vendors.value.unshift(created.name)
+  if (type === 'product') products.value.unshift(created.name)
+  if (type === 'tag') tags.value.unshift(created.name)
+}
+
+const getFilteredOptions = (type) => {
+  const query = searchQuery[type]?.trim().toLowerCase() ?? ''
+  const source =
+    type === 'client'
+      ? clients.value
+      : type === 'vendor'
+        ? vendors.value
+        : type === 'product'
+          ? products.value
+          : type === 'tag'
+            ? tags.value
+            : relatedUsers.value
+  if (!query) return source
+  if (type === 'user') {
+    return source.filter((item) =>
+      `${item.username || ''}${item.mail || ''}`.toLowerCase().includes(query)
+    )
+  }
+  return source.filter((item) => item.toLowerCase().includes(query))
 }
 
 const selectOption = (type, item) => {
@@ -82,9 +191,24 @@ const selectOption = (type, item) => {
   activeList.value = null
 }
 
+const isRelatedUserSelected = (item) =>
+  selectedRelatedUsers.value.some((user) => user.mail === item.mail)
+
+const toggleRelatedUser = (item) => {
+  if (isRelatedUserSelected(item)) {
+    selectedRelatedUsers.value = selectedRelatedUsers.value.filter(
+      (user) => user.mail !== item.mail
+    )
+    return
+  }
+  selectedRelatedUsers.value = [...selectedRelatedUsers.value, item]
+}
+
 const closeModal = () => {
   activeModal.value = null
   newOption.value = ''
+  optionMessage.value = ''
+  optionMessageType.value = ''
 }
 
 const addOption = async () => {
@@ -116,9 +240,13 @@ const addOption = async () => {
       tags.value.unshift(created.name)
       selectedTag.value = created.name
     }
-    closeModal()
+    optionMessage.value = `"${created.name}" 新增成功`
+    optionMessageType.value = 'success'
+    newOption.value = ''
   } catch (error) {
     console.error(error)
+    optionMessage.value = '新增失敗'
+    optionMessageType.value = 'error'
   }
 }
 
@@ -160,6 +288,7 @@ const saveDraft = () => {
     selectedVendor: selectedVendor.value,
     selectedProduct: selectedProduct.value,
     selectedTag: selectedTag.value,
+    selectedRelatedUsers: selectedRelatedUsers.value,
     selectedTime: selectedTime.value,
     selectedLocation: selectedLocation.value,
     followUpContent: followUpContent.value,
@@ -168,26 +297,100 @@ const saveDraft = () => {
   showDraftSaved.value = true
 }
 
+const readAuthStorage = () => {
+  const raw = window.localStorage.getItem('innerai_auth')
+  if (!raw) return null
+  try {
+    const data = JSON.parse(raw)
+    if (!data?.token || !data?.expiresAt) return null
+    return data
+  } catch {
+    return null
+  }
+}
+
+const parseJsonSafe = async (response) => {
+  try {
+    return await response.json()
+  } catch {
+    return {}
+  }
+}
+
 const submitTask = async () => {
+  if (isSubmitting.value) return
   const payload = {
     client: selectedClient.value,
     vendor: selectedVendor.value,
     product: selectedProduct.value,
     tag: selectedTag.value,
+    related_user_mail: selectedRelatedUsers.value.map((user) => user.mail),
     scheduled_at: selectedTime.value,
     location: selectedLocation.value,
     follow_up: followUpContent.value,
   }
+  if (
+    !selectedClient.value ||
+    !selectedVendor.value ||
+    !selectedProduct.value ||
+    !selectedTag.value ||
+    selectedRelatedUsers.value.length === 0
+  ) {
+    showRequiredHints.value = true
+    return
+  }
+  showRequiredHints.value = false
   try {
-    await fetch(`${apiBaseUrl}/api/tasks`, {
+    const auth = readAuthStorage()
+    if (!auth) {
+      resultTitle.value = '建立失敗'
+      resultMessage.value = '請先登入再建立任務。'
+      showResult.value = true
+      return
+    }
+    isSubmitting.value = true
+    await loadAllOptions().catch(() => {})
+    await ensureOptionExists('client', selectedClient.value)
+    await ensureOptionExists('vendor', selectedVendor.value)
+    await ensureOptionExists('product', selectedProduct.value)
+    await ensureOptionExists('tag', selectedTag.value)
+    const response = await fetch(`${apiBaseUrl}/api/task-submissions`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${auth.token}`,
+      },
       body: JSON.stringify(payload),
     })
+    const data = await parseJsonSafe(response)
+    if (!response.ok || !data?.success) {
+      resultTitle.value = '建立失敗'
+      resultMessage.value = data?.message || '任務建立失敗'
+      showResult.value = true
+      return
+    }
+    resultTitle.value = '建立成功'
+    resultMessage.value = data?.message || '任務建立成功'
+    showResult.value = true
+    window.localStorage.removeItem(draftKey)
   } catch (error) {
     console.error(error)
+    resultTitle.value = '建立失敗'
+    resultMessage.value = '任務建立失敗，請稍後再試。'
+    showResult.value = true
+  } finally {
+    isSubmitting.value = false
   }
-  window.localStorage.removeItem(draftKey)
+}
+
+const applyAutoFill = (payload) => {
+  if (typeof payload !== 'object' || !payload) return
+  if (payload.client) selectedClient.value = payload.client
+  if (payload.vendor) selectedVendor.value = payload.vendor
+  if (payload.product) selectedProduct.value = payload.product
+  if (payload.tag) selectedTag.value = payload.tag
+  if (payload.scheduled_at) selectedTime.value = payload.scheduled_at
+  if (payload.follow_up) followUpContent.value = payload.follow_up
 }
 
 const loadDraft = () => {
@@ -199,6 +402,7 @@ const loadDraft = () => {
     selectedVendor.value = payload.selectedVendor ?? ''
     selectedProduct.value = payload.selectedProduct ?? ''
     selectedTag.value = payload.selectedTag ?? ''
+    selectedRelatedUsers.value = payload.selectedRelatedUsers ?? []
     selectedTime.value = payload.selectedTime ?? ''
     selectedLocation.value = payload.selectedLocation ?? ''
     followUpContent.value = payload.followUpContent ?? ''
@@ -209,12 +413,20 @@ const loadDraft = () => {
 
 onMounted(() => {
   loadDraft()
+  loadAllOptions().catch((error) => console.error(error))
+  fetchUsers().catch((error) => console.error(error))
 })
 </script>
 
 <template>
   <div class="task-page">
-    <WorkspaceSidebar :on-create-task="goToNewTask" :on-go-home="goToHome" :on-go-profile="goToProfile" />
+    <WorkspaceSidebar
+      :on-create-task="goToNewTask"
+      :on-view-tasks="goToTaskList"
+      :on-go-home="goToHome"
+      :on-go-profile="goToProfile"
+      :active-path="activePath"
+    />
     <header class="task-header">
       <div>
         <p class="eyebrow">新增任務</p>
@@ -223,7 +435,9 @@ onMounted(() => {
       </div>
       <div class="header-actions">
         <button class="ghost-button" type="button" @click="saveDraft">儲存草稿</button>
-        <button class="primary-button" type="button">建立任務</button>
+        <button class="primary-button" type="button" :disabled="isSubmitting" @click="submitTask">
+          {{ isSubmitting ? '建立中...' : '建立任務' }}
+        </button>
       </div>
     </header>
 
@@ -238,9 +452,22 @@ onMounted(() => {
             <button class="select-field" type="button" @click="openList('client')">
               {{ selectedClient || '選擇客戶' }}
             </button>
+            <p v-if="showRequiredHints && !selectedClient" class="required-hint">必填</p>
+            <p
+              v-if="selectedClient && optionStatus('client', selectedClient)"
+              :class="['option-status', optionStatusClass('client', selectedClient)]"
+            >
+              {{ optionStatus('client', selectedClient) }}
+            </p>
             <div v-if="activeList === 'client'" class="option-list">
+              <input
+                v-model="searchQuery.client"
+                class="option-search"
+                type="text"
+                placeholder="搜尋客戶"
+              />
               <button
-                v-for="item in clients"
+                v-for="item in getFilteredOptions('client')"
                 :key="item"
                 type="button"
                 class="option-item"
@@ -258,9 +485,22 @@ onMounted(() => {
             <button class="select-field" type="button" @click="openList('vendor')">
               {{ selectedVendor || '選擇廠家' }}
             </button>
+            <p v-if="showRequiredHints && !selectedVendor" class="required-hint">必填</p>
+            <p
+              v-if="selectedVendor && optionStatus('vendor', selectedVendor)"
+              :class="['option-status', optionStatusClass('vendor', selectedVendor)]"
+            >
+              {{ optionStatus('vendor', selectedVendor) }}
+            </p>
             <div v-if="activeList === 'vendor'" class="option-list">
+              <input
+                v-model="searchQuery.vendor"
+                class="option-search"
+                type="text"
+                placeholder="搜尋廠家"
+              />
               <button
-                v-for="item in vendors"
+                v-for="item in getFilteredOptions('vendor')"
                 :key="item"
                 type="button"
                 class="option-item"
@@ -278,9 +518,22 @@ onMounted(() => {
             <button class="select-field" type="button" @click="openList('product')">
               {{ selectedProduct || '選擇產品' }}
             </button>
+            <p v-if="showRequiredHints && !selectedProduct" class="required-hint">必填</p>
+            <p
+              v-if="selectedProduct && optionStatus('product', selectedProduct)"
+              :class="['option-status', optionStatusClass('product', selectedProduct)]"
+            >
+              {{ optionStatus('product', selectedProduct) }}
+            </p>
             <div v-if="activeList === 'product'" class="option-list">
+              <input
+                v-model="searchQuery.product"
+                class="option-search"
+                type="text"
+                placeholder="搜尋產品"
+              />
               <button
-                v-for="item in products"
+                v-for="item in getFilteredOptions('product')"
                 :key="item"
                 type="button"
                 class="option-item"
@@ -298,15 +551,71 @@ onMounted(() => {
             <button class="select-field" type="button" @click="openList('tag')">
               {{ selectedTag || '選擇標籤' }}
             </button>
+            <p v-if="showRequiredHints && !selectedTag" class="required-hint">必填</p>
+            <p
+              v-if="selectedTag && optionStatus('tag', selectedTag)"
+              :class="['option-status', optionStatusClass('tag', selectedTag)]"
+            >
+              {{ optionStatus('tag', selectedTag) }}
+            </p>
             <div v-if="activeList === 'tag'" class="option-list">
+              <input
+                v-model="searchQuery.tag"
+                class="option-search"
+                type="text"
+                placeholder="搜尋標籤"
+              />
               <button
-                v-for="item in tags"
+                v-for="item in getFilteredOptions('tag')"
                 :key="item"
                 type="button"
                 class="option-item"
                 @click="selectOption('tag', item)"
               >
                 {{ item }}
+              </button>
+            </div>
+          </div>
+          <div class="field select-field-wrapper">
+            <div class="field-header">
+              <span>關聯用戶</span>
+            </div>
+            <button class="select-field" type="button" @click="openList('user')">
+              {{
+                selectedRelatedUsers.length > 0
+                  ? selectedRelatedUsers
+                      .map((user) => `${user.username || ''} <${user.mail}>`)
+                      .join(', ')
+                  : '選擇關聯用戶'
+              }}
+            </button>
+            <p v-if="showRequiredHints && selectedRelatedUsers.length === 0" class="required-hint">
+              必填
+            </p>
+            <div v-if="activeList === 'user'" class="option-list">
+              <input
+                v-model="searchQuery.user"
+                class="option-search"
+                type="text"
+                placeholder="搜尋用戶"
+              />
+              <button
+                v-for="item in getFilteredOptions('user')"
+                :key="item.mail"
+                type="button"
+                class="option-item user-option"
+                @click="toggleRelatedUser(item)"
+              >
+                <span
+                  class="user-avatar"
+                  :style="{ backgroundColor: item.icon_bg || '#e2e8f0' }"
+                >
+                  {{ item.icon || '🙂' }}
+                </span>
+                <span class="user-label">
+                  {{ item.username || 'user' }} &lt;{{ item.mail }}&gt;
+                </span>
+                <span v-if="isRelatedUserSelected(item)" class="user-selected">已選</span>
               </button>
             </div>
           </div>
@@ -328,10 +637,6 @@ onMounted(() => {
           </label>
         </div>
 
-        <div class="form-actions">
-          <button class="ghost-button" type="button">取消</button>
-          <button class="primary-button" type="submit">送出任務</button>
-        </div>
       </form>
 
       <aside class="task-summary">
@@ -343,15 +648,7 @@ onMounted(() => {
             <li>跟進內容建議拆分為具體事項。</li>
           </ul>
         </div>
-        <div class="summary-card">
-          <h2>今日焦點</h2>
-          <p>3 個任務待建立</p>
-          <div class="focus-list">
-            <span>客戶簡報</span>
-            <span>樣品追蹤</span>
-            <span>合約回覆</span>
-          </div>
-        </div>
+        <DifyAutoFillPanel :on-fill="applyAutoFill" />
       </aside>
     </section>
 
@@ -396,6 +693,9 @@ onMounted(() => {
           <button class="ghost-button" type="button" @click="closeModal">取消</button>
           <button class="primary-button" type="button" @click="addOption">新增</button>
         </div>
+        <p v-if="optionMessage" :class="['modal-message', optionMessageType]">
+          {{ optionMessage }}
+        </p>
       </div>
     </div>
 
@@ -408,6 +708,13 @@ onMounted(() => {
         </div>
       </div>
     </div>
+
+    <ResultModal
+      :is-open="showResult"
+      :title="resultTitle"
+      :message="resultMessage"
+      @close="showResult = false"
+    />
   </div>
 </template>
 
@@ -471,6 +778,11 @@ onMounted(() => {
   border-radius: 999px;
   font-weight: 600;
   cursor: pointer;
+}
+
+.primary-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .task-layout {
@@ -570,6 +882,35 @@ onMounted(() => {
   box-shadow: 0 18px 30px rgba(15, 23, 42, 0.12);
 }
 
+.option-search {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.45rem 0.6rem;
+  font-size: 0.85rem;
+  background: #fff;
+}
+
+.option-status {
+  margin: 0.35rem 0 0;
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.required-hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.8rem;
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.option-status.exists {
+  color: #16a34a;
+}
+
+.option-status.missing {
+  color: #dc2626;
+}
+
 .option-item {
   border: none;
   background: transparent;
@@ -585,18 +926,40 @@ onMounted(() => {
   background: #e2e8f0;
 }
 
+.user-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.user-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 0.75rem;
+  background: #e2e8f0;
+}
+
+.user-label {
+  font-size: 0.85rem;
+  color: #1f2937;
+}
+
+.user-selected {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: #16a34a;
+  font-weight: 600;
+}
+
 .field textarea {
   min-height: 140px;
 }
 
 .field.wide {
   grid-column: 1 / -1;
-}
-
-.form-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 1rem;
 }
 
 .task-summary {
@@ -715,6 +1078,20 @@ onMounted(() => {
   display: flex;
   justify-content: flex-end;
   gap: 1rem;
+}
+
+.modal-message {
+  margin: 0;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.modal-message.success {
+  color: #16a34a;
+}
+
+.modal-message.error {
+  color: #dc2626;
 }
 
 @media (max-width: 1024px) {
