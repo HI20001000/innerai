@@ -123,13 +123,6 @@ const cancelEdit = () => {
 }
 
 const saveEdit = async (id) => {
-  const auth = readAuthStorage()
-  if (!auth) {
-    resultTitle.value = '更新失敗'
-    resultMessage.value = '請先登入再更新任務。'
-    showResult.value = true
-    return
-  }
   if (
     !editForm.value.client?.trim() ||
     !editForm.value.vendor?.trim() ||
@@ -140,7 +133,14 @@ const saveEdit = async (id) => {
     !editForm.value.follow_up?.trim()
   ) {
     resultTitle.value = '更新失敗'
-    resultMessage.value = '請先填寫所有欄位再儲存。'
+    resultMessage.value = '請完整填寫所有欄位再更新。'
+    showResult.value = true
+    return
+  }
+  const auth = readAuthStorage()
+  if (!auth) {
+    resultTitle.value = '更新失敗'
+    resultMessage.value = '請先登入再更新任務。'
     showResult.value = true
     return
   }

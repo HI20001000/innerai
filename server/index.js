@@ -168,7 +168,9 @@ const ensureTables = async (connection) => {
     }
   }
   try {
-    await connection.query('ALTER TABLE task_submissions ADD COLUMN follow_up TEXT')
+    await connection.query(
+      "ALTER TABLE task_submissions ADD COLUMN follow_up TEXT NOT NULL"
+    )
   } catch (error) {
     if (error?.code !== 'ER_DUP_FIELDNAME') {
       throw error
