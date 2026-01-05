@@ -8,6 +8,10 @@
         <span class="sidebar-icon">＋</span>
         新增任務
       </button>
+      <button class="sidebar-button secondary" type="button" aria-label="檢視任務" @click="onViewTasks">
+        <span class="sidebar-icon">◎</span>
+        檢視任務
+      </button>
     </div>
     <div class="sidebar-bottom">
       <button class="profile-button" type="button" aria-label="個人設定" @click="goToProfile">
@@ -25,8 +29,12 @@
 <script setup>
 import { onMounted, onUnmounted, ref } from 'vue'
 
-const { onCreateTask, onGoHome, onGoProfile } = defineProps({
+const { onCreateTask, onGoHome, onGoProfile, onViewTasks } = defineProps({
   onCreateTask: {
+    type: Function,
+    default: () => {},
+  },
+  onViewTasks: {
     type: Function,
     default: () => {},
   },
@@ -135,6 +143,11 @@ onUnmounted(() => {
   line-height: 1.1;
   cursor: pointer;
   box-shadow: 0 14px 26px rgba(37, 99, 235, 0.4);
+}
+
+.sidebar-button.secondary {
+  background: rgba(255, 255, 255, 0.16);
+  box-shadow: none;
 }
 
 .sidebar-icon {

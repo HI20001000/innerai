@@ -44,7 +44,7 @@ const TABLES = {
 
 const withCors = (res) => {
   res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS')
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
 }
 
@@ -279,7 +279,27 @@ const getAuthenticatedUser = async (req) => {
   return rows[0] ?? null
 }
 
+const getRequiredAuthUser = async (req, res) => {
+  try {
+    const user = await getAuthenticatedUser(req)
+    if (!user) {
+      sendJson(res, 401, { success: false, message: '請先登入' })
+      return null
+    }
+    return user
+  } catch (error) {
+    console.error(error)
+    sendJson(res, 500, { success: false, message: '驗證登入資訊失敗' })
+    return null
+  }
+}
+
 const isNonEmptyString = (value) => typeof value === 'string' && value.trim().length > 0
+
+const normalizeScheduledAt = (value) => {
+  if (!value.includes('T')) return value
+  return `${value.replace('T', ' ')}${value.length === 16 ? ':00' : ''}`
+}
 
 const handlePostTaskSubmission = async (req, res) => {
   const body = await parseBody(req)
@@ -326,19 +346,9 @@ const handlePostTaskSubmission = async (req, res) => {
     sendJson(res, 400, { success: false, message: '時間格式不正確' })
     return
   }
-  const normalizedScheduledAt = scheduledAt.includes('T')
-    ? `${scheduledAt.replace('T', ' ')}${scheduledAt.length === 16 ? ':00' : ''}`
-    : scheduledAt
-  let user = null
-  try {
-    user = await getAuthenticatedUser(req)
-  } catch (error) {
-    console.error(error)
-    sendJson(res, 500, { success: false, message: '驗證登入資訊失敗' })
-    return
-  }
+  const normalizedScheduledAt = normalizeScheduledAt(scheduledAt)
+  const user = await getRequiredAuthUser(req, res)
   if (!user) {
-    sendJson(res, 401, { success: false, message: '請先登入' })
     return
   }
   let connection = null
@@ -376,6 +386,125 @@ const handlePostTaskSubmission = async (req, res) => {
     }
     console.error(error)
     sendJson(res, 500, { success: false, message: '任務建立失敗：伺服器錯誤' })
+  }
+}
+
+const handleGetTaskSubmissions = async (req, res) => {
+  const user = await getRequiredAuthUser(req, res)
+  if (!user) return
+  try {
+    const connection = await getConnection()
+    const [rows] = await connection.query(
+      `SELECT id, client_name, vendor_name, product_name, tag_name, scheduled_at,
+        location, follow_up, created_by_email, created_at
+       FROM task_submissions
+       ORDER BY created_at DESC`
+    )
+    sendJson(res, 200, { success: true, data: rows })
+  } catch (error) {
+    if (connection) {
+      try {
+        await connection.rollback()
+      } catch (rollbackError) {
+        console.error(rollbackError)
+      }
+    }
+    console.error(error)
+    sendJson(res, 500, { success: false, message: '無法讀取任務資料' })
+  }
+}
+
+const handleUpdateTaskSubmission = async (req, res, id) => {
+  const user = await getRequiredAuthUser(req, res)
+  if (!user) return
+  const body = await parseBody(req)
+  if (!body) {
+    sendJson(res, 400, { success: false, message: '需要提供更新資料' })
+    return
+  }
+  const {
+    client,
+    vendor,
+    product,
+    tag,
+    scheduled_at: scheduledAt,
+    location,
+    follow_up: followUp,
+  } = body
+  if (
+    !isNonEmptyString(client) ||
+    !isNonEmptyString(vendor) ||
+    !isNonEmptyString(product) ||
+    !isNonEmptyString(tag) ||
+    !isNonEmptyString(scheduledAt) ||
+    !isNonEmptyString(location) ||
+    !isNonEmptyString(followUp)
+  ) {
+    sendJson(res, 400, { success: false, message: '所有欄位皆為必填' })
+    return
+  }
+  if (
+    client.length > 255 ||
+    vendor.length > 255 ||
+    product.length > 255 ||
+    tag.length > 255 ||
+    location.length > 255
+  ) {
+    sendJson(res, 400, { success: false, message: '欄位長度超過限制' })
+    return
+  }
+  if (followUp.length > 2000) {
+    sendJson(res, 400, { success: false, message: '需跟進內容長度過長' })
+    return
+  }
+  if (Number.isNaN(Date.parse(scheduledAt))) {
+    sendJson(res, 400, { success: false, message: '時間格式不正確' })
+    return
+  }
+  const normalizedScheduledAt = normalizeScheduledAt(scheduledAt)
+  try {
+    const connection = await getConnection()
+    const [result] = await connection.query(
+      `UPDATE task_submissions
+       SET client_name = ?, vendor_name = ?, product_name = ?, tag_name = ?,
+           scheduled_at = ?, location = ?, follow_up = ?
+       WHERE id = ?`,
+      [
+        client.trim(),
+        vendor.trim(),
+        product.trim(),
+        tag.trim(),
+        normalizedScheduledAt,
+        location.trim(),
+        followUp.trim(),
+        id,
+      ]
+    )
+    if (result.affectedRows === 0) {
+      sendJson(res, 404, { success: false, message: '找不到任務資料' })
+      return
+    }
+    sendJson(res, 200, { success: true, message: '任務更新成功' })
+  } catch (error) {
+    console.error(error)
+    sendJson(res, 500, { success: false, message: '任務更新失敗' })
+  }
+}
+
+const handleDeleteTaskSubmission = async (req, res, id) => {
+  const user = await getRequiredAuthUser(req, res)
+  if (!user) return
+  try {
+    const connection = await getConnection()
+    const [result] = await connection.query('DELETE FROM task_submissions WHERE id = ?', [id])
+    if (result.affectedRows === 0) {
+      sendJson(res, 404, { success: false, message: '找不到任務資料' })
+      return
+    }
+    sendJson(res, 200, { success: true, message: '任務已刪除' })
+  } catch (error) {
+    console.error(error)
+    sendJson(res, 500, { success: false, message: '任務刪除失敗' })
   }
 }
 
@@ -661,9 +790,30 @@ const start = async () => {
         return
       }
     }
-    if (url.pathname === '/api/task-submissions' && req.method === 'POST') {
-      await handlePostTaskSubmission(req, res)
-      return
+    if (url.pathname === '/api/task-submissions') {
+      if (req.method === 'POST') {
+        await handlePostTaskSubmission(req, res)
+        return
+      }
+      if (req.method === 'GET') {
+        await handleGetTaskSubmissions(req, res)
+        return
+      }
+    }
+    if (url.pathname.startsWith('/api/task-submissions/')) {
+      const id = Number(url.pathname.split('/').pop())
+      if (!Number.isFinite(id)) {
+        sendJson(res, 400, { success: false, message: '任務 ID 無效' })
+        return
+      }
+      if (req.method === 'PUT') {
+        await handleUpdateTaskSubmission(req, res, id)
+        return
+      }
+      if (req.method === 'DELETE') {
+        await handleDeleteTaskSubmission(req, res, id)
+        return
+      }
     }
     if (url.pathname === '/api/auth/request-code' && req.method === 'POST') {
       await requestVerificationCode(req, res)
