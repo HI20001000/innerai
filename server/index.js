@@ -25,6 +25,8 @@ const {
   MYSQL_PORT = '3306',
   MYSQL_USER = 'root',
   MYSQL_PASSWORD = '12345',
+  DIFY_URL = '',
+  DIFY_API_KEY = '',
 } = process.env
 
 const DATABASE_NAME = 'innerai'
@@ -422,13 +424,6 @@ const handleGetTaskSubmissions = async (req, res) => {
     )
     sendJson(res, 200, { success: true, data: rows })
   } catch (error) {
-    if (connection) {
-      try {
-        await connection.rollback()
-      } catch (rollbackError) {
-        console.error(rollbackError)
-      }
-    }
     console.error(error)
     sendJson(res, 500, { success: false, message: '無法讀取任務資料' })
   }
@@ -523,8 +518,53 @@ const handleDeleteTaskSubmission = async (req, res, id) => {
     }
     sendJson(res, 200, { success: true, message: '任務已刪除' })
   } catch (error) {
+    if (connection) {
+      try {
+        await connection.rollback()
+      } catch (rollbackError) {
+        console.error(rollbackError)
+      }
+    }
     console.error(error)
     sendJson(res, 500, { success: false, message: '任務刪除失敗' })
+  }
+}
+
+const handlePostDifyAutoFill = async (req, res) => {
+  const body = await parseBody(req)
+  const text = body?.text
+  if (!isNonEmptyString(text)) {
+    sendJson(res, 400, { success: false, message: '請提供檔案內容' })
+    return
+  }
+  if (!DIFY_URL || !DIFY_API_KEY) {
+    sendJson(res, 500, { success: false, message: 'Dify 設定不存在' })
+    return
+  }
+  try {
+    const response = await fetch(`${DIFY_URL}/chat-messages`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${DIFY_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        inputs: {},
+        query: text,
+        response_mode: 'blocking',
+        conversation_id: '',
+        user: 'innerai',
+      }),
+    })
+    const data = await response.json()
+    if (!response.ok) {
+      sendJson(res, 500, { success: false, message: data?.message || 'Dify 處理失敗' })
+      return
+    }
+    sendJson(res, 200, { success: true, data })
+  } catch (error) {
+    console.error(error)
+    sendJson(res, 500, { success: false, message: 'Dify 連線失敗' })
   }
 }
 
@@ -834,6 +874,10 @@ const start = async () => {
         await handleDeleteTaskSubmission(req, res, id)
         return
       }
+    }
+    if (url.pathname === '/api/dify/auto-fill' && req.method === 'POST') {
+      await handlePostDifyAutoFill(req, res)
+      return
     }
     if (url.pathname === '/api/auth/request-code' && req.method === 'POST') {
       await requestVerificationCode(req, res)

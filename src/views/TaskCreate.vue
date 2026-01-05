@@ -2,6 +2,7 @@
 import { computed, getCurrentInstance, onMounted, reactive, ref } from 'vue'
 import WorkspaceSidebar from '../components/WorkspaceSidebar.vue'
 import ResultModal from '../components/ResultModal.vue'
+import DifyAutoFillPanel from '../components/DifyAutoFillPanel.vue'
 
 const clients = ref([])
 const vendors = ref([])
@@ -278,6 +279,16 @@ const submitTask = async () => {
   }
 }
 
+const applyAutoFill = (payload) => {
+  if (typeof payload !== 'object' || !payload) return
+  if (payload.client) selectedClient.value = payload.client
+  if (payload.vendor) selectedVendor.value = payload.vendor
+  if (payload.product) selectedProduct.value = payload.product
+  if (payload.tag) selectedTag.value = payload.tag
+  if (payload.scheduled_at) selectedTime.value = payload.scheduled_at
+  if (payload.follow_up) followUpContent.value = payload.follow_up
+}
+
 const loadDraft = () => {
   const raw = window.localStorage.getItem(draftKey)
   if (!raw) return
@@ -459,15 +470,7 @@ onMounted(() => {
             <li>跟進內容建議拆分為具體事項。</li>
           </ul>
         </div>
-        <div class="summary-card">
-          <h2>今日焦點</h2>
-          <p>3 個任務待建立</p>
-          <div class="focus-list">
-            <span>客戶簡報</span>
-            <span>樣品追蹤</span>
-            <span>合約回覆</span>
-          </div>
-        </div>
+        <DifyAutoFillPanel :on-fill="applyAutoFill" />
       </aside>
     </section>
 
