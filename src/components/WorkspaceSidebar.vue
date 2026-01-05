@@ -8,7 +8,7 @@
         aria-label="返回首頁"
         @click="onGoHome"
       >
-        <span class="home-icon">⌂</span>
+        <span class="sidebar-glyph">⌂</span>
       </button>
       <button
         class="sidebar-button"
@@ -17,7 +17,7 @@
         aria-label="新增任務"
         @click="onCreateTask"
       >
-        <span class="sidebar-icon">＋</span>
+        <span class="sidebar-glyph">＋</span>
         新增任務
       </button>
       <button
@@ -27,7 +27,7 @@
         aria-label="檢視任務"
         @click="onViewTasks"
       >
-        <span class="sidebar-icon">◎</span>
+        <span class="sidebar-glyph">◎</span>
         檢視任務
       </button>
     </div>
@@ -156,10 +156,6 @@ onUnmounted(() => {
   box-shadow: 0 10px 24px rgba(56, 189, 248, 0.45);
 }
 
-.home-icon {
-  font-size: 1.1rem;
-}
-
 .sidebar-button {
   border: none;
   background: #2563eb;
@@ -193,9 +189,23 @@ onUnmounted(() => {
   color: #0f172a;
 }
 
-.sidebar-icon {
-  font-size: 1.4rem;
+.sidebar-glyph {
+  width: 28px;
+  height: 28px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.2);
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.sidebar-button .sidebar-glyph {
   margin-bottom: 0.1rem;
+}
+
+.sidebar-button.secondary .sidebar-glyph {
+  background: rgba(255, 255, 255, 0.28);
 }
 
 .profile-button {
@@ -252,13 +262,17 @@ onUnmounted(() => {
     padding: 0.8rem 1.2rem;
   }
 
-  .sidebar-icon {
-    margin: 0 0.4rem 0 0;
-  }
-
   .sidebar-button {
     display: inline-flex;
     gap: 0.4rem;
+  }
+
+  .sidebar-glyph {
+    margin: 0 0.4rem 0 0;
+  }
+
+  .sidebar-button .sidebar-glyph {
+    margin-bottom: 0;
   }
 }
 </style>
