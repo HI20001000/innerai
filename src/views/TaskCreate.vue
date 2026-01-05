@@ -17,6 +17,7 @@ const activeList = ref(null)
 const selectedTime = ref('')
 const selectedLocation = ref('')
 const followUpContent = ref('')
+const showRequiredHints = ref(false)
 const searchQuery = reactive({
   client: '',
   vendor: '',
@@ -108,6 +109,11 @@ const optionExists = (type, value) => {
 const optionStatus = (type, value) => {
   if (!value) return ''
   return optionExists(type, value) ? '已存在' : '不存在，提交後將自動建立'
+}
+
+const optionStatusClass = (type, value) => {
+  if (!value) return ''
+  return optionExists(type, value) ? 'exists' : 'missing'
 }
 
 const ensureOptionExists = async (type, value) => {
@@ -280,6 +286,11 @@ const submitTask = async () => {
     location: selectedLocation.value,
     follow_up: followUpContent.value,
   }
+  if (!selectedClient.value || !selectedVendor.value || !selectedProduct.value || !selectedTag.value) {
+    showRequiredHints.value = true
+    return
+  }
+  showRequiredHints.value = false
   try {
     const auth = readAuthStorage()
     if (!auth) {
@@ -390,7 +401,8 @@ onMounted(() => {
             <button class="select-field" type="button" @click="openList('client')">
               {{ selectedClient || '選擇客戶' }}
             </button>
-            <p v-if="selectedClient" class="option-status">
+            <p v-if="showRequiredHints && !selectedClient" class="required-hint">必填</p>
+            <p v-if="selectedClient" :class="['option-status', optionStatusClass('client', selectedClient)]">
               {{ optionStatus('client', selectedClient) }}
             </p>
             <div v-if="activeList === 'client'" class="option-list">
@@ -419,7 +431,8 @@ onMounted(() => {
             <button class="select-field" type="button" @click="openList('vendor')">
               {{ selectedVendor || '選擇廠家' }}
             </button>
-            <p v-if="selectedVendor" class="option-status">
+            <p v-if="showRequiredHints && !selectedVendor" class="required-hint">必填</p>
+            <p v-if="selectedVendor" :class="['option-status', optionStatusClass('vendor', selectedVendor)]">
               {{ optionStatus('vendor', selectedVendor) }}
             </p>
             <div v-if="activeList === 'vendor'" class="option-list">
@@ -448,7 +461,8 @@ onMounted(() => {
             <button class="select-field" type="button" @click="openList('product')">
               {{ selectedProduct || '選擇產品' }}
             </button>
-            <p v-if="selectedProduct" class="option-status">
+            <p v-if="showRequiredHints && !selectedProduct" class="required-hint">必填</p>
+            <p v-if="selectedProduct" :class="['option-status', optionStatusClass('product', selectedProduct)]">
               {{ optionStatus('product', selectedProduct) }}
             </p>
             <div v-if="activeList === 'product'" class="option-list">
@@ -477,7 +491,8 @@ onMounted(() => {
             <button class="select-field" type="button" @click="openList('tag')">
               {{ selectedTag || '選擇標籤' }}
             </button>
-            <p v-if="selectedTag" class="option-status">
+            <p v-if="showRequiredHints && !selectedTag" class="required-hint">必填</p>
+            <p v-if="selectedTag" :class="['option-status', optionStatusClass('tag', selectedTag)]">
               {{ optionStatus('tag', selectedTag) }}
             </p>
             <div v-if="activeList === 'tag'" class="option-list">
@@ -773,6 +788,21 @@ onMounted(() => {
   margin: 0.35rem 0 0;
   font-size: 0.8rem;
   color: #64748b;
+}
+
+.required-hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.8rem;
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.option-status.exists {
+  color: #16a34a;
+}
+
+.option-status.missing {
+  color: #dc2626;
 }
 
 .option-item {
