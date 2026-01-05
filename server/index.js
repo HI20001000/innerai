@@ -44,7 +44,7 @@ const TABLES = {
 
 const withCors = (res) => {
   res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS')
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
 }
 
@@ -127,6 +127,19 @@ const ensureTables = async (connection) => {
       follow_up TEXT,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
+    `CREATE TABLE IF NOT EXISTS task_submissions (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      client_name VARCHAR(255) NOT NULL,
+      vendor_name VARCHAR(255) NOT NULL,
+      product_name VARCHAR(255) NOT NULL,
+      tag_name VARCHAR(255) NOT NULL,
+      scheduled_at DATETIME NOT NULL,
+      location VARCHAR(255) NOT NULL,
+      follow_up TEXT NOT NULL,
+      created_by_email VARCHAR(255) NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_task_submissions_created_at (created_at)
+    )`,
     `CREATE TABLE IF NOT EXISTS auth_tokens (
       id INT AUTO_INCREMENT PRIMARY KEY,
       mail VARCHAR(255) NOT NULL,
@@ -149,6 +162,13 @@ const ensureTables = async (connection) => {
     await connection.query(
       "ALTER TABLE users ADD COLUMN icon_bg VARCHAR(32) NOT NULL DEFAULT '#e2e8f0'"
     )
+  } catch (error) {
+    if (error?.code !== 'ER_DUP_FIELDNAME') {
+      throw error
+    }
+  }
+  try {
+    await connection.query('ALTER TABLE task_submissions ADD COLUMN follow_up TEXT')
   } catch (error) {
     if (error?.code !== 'ER_DUP_FIELDNAME') {
       throw error
@@ -249,10 +269,49 @@ const handleDeleteOptions = async (type, req, res) => {
   }
 }
 
-const handlePostTask = async (req, res) => {
+const getAuthenticatedUser = async (req) => {
+  const token = getBearerToken(req)
+  if (!token) return null
+  const tokenHash = hashToken(token)
+  const connection = await getConnection()
+  await connection.query('DELETE FROM auth_tokens WHERE expires_at < NOW()')
+  const [rows] = await connection.query(
+    `SELECT auth_tokens.expires_at, users.mail
+     FROM auth_tokens
+     JOIN users ON users.mail = auth_tokens.mail
+     WHERE auth_tokens.token_hash = ? AND auth_tokens.expires_at > NOW()
+     LIMIT 1`,
+    [tokenHash]
+  )
+  return rows[0] ?? null
+}
+
+const getRequiredAuthUser = async (req, res) => {
+  try {
+    const user = await getAuthenticatedUser(req)
+    if (!user) {
+      sendJson(res, 401, { success: false, message: '請先登入' })
+      return null
+    }
+    return user
+  } catch (error) {
+    console.error(error)
+    sendJson(res, 500, { success: false, message: '驗證登入資訊失敗' })
+    return null
+  }
+}
+
+const isNonEmptyString = (value) => typeof value === 'string' && value.trim().length > 0
+
+const normalizeScheduledAt = (value) => {
+  if (!value.includes('T')) return value
+  return `${value.replace('T', ' ')}${value.length === 16 ? ':00' : ''}`
+}
+
+const handlePostTaskSubmission = async (req, res) => {
   const body = await parseBody(req)
   if (!body) {
-    sendJson(res, 400, { message: 'Payload is required' })
+    sendJson(res, 400, { success: false, message: '需要提供表單資料' })
     return
   }
   const {
@@ -264,18 +323,188 @@ const handlePostTask = async (req, res) => {
     location,
     follow_up: followUp,
   } = body
+  if (
+    !isNonEmptyString(client) ||
+    !isNonEmptyString(vendor) ||
+    !isNonEmptyString(product) ||
+    !isNonEmptyString(tag) ||
+    !isNonEmptyString(scheduledAt) ||
+    !isNonEmptyString(location) ||
+    !isNonEmptyString(followUp)
+  ) {
+    sendJson(res, 400, { success: false, message: '所有欄位皆為必填' })
+    return
+  }
+  if (
+    client.length > 255 ||
+    vendor.length > 255 ||
+    product.length > 255 ||
+    tag.length > 255 ||
+    location.length > 255
+  ) {
+    sendJson(res, 400, { success: false, message: '欄位長度超過限制' })
+    return
+  }
+  if (followUp.length > 2000) {
+    sendJson(res, 400, { success: false, message: '需跟進內容長度過長' })
+    return
+  }
+  if (Number.isNaN(Date.parse(scheduledAt))) {
+    sendJson(res, 400, { success: false, message: '時間格式不正確' })
+    return
+  }
+  const normalizedScheduledAt = normalizeScheduledAt(scheduledAt)
+  const user = await getRequiredAuthUser(req, res)
+  if (!user) {
+    return
+  }
+  let connection = null
+  try {
+    connection = await getConnection()
+    await connection.beginTransaction()
+    const [result] = await connection.query(
+      `INSERT INTO task_submissions
+        (client_name, vendor_name, product_name, tag_name, scheduled_at, location, follow_up, created_by_email)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        client.trim(),
+        vendor.trim(),
+        product.trim(),
+        tag.trim(),
+        normalizedScheduledAt,
+        location.trim(),
+        followUp.trim(),
+        user.mail,
+      ]
+    )
+    await connection.commit()
+    sendJson(res, 201, {
+      success: true,
+      message: '任務建立成功',
+      data: { id: result.insertId },
+    })
+  } catch (error) {
+    if (connection) {
+      try {
+        await connection.rollback()
+      } catch (rollbackError) {
+        console.error(rollbackError)
+      }
+    }
+    console.error(error)
+    sendJson(res, 500, { success: false, message: '任務建立失敗：伺服器錯誤' })
+  }
+}
+
+const handleGetTaskSubmissions = async (req, res) => {
+  const user = await getRequiredAuthUser(req, res)
+  if (!user) return
   try {
     const connection = await getConnection()
-    await connection.query(
-      `INSERT INTO tasks
-      (client_name, vendor_name, product_name, tag_name, scheduled_at, location, follow_up)
-      VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [client || null, vendor || null, product || null, tag || null, scheduledAt || null, location || null, followUp || null]
+    const [rows] = await connection.query(
+      `SELECT id, client_name, vendor_name, product_name, tag_name, scheduled_at,
+        location, follow_up, created_by_email, created_at
+       FROM task_submissions
+       ORDER BY created_at DESC`
     )
-    sendJson(res, 201, { message: 'Task created' })
+    sendJson(res, 200, { success: true, data: rows })
   } catch (error) {
     console.error(error)
-    sendJson(res, 500, { message: 'Failed to create task' })
+    sendJson(res, 500, { success: false, message: '無法讀取任務資料' })
+  }
+}
+
+const handleUpdateTaskSubmission = async (req, res, id) => {
+  const user = await getRequiredAuthUser(req, res)
+  if (!user) return
+  const body = await parseBody(req)
+  if (!body) {
+    sendJson(res, 400, { success: false, message: '需要提供更新資料' })
+    return
+  }
+  const {
+    client,
+    vendor,
+    product,
+    tag,
+    scheduled_at: scheduledAt,
+    location,
+    follow_up: followUp,
+  } = body
+  if (
+    !isNonEmptyString(client) ||
+    !isNonEmptyString(vendor) ||
+    !isNonEmptyString(product) ||
+    !isNonEmptyString(tag) ||
+    !isNonEmptyString(scheduledAt) ||
+    !isNonEmptyString(location) ||
+    !isNonEmptyString(followUp)
+  ) {
+    sendJson(res, 400, { success: false, message: '所有欄位皆為必填' })
+    return
+  }
+  if (
+    client.length > 255 ||
+    vendor.length > 255 ||
+    product.length > 255 ||
+    tag.length > 255 ||
+    location.length > 255
+  ) {
+    sendJson(res, 400, { success: false, message: '欄位長度超過限制' })
+    return
+  }
+  if (followUp.length > 2000) {
+    sendJson(res, 400, { success: false, message: '需跟進內容長度過長' })
+    return
+  }
+  if (Number.isNaN(Date.parse(scheduledAt))) {
+    sendJson(res, 400, { success: false, message: '時間格式不正確' })
+    return
+  }
+  const normalizedScheduledAt = normalizeScheduledAt(scheduledAt)
+  try {
+    const connection = await getConnection()
+    const [result] = await connection.query(
+      `UPDATE task_submissions
+       SET client_name = ?, vendor_name = ?, product_name = ?, tag_name = ?,
+           scheduled_at = ?, location = ?, follow_up = ?
+       WHERE id = ?`,
+      [
+        client.trim(),
+        vendor.trim(),
+        product.trim(),
+        tag.trim(),
+        normalizedScheduledAt,
+        location.trim(),
+        followUp.trim(),
+        id,
+      ]
+    )
+    if (result.affectedRows === 0) {
+      sendJson(res, 404, { success: false, message: '找不到任務資料' })
+      return
+    }
+    sendJson(res, 200, { success: true, message: '任務更新成功' })
+  } catch (error) {
+    console.error(error)
+    sendJson(res, 500, { success: false, message: '任務更新失敗' })
+  }
+}
+
+const handleDeleteTaskSubmission = async (req, res, id) => {
+  const user = await getRequiredAuthUser(req, res)
+  if (!user) return
+  try {
+    const connection = await getConnection()
+    const [result] = await connection.query('DELETE FROM task_submissions WHERE id = ?', [id])
+    if (result.affectedRows === 0) {
+      sendJson(res, 404, { success: false, message: '找不到任務資料' })
+      return
+    }
+    sendJson(res, 200, { success: true, message: '任務已刪除' })
+  } catch (error) {
+    console.error(error)
+    sendJson(res, 500, { success: false, message: '任務刪除失敗' })
   }
 }
 
@@ -561,9 +790,30 @@ const start = async () => {
         return
       }
     }
-    if (url.pathname === '/api/tasks' && req.method === 'POST') {
-      await handlePostTask(req, res)
-      return
+    if (url.pathname === '/api/task-submissions') {
+      if (req.method === 'POST') {
+        await handlePostTaskSubmission(req, res)
+        return
+      }
+      if (req.method === 'GET') {
+        await handleGetTaskSubmissions(req, res)
+        return
+      }
+    }
+    if (url.pathname.startsWith('/api/task-submissions/')) {
+      const id = Number(url.pathname.split('/').pop())
+      if (!Number.isFinite(id)) {
+        sendJson(res, 400, { success: false, message: '任務 ID 無效' })
+        return
+      }
+      if (req.method === 'PUT') {
+        await handleUpdateTaskSubmission(req, res, id)
+        return
+      }
+      if (req.method === 'DELETE') {
+        await handleDeleteTaskSubmission(req, res, id)
+        return
+      }
     }
     if (url.pathname === '/api/auth/request-code' && req.method === 'POST') {
       await requestVerificationCode(req, res)
