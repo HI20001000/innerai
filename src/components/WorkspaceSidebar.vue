@@ -142,7 +142,7 @@ onUnmounted(() => {
 
 .sidebar-button {
   border: none;
-  background: rgb(75, 75, 75);
+  background: rgba(255, 255, 255, 0.12);
   color: #fff;
   border-radius: 18px;
   padding: 0.75rem 0.6rem;
@@ -199,7 +199,7 @@ onUnmounted(() => {
 }
 
 .profile-button.active {
-  background: #38bdf8;
+  background: #1d4ed8;
 }
 
 .profile-button.active .profile-avatar {
