@@ -2,13 +2,14 @@
   <aside class="workspace-sidebar">
     <div class="sidebar-top">
       <button
-        class="home-button"
+        class="sidebar-button"
         :class="{ active: activePath === '/home' }"
         type="button"
         aria-label="返回首頁"
         @click="onGoHome"
       >
         <span class="sidebar-glyph">⌂</span>
+        首頁
       </button>
       <button
         class="sidebar-button"
@@ -21,7 +22,7 @@
         新增任務
       </button>
       <button
-        class="sidebar-button secondary"
+        class="sidebar-button"
         :class="{ active: activePath === '/tasks/view' }"
         type="button"
         aria-label="檢視任務"
@@ -139,23 +140,6 @@ onUnmounted(() => {
   align-items: center;
 }
 
-.home-button {
-  border: none;
-  background: rgba(255, 255, 255, 0.12);
-  color: #fff;
-  border-radius: 16px;
-  width: 56px;
-  height: 56px;
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-}
-
-.home-button.active {
-  background: #38bdf8;
-  box-shadow: 0 10px 24px rgba(56, 189, 248, 0.45);
-}
-
 .sidebar-button {
   border: none;
   background: #2563eb;
@@ -177,16 +161,6 @@ onUnmounted(() => {
 .sidebar-button.active {
   background: #1d4ed8;
   box-shadow: 0 16px 28px rgba(29, 78, 216, 0.5);
-}
-
-.sidebar-button.secondary {
-  background: rgba(255, 255, 255, 0.16);
-  box-shadow: none;
-}
-
-.sidebar-button.secondary.active {
-  background: #38bdf8;
-  color: #0f172a;
 }
 
 .sidebar-glyph {
