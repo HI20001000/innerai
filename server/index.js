@@ -422,6 +422,13 @@ const handleGetTaskSubmissions = async (req, res) => {
     )
     sendJson(res, 200, { success: true, data: rows })
   } catch (error) {
+    if (connection) {
+      try {
+        await connection.rollback()
+      } catch (rollbackError) {
+        console.error(rollbackError)
+      }
+    }
     console.error(error)
     sendJson(res, 500, { success: false, message: '無法讀取任務資料' })
   }
