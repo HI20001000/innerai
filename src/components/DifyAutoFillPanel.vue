@@ -48,7 +48,8 @@ const readFileContent = async (file) => {
   }
   if (name.endsWith('.docx')) {
     const buffer = await file.arrayBuffer()
-    const mammoth = await loadMammoth()
+    const mammothModule = await loadMammoth()
+    const mammoth = mammothModule?.default ?? mammothModule
     const result = await mammoth.extractRawText({ arrayBuffer: buffer })
     return result.value || ''
   }
