@@ -60,14 +60,22 @@ const parseJsonSafe = async (response) => {
 
 const formatDateTimeDisplay = (value) => {
   if (!value) return ''
-  if (typeof value === 'string') return value
+  if (typeof value === 'string') {
+    const trimmed = value.replace('T', ' ').replace('Z', '')
+    if (trimmed.includes('.')) {
+      return trimmed.split('.')[0]
+    }
+    return trimmed.length > 19 ? trimmed.slice(0, 19) : trimmed
+  }
   return new Date(value).toISOString().replace('T', ' ').slice(0, 19)
 }
 
 const formatDateTimeInput = (value) => {
   if (!value) return ''
   if (typeof value === 'string') {
-    return value.includes('T') ? value : value.replace(' ', 'T').slice(0, 16)
+    const trimmed = value.replace('Z', '')
+    const normalized = trimmed.includes('T') ? trimmed : trimmed.replace(' ', 'T')
+    return normalized.split('.')[0].slice(0, 16)
   }
   return new Date(value).toISOString().slice(0, 16)
 }
