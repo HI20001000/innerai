@@ -103,13 +103,19 @@ const handleStorage = (event) => {
   }
 }
 
+const handleUserUpdate = () => {
+  loadUser()
+}
+
 onMounted(() => {
   loadUser()
   window.addEventListener('storage', handleStorage)
+  window.addEventListener('innerai_user_updated', handleUserUpdate)
 })
 
 onUnmounted(() => {
   window.removeEventListener('storage', handleStorage)
+  window.removeEventListener('innerai_user_updated', handleUserUpdate)
 })
 </script>
 

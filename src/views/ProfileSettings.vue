@@ -247,6 +247,7 @@ const saveProfile = async () => {
         role: localRole.value,
       })
     )
+    window.dispatchEvent(new Event('innerai_user_updated'))
     message.value = '已更新'
     currentPassword.value = ''
     newPassword.value = ''
