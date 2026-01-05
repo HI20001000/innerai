@@ -13,6 +13,7 @@ const selectedClient = ref('')
 const selectedVendor = ref('')
 const selectedProduct = ref('')
 const selectedTag = ref('')
+const selectedRelatedUser = ref(null)
 const activeList = ref(null)
 const selectedTime = ref('')
 const selectedLocation = ref('')
@@ -23,6 +24,7 @@ const searchQuery = reactive({
   vendor: '',
   product: '',
   tag: '',
+  user: '',
 })
 
 const activeModal = ref(null)
@@ -75,6 +77,21 @@ const fetchOptions = async (type) => {
   if (type === 'tag') tags.value = data
 }
 
+const fetchUsers = async () => {
+  const auth = readAuthStorage()
+  if (!auth) return
+  const response = await fetch(`${apiBaseUrl}/api/users`, {
+    headers: { Authorization: `Bearer ${auth.token}` },
+  })
+  if (!response.ok) {
+    throw new Error('Failed to load users')
+  }
+  const data = await response.json()
+  relatedUsers.value = data?.data ?? []
+}
+
+const relatedUsers = ref([])
+
 const loadAllOptions = async () => {
   await Promise.all(['client', 'vendor', 'product', 'tag'].map((type) => fetchOptions(type)))
 }
@@ -87,7 +104,11 @@ const openList = async (type) => {
   activeList.value = type
   searchQuery[type] = ''
   try {
-    await fetchOptions(type)
+    if (type === 'user') {
+      await fetchUsers()
+    } else {
+      await fetchOptions(type)
+    }
   } catch (error) {
     console.error(error)
   }
@@ -142,8 +163,15 @@ const getFilteredOptions = (type) => {
         ? vendors.value
         : type === 'product'
           ? products.value
-          : tags.value
+          : type === 'tag'
+            ? tags.value
+            : relatedUsers.value
   if (!query) return source
+  if (type === 'user') {
+    return source.filter((item) =>
+      `${item.username || ''}${item.mail || ''}`.toLowerCase().includes(query)
+    )
+  }
   return source.filter((item) => item.toLowerCase().includes(query))
 }
 
@@ -159,6 +187,9 @@ const selectOption = (type, item) => {
   }
   if (type === 'tag') {
     selectedTag.value = item
+  }
+  if (type === 'user') {
+    selectedRelatedUser.value = item
   }
   activeList.value = null
 }
@@ -247,6 +278,7 @@ const saveDraft = () => {
     selectedVendor: selectedVendor.value,
     selectedProduct: selectedProduct.value,
     selectedTag: selectedTag.value,
+    selectedRelatedUser: selectedRelatedUser.value,
     selectedTime: selectedTime.value,
     selectedLocation: selectedLocation.value,
     followUpContent: followUpContent.value,
@@ -282,11 +314,18 @@ const submitTask = async () => {
     vendor: selectedVendor.value,
     product: selectedProduct.value,
     tag: selectedTag.value,
+    related_user_mail: selectedRelatedUser.value?.mail || '',
     scheduled_at: selectedTime.value,
     location: selectedLocation.value,
     follow_up: followUpContent.value,
   }
-  if (!selectedClient.value || !selectedVendor.value || !selectedProduct.value || !selectedTag.value) {
+  if (
+    !selectedClient.value ||
+    !selectedVendor.value ||
+    !selectedProduct.value ||
+    !selectedTag.value ||
+    !selectedRelatedUser.value
+  ) {
     showRequiredHints.value = true
     return
   }
@@ -353,6 +392,7 @@ const loadDraft = () => {
     selectedVendor.value = payload.selectedVendor ?? ''
     selectedProduct.value = payload.selectedProduct ?? ''
     selectedTag.value = payload.selectedTag ?? ''
+    selectedRelatedUser.value = payload.selectedRelatedUser ?? null
     selectedTime.value = payload.selectedTime ?? ''
     selectedLocation.value = payload.selectedLocation ?? ''
     followUpContent.value = payload.followUpContent ?? ''
@@ -364,6 +404,7 @@ const loadDraft = () => {
 onMounted(() => {
   loadDraft()
   loadAllOptions().catch((error) => console.error(error))
+  fetchUsers().catch((error) => console.error(error))
 })
 </script>
 
@@ -510,6 +551,44 @@ onMounted(() => {
                 @click="selectOption('tag', item)"
               >
                 {{ item }}
+              </button>
+            </div>
+          </div>
+          <div class="field select-field-wrapper">
+            <div class="field-header">
+              <span>關聯用戶</span>
+            </div>
+            <button class="select-field" type="button" @click="openList('user')">
+              {{
+                selectedRelatedUser
+                  ? `${selectedRelatedUser.username || ''}<${selectedRelatedUser.mail}>`
+                  : '選擇關聯用戶'
+              }}
+            </button>
+            <p v-if="showRequiredHints && !selectedRelatedUser" class="required-hint">必填</p>
+            <div v-if="activeList === 'user'" class="option-list">
+              <input
+                v-model="searchQuery.user"
+                class="option-search"
+                type="text"
+                placeholder="搜尋用戶"
+              />
+              <button
+                v-for="item in getFilteredOptions('user')"
+                :key="item.mail"
+                type="button"
+                class="option-item user-option"
+                @click="selectedRelatedUser = item; activeList = null"
+              >
+                <span
+                  class="user-avatar"
+                  :style="{ backgroundColor: item.icon_bg || '#e2e8f0' }"
+                >
+                  {{ item.icon || '🙂' }}
+                </span>
+                <span class="user-label">
+                  {{ item.username || 'user' }}&lt;{{ item.mail }}&gt;
+                </span>
               </button>
             </div>
           </div>
@@ -818,6 +897,27 @@ onMounted(() => {
 
 .option-item:hover {
   background: #e2e8f0;
+}
+
+.user-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.user-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 0.75rem;
+  background: #e2e8f0;
+}
+
+.user-label {
+  font-size: 0.85rem;
+  color: #1f2937;
 }
 
 .field textarea {
