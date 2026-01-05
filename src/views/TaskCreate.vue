@@ -129,7 +129,7 @@ const optionExists = (type, value) => {
 
 const optionStatus = (type, value) => {
   if (!value) return ''
-  return optionExists(type, value) ? '已存在' : '不存在，提交後將自動建立'
+  return optionExists(type, value) ? '' : '不存在，提交後將自動建立'
 }
 
 const optionStatusClass = (type, value) => {
@@ -456,7 +456,10 @@ onMounted(() => {
               {{ selectedClient || '選擇客戶' }}
             </button>
             <p v-if="showRequiredHints && !selectedClient" class="required-hint">必填</p>
-            <p v-if="selectedClient" :class="['option-status', optionStatusClass('client', selectedClient)]">
+            <p
+              v-if="selectedClient && optionStatus('client', selectedClient)"
+              :class="['option-status', optionStatusClass('client', selectedClient)]"
+            >
               {{ optionStatus('client', selectedClient) }}
             </p>
             <div v-if="activeList === 'client'" class="option-list">
@@ -486,7 +489,10 @@ onMounted(() => {
               {{ selectedVendor || '選擇廠家' }}
             </button>
             <p v-if="showRequiredHints && !selectedVendor" class="required-hint">必填</p>
-            <p v-if="selectedVendor" :class="['option-status', optionStatusClass('vendor', selectedVendor)]">
+            <p
+              v-if="selectedVendor && optionStatus('vendor', selectedVendor)"
+              :class="['option-status', optionStatusClass('vendor', selectedVendor)]"
+            >
               {{ optionStatus('vendor', selectedVendor) }}
             </p>
             <div v-if="activeList === 'vendor'" class="option-list">
@@ -516,7 +522,10 @@ onMounted(() => {
               {{ selectedProduct || '選擇產品' }}
             </button>
             <p v-if="showRequiredHints && !selectedProduct" class="required-hint">必填</p>
-            <p v-if="selectedProduct" :class="['option-status', optionStatusClass('product', selectedProduct)]">
+            <p
+              v-if="selectedProduct && optionStatus('product', selectedProduct)"
+              :class="['option-status', optionStatusClass('product', selectedProduct)]"
+            >
               {{ optionStatus('product', selectedProduct) }}
             </p>
             <div v-if="activeList === 'product'" class="option-list">
@@ -546,7 +555,10 @@ onMounted(() => {
               {{ selectedTag || '選擇標籤' }}
             </button>
             <p v-if="showRequiredHints && !selectedTag" class="required-hint">必填</p>
-            <p v-if="selectedTag" :class="['option-status', optionStatusClass('tag', selectedTag)]">
+            <p
+              v-if="selectedTag && optionStatus('tag', selectedTag)"
+              :class="['option-status', optionStatusClass('tag', selectedTag)]"
+            >
               {{ optionStatus('tag', selectedTag) }}
             </p>
             <div v-if="activeList === 'tag'" class="option-list">

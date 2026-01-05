@@ -17,7 +17,7 @@ const props = defineProps({
           <span class="avatar" :style="{ backgroundColor: user.icon_bg || '#e2e8f0' }">
             {{ user.icon || '🙂' }}
           </span>
-          <span class="label">{{ user.username || 'user' }} {{ user.mail }}</span>
+          <span class="label">{{ user.username || 'user' }} &lt;{{ user.mail }}&gt;</span>
         </div>
       </div>
     </div>
