@@ -1,10 +1,28 @@
 <script setup>
 import { ref } from 'vue'
-const loadMammoth = async () => {
-  return await import(
-    /* @vite-ignore */
-    'https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js'
-  )
+let mammothPromise = null
+
+const loadMammoth = () => {
+  if (mammothPromise) return mammothPromise
+  mammothPromise = new Promise((resolve, reject) => {
+    if (window.mammoth) {
+      resolve(window.mammoth)
+      return
+    }
+    const script = document.createElement('script')
+    script.src = 'https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js'
+    script.async = true
+    script.onload = () => {
+      if (window.mammoth) {
+        resolve(window.mammoth)
+      } else {
+        reject(new Error('Mammoth failed to load'))
+      }
+    }
+    script.onerror = () => reject(new Error('Mammoth failed to load'))
+    document.head.appendChild(script)
+  })
+  return mammothPromise
 }
 
 const props = defineProps({
@@ -48,8 +66,7 @@ const readFileContent = async (file) => {
   }
   if (name.endsWith('.docx')) {
     const buffer = await file.arrayBuffer()
-    const mammothModule = await loadMammoth()
-    const mammoth = mammothModule?.default ?? mammothModule
+    const mammoth = await loadMammoth()
     const result = await mammoth.extractRawText({ arrayBuffer: buffer })
     return result.value || ''
   }
