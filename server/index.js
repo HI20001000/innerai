@@ -25,6 +25,8 @@ const {
   MYSQL_PORT = '3306',
   MYSQL_USER = 'root',
   MYSQL_PASSWORD = '12345',
+  DIFY_URL = '',
+  DIFY_API_KEY = '',
 } = process.env
 
 const DATABASE_NAME = 'innerai'
@@ -44,7 +46,7 @@ const TABLES = {
 
 const withCors = (res) => {
   res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS')
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
 }
 
@@ -127,12 +129,71 @@ const ensureTables = async (connection) => {
       follow_up TEXT,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
+    `CREATE TABLE IF NOT EXISTS task_submissions (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      client_name VARCHAR(255) NOT NULL,
+      vendor_name VARCHAR(255) NOT NULL,
+      product_name VARCHAR(255) NOT NULL,
+      tag_name VARCHAR(255) NOT NULL,
+      scheduled_at DATETIME,
+      location VARCHAR(255),
+      follow_up TEXT,
+      created_by_email VARCHAR(255) NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_task_submissions_created_at (created_at)
+    )`,
     `CREATE TABLE IF NOT EXISTS auth_tokens (
       id INT AUTO_INCREMENT PRIMARY KEY,
       mail VARCHAR(255) NOT NULL,
       token_hash VARCHAR(128) NOT NULL UNIQUE,
       expires_at DATETIME NOT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS task_submission_users (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      submission_id INT NOT NULL,
+      user_mail VARCHAR(255) NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_task_submission_users_submission (submission_id),
+      INDEX idx_task_submission_users_user (user_mail)
+    )`,
+    `CREATE TABLE IF NOT EXISTS meeting_folders (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      meeting_time DATETIME NOT NULL,
+      created_by_email VARCHAR(255) NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS meeting_records (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      folder_id INT NOT NULL,
+      file_name VARCHAR(512) NOT NULL,
+      file_path VARCHAR(1024),
+      mime_type VARCHAR(255),
+      file_content LONGBLOB,
+      content_text LONGTEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_meeting_records_folder (folder_id)
+    )`,
+    `CREATE TABLE IF NOT EXISTS client_vendor_links (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      client_name VARCHAR(255) NOT NULL,
+      vendor_name VARCHAR(255) NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_client_vendor (client_name, vendor_name)
+    )`,
+    `CREATE TABLE IF NOT EXISTS vendor_product_links (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      vendor_name VARCHAR(255) NOT NULL,
+      product_name VARCHAR(255) NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_vendor_product (vendor_name, product_name)
+    )`,
+    `CREATE TABLE IF NOT EXISTS product_meeting_links (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      product_name VARCHAR(255) NOT NULL,
+      meeting_folder_id INT NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_product_meeting (product_name, meeting_folder_id)
     )`,
   ]
   for (const statement of statements) {
@@ -151,6 +212,36 @@ const ensureTables = async (connection) => {
     )
   } catch (error) {
     if (error?.code !== 'ER_DUP_FIELDNAME') {
+      throw error
+    }
+  }
+  try {
+    await connection.query(
+      "ALTER TABLE task_submissions ADD COLUMN follow_up TEXT NOT NULL"
+    )
+  } catch (error) {
+    if (error?.code !== 'ER_DUP_FIELDNAME') {
+      throw error
+    }
+  }
+  try {
+    await connection.query('ALTER TABLE task_submissions MODIFY scheduled_at DATETIME NULL')
+  } catch (error) {
+    if (error?.code !== 'ER_INVALID_USE_OF_NULL' && error?.code !== 'ER_BAD_FIELD_ERROR') {
+      throw error
+    }
+  }
+  try {
+    await connection.query('ALTER TABLE task_submissions MODIFY location VARCHAR(255) NULL')
+  } catch (error) {
+    if (error?.code !== 'ER_INVALID_USE_OF_NULL' && error?.code !== 'ER_BAD_FIELD_ERROR') {
+      throw error
+    }
+  }
+  try {
+    await connection.query('ALTER TABLE task_submissions MODIFY follow_up TEXT NULL')
+  } catch (error) {
+    if (error?.code !== 'ER_INVALID_USE_OF_NULL' && error?.code !== 'ER_BAD_FIELD_ERROR') {
       throw error
     }
   }
@@ -249,10 +340,60 @@ const handleDeleteOptions = async (type, req, res) => {
   }
 }
 
-const handlePostTask = async (req, res) => {
+const getAuthenticatedUser = async (req) => {
+  const token = getBearerToken(req)
+  if (!token) return null
+  const tokenHash = hashToken(token)
+  const connection = await getConnection()
+  await connection.query('DELETE FROM auth_tokens WHERE expires_at < NOW()')
+  const [rows] = await connection.query(
+    `SELECT auth_tokens.expires_at, users.mail
+     FROM auth_tokens
+     JOIN users ON users.mail = auth_tokens.mail
+     WHERE auth_tokens.token_hash = ? AND auth_tokens.expires_at > NOW()
+     LIMIT 1`,
+    [tokenHash]
+  )
+  return rows[0] ?? null
+}
+
+const getRequiredAuthUser = async (req, res) => {
+  try {
+    const user = await getAuthenticatedUser(req)
+    if (!user) {
+      sendJson(res, 401, { success: false, message: '請先登入' })
+      return null
+    }
+    return user
+  } catch (error) {
+    console.error(error)
+    sendJson(res, 500, { success: false, message: '驗證登入資訊失敗' })
+    return null
+  }
+}
+
+const isNonEmptyString = (value) => typeof value === 'string' && value.trim().length > 0
+
+const normalizeScheduledAt = (value) => {
+  if (typeof value !== 'string') return value
+  if (value.includes('.')) {
+    const [base] = value.split('.')
+    if (base) return normalizeScheduledAt(base)
+  }
+  if (value.includes('T') || value.endsWith('Z')) {
+    const parsed = new Date(value)
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toISOString().slice(0, 19).replace('T', ' ')
+    }
+  }
+  if (!value.includes('T')) return value
+  return `${value.replace('T', ' ')}${value.length === 16 ? ':00' : ''}`
+}
+
+const handlePostTaskSubmission = async (req, res) => {
   const body = await parseBody(req)
   if (!body) {
-    sendJson(res, 400, { message: 'Payload is required' })
+    sendJson(res, 400, { success: false, message: '需要提供表單資料' })
     return
   }
   const {
@@ -260,22 +401,491 @@ const handlePostTask = async (req, res) => {
     vendor,
     product,
     tag,
+    related_user_mail: relatedUserMail,
     scheduled_at: scheduledAt,
     location,
     follow_up: followUp,
   } = body
+  if (
+    !isNonEmptyString(client) ||
+    !isNonEmptyString(vendor) ||
+    !isNonEmptyString(product) ||
+    !isNonEmptyString(tag)
+  ) {
+    sendJson(res, 400, { success: false, message: '客戶、廠家、產品、標籤、關聯用戶為必填' })
+    return
+  }
+  const relatedUserMails = Array.isArray(relatedUserMail)
+    ? relatedUserMail.map((mail) => String(mail).trim()).filter(Boolean)
+    : null
+  if (!relatedUserMails || relatedUserMails.length === 0) {
+    sendJson(res, 400, { success: false, message: '關聯用戶為必填' })
+    return
+  }
+  if (
+    client.length > 255 ||
+    vendor.length > 255 ||
+    product.length > 255 ||
+    tag.length > 255 ||
+    (location && location.length > 255)
+  ) {
+    sendJson(res, 400, { success: false, message: '欄位長度超過限制' })
+    return
+  }
+  if (followUp && followUp.length > 2000) {
+    sendJson(res, 400, { success: false, message: '需跟進內容長度過長' })
+    return
+  }
+  if (scheduledAt && Number.isNaN(Date.parse(scheduledAt))) {
+    sendJson(res, 400, { success: false, message: '時間格式不正確' })
+    return
+  }
+  const normalizedScheduledAt = scheduledAt ? normalizeScheduledAt(scheduledAt) : null
+  const user = await getRequiredAuthUser(req, res)
+  if (!user) {
+    return
+  }
+  let connection = null
+  try {
+    connection = await getConnection()
+    await connection.beginTransaction()
+    const [users] = await connection.query('SELECT mail FROM users WHERE mail IN (?)', [
+      relatedUserMails,
+    ])
+    if (users.length !== relatedUserMails.length) {
+      await connection.rollback()
+      sendJson(res, 400, { success: false, message: '關聯用戶不存在' })
+      return
+    }
+    const [result] = await connection.query(
+      `INSERT INTO task_submissions
+        (client_name, vendor_name, product_name, tag_name, scheduled_at, location, follow_up, created_by_email)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        client.trim(),
+        vendor.trim(),
+        product.trim(),
+        tag.trim(),
+        normalizedScheduledAt,
+        location ? location.trim() : null,
+        followUp ? followUp.trim() : null,
+        user.mail,
+      ]
+    )
+    const relationValues = relatedUserMails.map((mail) => [result.insertId, mail])
+    await connection.query(
+      'INSERT INTO task_submission_users (submission_id, user_mail) VALUES ?',
+      [relationValues]
+    )
+    await connection.commit()
+    sendJson(res, 201, {
+      success: true,
+      message: '任務建立成功',
+      data: { id: result.insertId },
+    })
+  } catch (error) {
+    if (connection) {
+      try {
+        await connection.rollback()
+      } catch (rollbackError) {
+        console.error(rollbackError)
+      }
+    }
+    console.error(error)
+    sendJson(res, 500, { success: false, message: '任務建立失敗：伺服器錯誤' })
+  }
+}
+
+const handleGetTaskSubmissions = async (req, res) => {
+  const user = await getRequiredAuthUser(req, res)
+  if (!user) return
   try {
     const connection = await getConnection()
-    await connection.query(
-      `INSERT INTO tasks
-      (client_name, vendor_name, product_name, tag_name, scheduled_at, location, follow_up)
-      VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [client || null, vendor || null, product || null, tag || null, scheduledAt || null, location || null, followUp || null]
+    const [rows] = await connection.query(
+      `SELECT task_submissions.id, task_submissions.client_name, task_submissions.vendor_name,
+        task_submissions.product_name, task_submissions.tag_name, task_submissions.scheduled_at,
+        task_submissions.location, task_submissions.follow_up, task_submissions.created_by_email,
+        task_submissions.created_at,
+        users.mail as related_mail, users.icon as related_icon, users.icon_bg as related_icon_bg,
+        users.username as related_username
+       FROM task_submissions
+       LEFT JOIN task_submission_users ON task_submission_users.submission_id = task_submissions.id
+       LEFT JOIN users ON users.mail = task_submission_users.user_mail
+       ORDER BY task_submissions.created_at DESC`
     )
-    sendJson(res, 201, { message: 'Task created' })
+    const grouped = new Map()
+    for (const row of rows) {
+      if (!grouped.has(row.id)) {
+        grouped.set(row.id, {
+          id: row.id,
+          client_name: row.client_name,
+          vendor_name: row.vendor_name,
+          product_name: row.product_name,
+          tag_name: row.tag_name,
+          scheduled_at: row.scheduled_at,
+          location: row.location,
+          follow_up: row.follow_up,
+          created_by_email: row.created_by_email,
+          created_at: row.created_at,
+          related_users: [],
+        })
+      }
+      if (row.related_mail) {
+        grouped.get(row.id).related_users.push({
+          mail: row.related_mail,
+          icon: row.related_icon,
+          icon_bg: row.related_icon_bg,
+          username: row.related_username,
+        })
+      }
+    }
+    sendJson(res, 200, { success: true, data: Array.from(grouped.values()) })
   } catch (error) {
     console.error(error)
-    sendJson(res, 500, { message: 'Failed to create task' })
+    sendJson(res, 500, { success: false, message: '無法讀取任務資料' })
+  }
+}
+
+const handleGetUsers = async (req, res) => {
+  const user = await getRequiredAuthUser(req, res)
+  if (!user) return
+  try {
+    const connection = await getConnection()
+    const [rows] = await connection.query(
+      'SELECT mail, icon, icon_bg, username FROM users ORDER BY username ASC'
+    )
+    sendJson(res, 200, { success: true, data: rows })
+  } catch (error) {
+    console.error(error)
+    sendJson(res, 500, { success: false, message: '無法讀取使用者清單' })
+  }
+}
+
+const handlePostMeetingRecords = async (req, res) => {
+  const user = await getRequiredAuthUser(req, res)
+  if (!user) return
+  const body = await parseBody(req)
+  if (!body) {
+    sendJson(res, 400, { success: false, message: '需要提供會議記錄資料' })
+    return
+  }
+  const { client, vendor, product, meeting_time: meetingTime, files } = body
+  if (!isNonEmptyString(client) || !isNonEmptyString(vendor) || !isNonEmptyString(product)) {
+    sendJson(res, 400, { success: false, message: '客戶、廠家、產品為必填' })
+    return
+  }
+  if (!isNonEmptyString(meetingTime) || Number.isNaN(Date.parse(meetingTime))) {
+    sendJson(res, 400, { success: false, message: '會議時間格式不正確' })
+    return
+  }
+  if (!Array.isArray(files) || files.length === 0) {
+    sendJson(res, 400, { success: false, message: '請上傳會議記錄檔案' })
+    return
+  }
+  const normalizedMeetingTime = normalizeScheduledAt(meetingTime)
+  let connection = null
+  try {
+    connection = await getConnection()
+    await connection.beginTransaction()
+    const [folderResult] = await connection.query(
+      `INSERT INTO meeting_folders
+        (meeting_time, created_by_email)
+       VALUES (?, ?)`,
+      [normalizedMeetingTime, user.mail]
+    )
+    const folderId = folderResult.insertId
+    await connection.query(
+      'INSERT IGNORE INTO client_vendor_links (client_name, vendor_name) VALUES (?, ?)',
+      [client.trim(), vendor.trim()]
+    )
+    await connection.query(
+      'INSERT IGNORE INTO vendor_product_links (vendor_name, product_name) VALUES (?, ?)',
+      [vendor.trim(), product.trim()]
+    )
+    await connection.query(
+      'INSERT IGNORE INTO product_meeting_links (product_name, meeting_folder_id) VALUES (?, ?)',
+      [product.trim(), folderId]
+    )
+    const records = files.map((file) => {
+      const content = file?.contentBase64
+        ? Buffer.from(String(file.contentBase64), 'base64')
+        : null
+      const isText =
+        file?.type?.startsWith('text/') ||
+        String(file?.name || '').toLowerCase().endsWith('.txt')
+      const contentText = isText && content ? content.toString('utf8') : null
+      return [
+        folderId,
+        file?.name || 'unknown',
+        file?.path || null,
+        file?.type || null,
+        content,
+        contentText,
+      ]
+    })
+    await connection.query(
+      'INSERT INTO meeting_records (folder_id, file_name, file_path, mime_type, file_content, content_text) VALUES ?',
+      [records]
+    )
+    await connection.commit()
+    sendJson(res, 201, { success: true, message: '會議記錄已上傳', data: { id: folderId } })
+  } catch (error) {
+    if (connection) {
+      try {
+        await connection.rollback()
+      } catch (rollbackError) {
+        console.error(rollbackError)
+      }
+    }
+    console.error(error)
+    sendJson(res, 500, { success: false, message: '會議記錄上傳失敗' })
+  }
+}
+
+const handleGetMeetingRecords = async (req, res) => {
+  const user = await getRequiredAuthUser(req, res)
+  if (!user) return
+  try {
+    const connection = await getConnection()
+    const [clientVendors] = await connection.query(
+      'SELECT client_name, vendor_name FROM client_vendor_links'
+    )
+    const [vendorProducts] = await connection.query(
+      'SELECT vendor_name, product_name FROM vendor_product_links'
+    )
+    const [productMeetings] = await connection.query(
+      'SELECT product_name, meeting_folder_id FROM product_meeting_links'
+    )
+    const [folders] = await connection.query(
+      'SELECT id, meeting_time, created_by_email, created_at FROM meeting_folders'
+    )
+    const [records] = await connection.query(
+      `SELECT id, folder_id, file_name, file_path, mime_type, content_text
+       FROM meeting_records
+       ORDER BY id ASC`
+    )
+
+    const foldersById = new Map()
+    for (const folder of folders) {
+      foldersById.set(folder.id, { ...folder, records: [] })
+    }
+    for (const record of records) {
+      const folder = foldersById.get(record.folder_id)
+      if (folder) {
+        folder.records.push({
+          id: record.id,
+          file_name: record.file_name,
+          file_path: record.file_path,
+          mime_type: record.mime_type,
+          content_text: record.content_text,
+        })
+      }
+    }
+
+    const productMeetingsMap = new Map()
+    for (const link of productMeetings) {
+      if (!productMeetingsMap.has(link.product_name)) {
+        productMeetingsMap.set(link.product_name, [])
+      }
+      const folder = foldersById.get(link.meeting_folder_id)
+      if (folder) {
+        productMeetingsMap.get(link.product_name).push(folder)
+      }
+    }
+
+    const vendorProductsMap = new Map()
+    for (const link of vendorProducts) {
+      if (!vendorProductsMap.has(link.vendor_name)) {
+        vendorProductsMap.set(link.vendor_name, [])
+      }
+      vendorProductsMap.get(link.vendor_name).push(link.product_name)
+    }
+
+    const clientVendorsMap = new Map()
+    for (const link of clientVendors) {
+      if (!clientVendorsMap.has(link.client_name)) {
+        clientVendorsMap.set(link.client_name, [])
+      }
+      clientVendorsMap.get(link.client_name).push(link.vendor_name)
+    }
+
+    const data = []
+    for (const [clientName, vendors] of clientVendorsMap.entries()) {
+      const vendorNodes = vendors.map((vendorName) => {
+        const products = vendorProductsMap.get(vendorName) || []
+        const productNodes = products.map((productName) => {
+          const meetings = productMeetingsMap.get(productName) || []
+          return {
+            name: productName,
+            meetings: meetings.map((meeting) => ({
+              id: meeting.id,
+              meeting_time: meeting.meeting_time,
+              created_by_email: meeting.created_by_email,
+              created_at: meeting.created_at,
+              records: meeting.records,
+            })),
+          }
+        })
+        return { name: vendorName, products: productNodes }
+      })
+      data.push({ name: clientName, vendors: vendorNodes })
+    }
+    sendJson(res, 200, { success: true, data })
+  } catch (error) {
+    console.error(error)
+    sendJson(res, 500, { success: false, message: '無法讀取會議記錄' })
+  }
+}
+
+const handleUpdateTaskSubmission = async (req, res, id) => {
+  const user = await getRequiredAuthUser(req, res)
+  if (!user) return
+  const body = await parseBody(req)
+  if (!body) {
+    sendJson(res, 400, { success: false, message: '需要提供更新資料' })
+    return
+  }
+  const {
+    client,
+    vendor,
+    product,
+    tag,
+    related_user_mail: relatedUserMail,
+    scheduled_at: scheduledAt,
+    location,
+    follow_up: followUp,
+  } = body
+  if (
+    !isNonEmptyString(client) ||
+    !isNonEmptyString(vendor) ||
+    !isNonEmptyString(product) ||
+    !isNonEmptyString(tag) ||
+    !isNonEmptyString(relatedUserMail)
+  ) {
+    sendJson(res, 400, { success: false, message: '客戶、廠家、產品、標籤、關聯用戶為必填' })
+    return
+  }
+  if (
+    client.length > 255 ||
+    vendor.length > 255 ||
+    product.length > 255 ||
+    tag.length > 255 ||
+    (location && location.length > 255)
+  ) {
+    sendJson(res, 400, { success: false, message: '欄位長度超過限制' })
+    return
+  }
+  if (followUp && followUp.length > 2000) {
+    sendJson(res, 400, { success: false, message: '需跟進內容長度過長' })
+    return
+  }
+  if (scheduledAt && Number.isNaN(Date.parse(scheduledAt))) {
+    sendJson(res, 400, { success: false, message: '時間格式不正確' })
+    return
+  }
+  const normalizedScheduledAt = scheduledAt ? normalizeScheduledAt(scheduledAt) : null
+  try {
+    const connection = await getConnection()
+    if (relatedUserMails && relatedUserMails.length > 0) {
+      const [users] = await connection.query('SELECT mail FROM users WHERE mail IN (?)', [
+        relatedUserMails,
+      ])
+      if (users.length !== relatedUserMails.length) {
+        sendJson(res, 400, { success: false, message: '關聯用戶不存在' })
+        return
+      }
+    }
+    const [result] = await connection.query(
+      `UPDATE task_submissions
+       SET client_name = ?, vendor_name = ?, product_name = ?, tag_name = ?,
+           scheduled_at = ?, location = ?, follow_up = ?
+       WHERE id = ?`,
+      [
+        client.trim(),
+        vendor.trim(),
+        product.trim(),
+        tag.trim(),
+        normalizedScheduledAt,
+        location ? location.trim() : null,
+        followUp ? followUp.trim() : null,
+        id,
+      ]
+    )
+    if (result.affectedRows === 0) {
+      sendJson(res, 404, { success: false, message: '找不到任務資料' })
+      return
+    }
+    if (relatedUserMails && relatedUserMails.length > 0) {
+      await connection.query('DELETE FROM task_submission_users WHERE submission_id = ?', [id])
+      const relationValues = relatedUserMails.map((mail) => [id, mail])
+      await connection.query(
+        'INSERT INTO task_submission_users (submission_id, user_mail) VALUES ?',
+        [relationValues]
+      )
+    }
+    sendJson(res, 200, { success: true, message: '任務更新成功' })
+  } catch (error) {
+    console.error(error)
+    sendJson(res, 500, { success: false, message: '任務更新失敗' })
+  }
+}
+
+const handleDeleteTaskSubmission = async (req, res, id) => {
+  const user = await getRequiredAuthUser(req, res)
+  if (!user) return
+  try {
+    const connection = await getConnection()
+    await connection.beginTransaction()
+    await connection.query('DELETE FROM task_submission_users WHERE submission_id = ?', [id])
+    const [result] = await connection.query('DELETE FROM task_submissions WHERE id = ?', [id])
+    if (result.affectedRows === 0) {
+      await connection.rollback()
+      sendJson(res, 404, { success: false, message: '找不到任務資料' })
+      return
+    }
+    await connection.commit()
+    sendJson(res, 200, { success: true, message: '任務已刪除' })
+  } catch (error) {
+    console.error(error)
+    sendJson(res, 500, { success: false, message: '任務刪除失敗' })
+  }
+}
+
+const handlePostDifyAutoFill = async (req, res) => {
+  const body = await parseBody(req)
+  const text = body?.text
+  if (!isNonEmptyString(text)) {
+    sendJson(res, 400, { success: false, message: '請提供檔案內容' })
+    return
+  }
+  if (!DIFY_URL || !DIFY_API_KEY) {
+    sendJson(res, 500, { success: false, message: 'Dify 設定不存在' })
+    return
+  }
+  try {
+    const response = await fetch(`${DIFY_URL}/chat-messages`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${DIFY_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        inputs: {},
+        query: text,
+        response_mode: 'blocking',
+        conversation_id: '',
+        user: 'innerai',
+      }),
+    })
+    const data = await response.json()
+    if (!response.ok) {
+      sendJson(res, 500, { success: false, message: data?.message || 'Dify 處理失敗' })
+      return
+    }
+    sendJson(res, 200, { success: true, data })
+  } catch (error) {
+    console.error(error)
+    sendJson(res, 500, { success: false, message: 'Dify 連線失敗' })
   }
 }
 
@@ -561,8 +1171,45 @@ const start = async () => {
         return
       }
     }
-    if (url.pathname === '/api/tasks' && req.method === 'POST') {
-      await handlePostTask(req, res)
+    if (url.pathname === '/api/task-submissions') {
+      if (req.method === 'POST') {
+        await handlePostTaskSubmission(req, res)
+        return
+      }
+      if (req.method === 'GET') {
+        await handleGetTaskSubmissions(req, res)
+        return
+      }
+    }
+    if (url.pathname.startsWith('/api/task-submissions/')) {
+      const id = Number(url.pathname.split('/').pop())
+      if (!Number.isFinite(id)) {
+        sendJson(res, 400, { success: false, message: '任務 ID 無效' })
+        return
+      }
+      if (req.method === 'PUT') {
+        await handleUpdateTaskSubmission(req, res, id)
+        return
+      }
+      if (req.method === 'DELETE') {
+        await handleDeleteTaskSubmission(req, res, id)
+        return
+      }
+    }
+    if (url.pathname === '/api/users' && req.method === 'GET') {
+      await handleGetUsers(req, res)
+      return
+    }
+    if (url.pathname === '/api/meeting-records' && req.method === 'POST') {
+      await handlePostMeetingRecords(req, res)
+      return
+    }
+    if (url.pathname === '/api/meeting-records' && req.method === 'GET') {
+      await handleGetMeetingRecords(req, res)
+      return
+    }
+    if (url.pathname === '/api/dify/auto-fill' && req.method === 'POST') {
+      await handlePostDifyAutoFill(req, res)
       return
     }
     if (url.pathname === '/api/auth/request-code' && req.method === 'POST') {
