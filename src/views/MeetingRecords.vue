@@ -121,6 +121,19 @@ const selectMeeting = (meeting) => {
   activeRecordMeta.value = null
 }
 
+const resetSelections = () => {
+  activeClient.value = ''
+  activeVendor.value = ''
+  activeProduct.value = ''
+  activeMeeting.value = null
+  activeRecord.value = null
+  activeRecordMeta.value = null
+  searchQuery.value.client = ''
+  searchQuery.value.vendor = ''
+  searchQuery.value.product = ''
+  activeList.value = null
+}
+
 const openList = (type) => {
   if (activeList.value === type) {
     activeList.value = null
@@ -315,11 +328,7 @@ onMounted(fetchMeetingRecords)
               </button>
             </div>
           </div>
-          </ScrollPanel>
-        </aside>
 
-        <aside class="preview-panel">
-          <ScrollPanel height="calc(100vh - 240px)">
           <div class="panel-section">
             <div class="panel-header">
               <h2>會議記錄</h2>
@@ -340,10 +349,17 @@ onMounted(fetchMeetingRecords)
               </button>
             </div>
           </div>
+          </ScrollPanel>
+        </aside>
 
+        <aside class="preview-panel">
+          <ScrollPanel height="calc(100vh - 240px)">
           <div class="panel-section">
             <div class="panel-header">
               <h2>{{ activeRecord ? activeRecord.file_name : '檔案預覽' }}</h2>
+              <button class="ghost-button" type="button" @click="resetSelections">
+                重置
+              </button>
             </div>
             <p v-if="activeRecordMeta" class="meta">
               會議時間：{{ formatDateTimeDisplay(activeRecordMeta.meeting_time) }}｜建立者：{{
@@ -433,6 +449,16 @@ onMounted(fetchMeetingRecords)
 .panel-header h2 {
   margin: 0;
   font-size: 1.1rem;
+}
+
+.ghost-button {
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  padding: 0.35rem 0.8rem;
+  border-radius: 999px;
+  font-weight: 600;
+  cursor: pointer;
+  color: #475569;
 }
 
 .select-field {
