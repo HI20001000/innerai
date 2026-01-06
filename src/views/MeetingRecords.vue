@@ -229,7 +229,6 @@ onMounted(fetchMeetingRecords)
             <div class="panel-header">
               <div class="panel-title">
                 <h2>客戶</h2>
-                <span class="count">共 {{ filteredClients.length }} 筆</span>
               </div>
               <button class="ghost-button" type="button" @click="resetSelections">
                 重置
@@ -260,7 +259,6 @@ onMounted(fetchMeetingRecords)
           <div class="panel-section">
             <div class="panel-header">
               <h2>廠家</h2>
-              <span class="count">共 {{ filteredVendors.length }} 筆</span>
             </div>
             <button class="select-field" type="button" @click="openList('vendor')">
               {{ activeVendor || '選擇廠家' }}
@@ -287,7 +285,6 @@ onMounted(fetchMeetingRecords)
           <div class="panel-section">
             <div class="panel-header">
               <h2>廠家產品</h2>
-              <span class="count">共 {{ filteredProducts.length }} 筆</span>
             </div>
             <button class="select-field" type="button" @click="openList('product')">
               {{ activeProduct || '選擇產品' }}
