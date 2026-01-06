@@ -1,30 +1,6 @@
 <script setup>
 import { ref } from 'vue'
-let mammothPromise = null
-
-const loadMammoth = () => {
-  if (mammothPromise) return mammothPromise
-  mammothPromise = new Promise((resolve, reject) => {
-    if (window.mammoth) {
-      resolve(window.mammoth)
-      return
-    }
-    const script = document.createElement('script')
-    script.src = 'https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js'
-    script.async = true
-    script.onload = () => {
-      if (window.mammoth) {
-        resolve(window.mammoth)
-      } else {
-        reject(new Error('Mammoth failed to load'))
-      }
-    }
-    script.onerror = () => reject(new Error('Mammoth failed to load'))
-    document.head.appendChild(script)
-  })
-  return mammothPromise
-}
-
+import MeetingRecordModal from './MeetingRecordModal.vue'
 const props = defineProps({
   onFill: {
     type: Function,
@@ -36,6 +12,7 @@ const apiBaseUrl = 'http://localhost:3001'
 const isLoading = ref(false)
 const message = ref('')
 const messageType = ref('')
+const showModal = ref(false)
 
 const setMessage = (text, type = '') => {
   message.value = text
@@ -58,40 +35,21 @@ const parseJsonPayload = (answer) => {
   }
 }
 
-const readFileContent = async (file) => {
-  if (!file) return ''
-  const name = file.name.toLowerCase()
-  if (name.endsWith('.txt')) {
-    return await file.text()
-  }
-  if (name.endsWith('.docx')) {
-    const buffer = await file.arrayBuffer()
-    const mammoth = await loadMammoth()
-    const result = await mammoth.extractRawText({ arrayBuffer: buffer })
-    return result.value || ''
-  }
-  return null
-}
-
-const handleFileChange = async (event) => {
-  const file = event.target.files?.[0]
-  if (!file) return
+const handleRecordsSelected = async (records) => {
   setMessage('')
+  const contents = (records || [])
+    .map((record) => record?.content_text || '')
+    .filter((text) => text.trim())
+  if (contents.length === 0) {
+    setMessage('目前僅支援文字記錄預覽（txt）。', 'error')
+    return
+  }
   isLoading.value = true
   try {
-    const content = await readFileContent(file)
-    if (content === null) {
-      setMessage('僅支援 docx 或 txt 檔案。', 'error')
-      return
-    }
-    if (!content.trim()) {
-      setMessage('檔案內容為空，請重新選擇。', 'error')
-      return
-    }
     const response = await fetch(`${apiBaseUrl}/api/dify/auto-fill`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: content }),
+      body: JSON.stringify({ text: contents.join('\n\n') }),
     })
     const data = await response.json()
     if (!response.ok || !data?.success) {
@@ -111,7 +69,6 @@ const handleFileChange = async (event) => {
     setMessage('Dify 處理失敗', 'error')
   } finally {
     isLoading.value = false
-    event.target.value = ''
   }
 }
 </script>
@@ -120,18 +77,17 @@ const handleFileChange = async (event) => {
   <div class="summary-card dify-card">
     <h2>Dify 自動填寫</h2>
     <p>上傳 docx 或 txt 檔案，自動解析並填入任務欄位。</p>
-    <label class="upload-area">
-      <input
-        class="upload-input"
-        type="file"
-        accept=".txt,.docx"
-        :disabled="isLoading"
-        @change="handleFileChange"
-      />
-      <span class="upload-button">{{ isLoading ? '處理中...' : '上傳檔案' }}</span>
-    </label>
+    <button class="upload-button" type="button" :disabled="isLoading" @click="showModal = true">
+      {{ isLoading ? '處理中...' : '選取會議記錄' }}
+    </button>
     <p v-if="message" :class="['status-message', messageType]">{{ message }}</p>
   </div>
+
+  <MeetingRecordModal
+    :is-open="showModal"
+    :on-close="() => (showModal = false)"
+    :on-select-records="handleRecordsSelected"
+  />
 </template>
 
 <style scoped>
@@ -150,15 +106,6 @@ const handleFileChange = async (event) => {
   color: #64748b;
 }
 
-.upload-area {
-  display: inline-flex;
-  align-items: center;
-}
-
-.upload-input {
-  display: none;
-}
-
 .upload-button {
   padding: 0.45rem 1rem;
   border-radius: 999px;
@@ -167,6 +114,12 @@ const handleFileChange = async (event) => {
   font-weight: 600;
   font-size: 0.85rem;
   cursor: pointer;
+  border: none;
+}
+
+.upload-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .status-message {

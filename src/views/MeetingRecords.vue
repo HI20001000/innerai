@@ -4,6 +4,17 @@ import WorkspaceSidebar from '../components/WorkspaceSidebar.vue'
 import ResultModal from '../components/ResultModal.vue'
 import ScrollPanel from '../components/element/ScrollPanel.vue'
 
+const props = defineProps({
+  embedded: {
+    type: Boolean,
+    default: false,
+  },
+  onSelectRecords: {
+    type: Function,
+    default: null,
+  },
+})
+
 const apiBaseUrl = 'http://localhost:3001'
 const router = getCurrentInstance().appContext.config.globalProperties.$router
 const activePath = computed(() => router?.currentRoute?.value?.path || '')
@@ -134,6 +145,11 @@ const resetSelections = () => {
   activeList.value = null
 }
 
+const useSelectedMeeting = () => {
+  if (!props.onSelectRecords || !activeMeeting.value) return
+  props.onSelectRecords(activeMeeting.value.records || [])
+}
+
 const openList = (type) => {
   if (activeList.value === type) {
     activeList.value = null
@@ -200,8 +216,9 @@ onMounted(fetchMeetingRecords)
 </script>
 
 <template>
-  <div class="meeting-records-page">
+  <div :class="['meeting-records-page', { embedded: props.embedded }]">
     <WorkspaceSidebar
+      v-if="!props.embedded"
       :on-create-task="goToNewTask"
       :on-view-tasks="goToTaskList"
       :on-upload-meeting="goToMeetingUpload"
@@ -211,7 +228,7 @@ onMounted(fetchMeetingRecords)
       :active-path="activePath"
     />
 
-    <header class="meeting-header">
+    <header v-if="!props.embedded" class="meeting-header">
       <div>
         <p class="eyebrow">會議記錄</p>
         <h1 class="headline">會議記錄檢視</h1>
@@ -350,6 +367,16 @@ onMounted(fetchMeetingRecords)
               </button>
             </div>
           </div>
+          <div v-if="props.embedded" class="panel-section">
+            <button
+              class="primary-button"
+              type="button"
+              :disabled="!activeMeeting"
+              @click="useSelectedMeeting"
+            >
+              使用此會議
+            </button>
+          </div>
           </ScrollPanel>
         </aside>
 
@@ -390,6 +417,13 @@ onMounted(fetchMeetingRecords)
   color: #0f172a;
   display: grid;
   gap: 2.5rem;
+}
+
+.meeting-records-page.embedded {
+  min-height: auto;
+  padding: 0;
+  gap: 1.5rem;
+  background: transparent;
 }
 
 .meeting-header {
@@ -463,6 +497,21 @@ onMounted(fetchMeetingRecords)
   font-weight: 600;
   cursor: pointer;
   color: #475569;
+}
+
+.primary-button {
+  border: none;
+  background: #111827;
+  color: #fff;
+  padding: 0.6rem 1rem;
+  border-radius: 999px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.primary-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .select-field {
