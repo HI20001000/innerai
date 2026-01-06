@@ -1,12 +1,25 @@
 <script setup>
-import { getCurrentInstance, onMounted, ref } from 'vue'
+import { computed, getCurrentInstance, onMounted, ref } from 'vue'
 import WorkspaceSidebar from '../components/WorkspaceSidebar.vue'
 
 const router = getCurrentInstance().appContext.config.globalProperties.$router
 const username = ref('hi')
+const activePath = computed(() => router?.currentRoute?.value?.path || '')
 
 const goToNewTask = () => {
   router?.push('/tasks/new')
+}
+
+const goToTaskList = () => {
+  router?.push('/tasks/view')
+}
+
+const goToMeetingUpload = () => {
+  router?.push('/meetings/upload')
+}
+
+const goToMeetingRecords = () => {
+  router?.push('/meetings')
 }
 
 const goToHome = () => {
@@ -33,7 +46,15 @@ onMounted(loadUser)
 
 <template>
   <div class="home-page">
-    <WorkspaceSidebar :on-create-task="goToNewTask" :on-go-home="goToHome" :on-go-profile="goToProfile" />
+    <WorkspaceSidebar
+      :on-create-task="goToNewTask"
+      :on-view-tasks="goToTaskList"
+      :on-upload-meeting="goToMeetingUpload"
+      :on-view-meetings="goToMeetingRecords"
+      :on-go-home="goToHome"
+      :on-go-profile="goToProfile"
+      :active-path="activePath"
+    />
 
     <main class="home-content">
       <header class="home-header">
