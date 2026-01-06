@@ -14,7 +14,12 @@ const activeClient = ref('')
 const activeVendor = ref('')
 const activeProduct = ref('')
 const activeMeeting = ref(null)
-const searchQuery = ref('')
+const searchQuery = ref({
+  client: '',
+  vendor: '',
+  product: '',
+})
+const activeList = ref(null)
 const isLoading = ref(false)
 const showResult = ref(false)
 const resultTitle = ref('')
@@ -53,7 +58,7 @@ const formatContent = (record) => {
 }
 
 const filteredClients = computed(() => {
-  const query = searchQuery.value.trim().toLowerCase()
+  const query = searchQuery.value.client.trim().toLowerCase()
   if (!query) return records.value
   return records.value.filter((client) => client.name.toLowerCase().includes(query))
 })
@@ -65,20 +70,16 @@ const getVendors = () => {
 
 const getProducts = () => {
   const vendors = getVendors()
-  if (activeVendor.value) {
-    const vendor = vendors.find((item) => item.name === activeVendor.value)
-    return vendor?.products || []
-  }
-  return vendors.flatMap((vendor) => vendor.products)
+  if (!activeVendor.value) return []
+  const vendor = vendors.find((item) => item.name === activeVendor.value)
+  return vendor?.products || []
 }
 
 const getMeetings = () => {
   const products = getProducts()
-  if (activeProduct.value) {
-    const product = products.find((item) => item.name === activeProduct.value)
-    return product?.meetings || []
-  }
-  return products.flatMap((product) => product.meetings)
+  if (!activeProduct.value) return []
+  const product = products.find((item) => item.name === activeProduct.value)
+  return product?.meetings || []
 }
 
 const selectClient = (clientName) => {
@@ -100,6 +101,12 @@ const selectVendor = (vendorName) => {
 
 const selectProduct = (productName) => {
   activeProduct.value = productName
+  if (!activeVendor.value) {
+    const vendor = getVendors().find((item) =>
+      item.products.some((product) => product.name === productName)
+    )
+    if (vendor) activeVendor.value = vendor.name
+  }
   activeMeeting.value = null
   activeRecord.value = null
   activeRecordMeta.value = null
@@ -110,6 +117,28 @@ const selectMeeting = (meeting) => {
   activeRecord.value = null
   activeRecordMeta.value = null
 }
+
+const openList = (type) => {
+  if (activeList.value === type) {
+    activeList.value = null
+    return
+  }
+  activeList.value = type
+}
+
+const filteredVendors = computed(() => {
+  const vendors = getVendors()
+  const query = searchQuery.value.vendor.trim().toLowerCase()
+  if (!query) return vendors
+  return vendors.filter((vendor) => vendor.name.toLowerCase().includes(query))
+})
+
+const filteredProducts = computed(() => {
+  const products = getProducts()
+  const query = searchQuery.value.product.trim().toLowerCase()
+  if (!query) return products
+  return products.filter((product) => product.name.toLowerCase().includes(query))
+})
 const fetchMeetingRecords = async () => {
   const auth = readAuthStorage()
   if (!auth) {
@@ -132,6 +161,9 @@ const fetchMeetingRecords = async () => {
     }
     records.value = data.data || []
     activeClient.value = records.value[0]?.name || ''
+    activeVendor.value = ''
+    activeProduct.value = ''
+    activeMeeting.value = null
   } catch (error) {
     console.error(error)
     resultTitle.value = '讀取失敗'
@@ -174,27 +206,29 @@ onMounted(fetchMeetingRecords)
     <section class="meeting-list">
       <div v-if="isLoading" class="loading-state">載入中...</div>
       <div v-else-if="records.length === 0" class="empty-state">尚無會議記錄</div>
-      <div v-else class="single-panel">
-        <div class="panel-grid">
+      <div v-else class="split-layout">
+        <aside class="selection-panel">
           <div class="panel-section">
             <div class="panel-header">
               <h2>客戶</h2>
               <span class="count">共 {{ filteredClients.length }} 筆</span>
             </div>
-            <input
-              v-model="searchQuery"
-              class="search-input"
-              type="text"
-              placeholder="搜尋客戶"
-            />
-            <div class="pill-list">
+            <button class="select-field" type="button" @click="openList('client')">
+              {{ activeClient || '選擇客戶' }}
+            </button>
+            <div v-if="activeList === 'client'" class="option-list">
+              <input
+                v-model="searchQuery.client"
+                class="option-search"
+                type="text"
+                placeholder="搜尋客戶"
+              />
               <button
                 v-for="client in filteredClients"
                 :key="client.name"
                 type="button"
-                class="pill"
-                :class="{ active: activeClient === client.name }"
-                @click="selectClient(client.name)"
+                class="option-item"
+                @click="selectClient(client.name); activeList = null"
               >
                 {{ client.name }}
               </button>
@@ -204,16 +238,24 @@ onMounted(fetchMeetingRecords)
           <div class="panel-section">
             <div class="panel-header">
               <h2>廠家</h2>
-              <span class="count">共 {{ getVendors().length }} 筆</span>
+              <span class="count">共 {{ filteredVendors.length }} 筆</span>
             </div>
-            <div class="pill-list">
+            <button class="select-field" type="button" @click="openList('vendor')">
+              {{ activeVendor || '選擇廠家' }}
+            </button>
+            <div v-if="activeList === 'vendor'" class="option-list">
+              <input
+                v-model="searchQuery.vendor"
+                class="option-search"
+                type="text"
+                placeholder="搜尋廠家"
+              />
               <button
-                v-for="vendor in getVendors()"
+                v-for="vendor in filteredVendors"
                 :key="vendor.name"
                 type="button"
-                class="pill"
-                :class="{ active: activeVendor === vendor.name }"
-                @click="selectVendor(vendor.name)"
+                class="option-item"
+                @click="selectVendor(vendor.name); activeList = null"
               >
                 {{ vendor.name }}
               </button>
@@ -223,16 +265,24 @@ onMounted(fetchMeetingRecords)
           <div class="panel-section">
             <div class="panel-header">
               <h2>廠家產品</h2>
-              <span class="count">共 {{ getProducts().length }} 筆</span>
+              <span class="count">共 {{ filteredProducts.length }} 筆</span>
             </div>
-            <div class="pill-list">
+            <button class="select-field" type="button" @click="openList('product')">
+              {{ activeProduct || '選擇產品' }}
+            </button>
+            <div v-if="activeList === 'product'" class="option-list">
+              <input
+                v-model="searchQuery.product"
+                class="option-search"
+                type="text"
+                placeholder="搜尋產品"
+              />
               <button
-                v-for="product in getProducts()"
+                v-for="product in filteredProducts"
                 :key="product.name"
                 type="button"
-                class="pill"
-                :class="{ active: activeProduct === product.name }"
-                @click="selectProduct(product.name)"
+                class="option-item"
+                @click="selectProduct(product.name); activeList = null"
               >
                 {{ product.name }}
               </button>
@@ -261,8 +311,10 @@ onMounted(fetchMeetingRecords)
               </button>
             </div>
           </div>
+        </aside>
 
-          <div class="panel-section wide">
+        <aside class="preview-panel">
+          <div class="panel-section">
             <div class="panel-header">
               <h2>會議記錄</h2>
               <span class="count">共 {{ activeMeeting?.records?.length || 0 }} 份</span>
@@ -283,7 +335,7 @@ onMounted(fetchMeetingRecords)
             </div>
           </div>
 
-          <div class="panel-section wide">
+          <div class="panel-section">
             <div class="panel-header">
               <h2>{{ activeRecord ? activeRecord.file_name : '檔案預覽' }}</h2>
             </div>
@@ -296,7 +348,7 @@ onMounted(fetchMeetingRecords)
 {{ activeRecord ? formatContent(activeRecord) : '請先選擇會議記錄。' }}
             </pre>
           </div>
-        </div>
+        </aside>
       </div>
     </section>
 
@@ -343,26 +395,25 @@ onMounted(fetchMeetingRecords)
   gap: 1.5rem;
 }
 
-.single-panel {
+.split-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 1.5rem;
+}
+
+.selection-panel,
+.preview-panel {
   background: #fff;
   border-radius: 24px;
   padding: 1.8rem;
   box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
-}
-
-.panel-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1.5rem;
 }
 
 .panel-section {
   display: grid;
   gap: 0.8rem;
-}
-
-.panel-section.wide {
-  grid-column: 1 / -1;
 }
 
 .panel-header {
@@ -376,32 +427,48 @@ onMounted(fetchMeetingRecords)
   font-size: 1.1rem;
 }
 
-.search-input {
+.select-field {
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  padding: 0.65rem 0.8rem;
+  border-radius: 12px;
+  text-align: left;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.option-list {
   border: 1px solid #e2e8f0;
   border-radius: 12px;
-  padding: 0.6rem 0.8rem;
-  font-weight: 600;
-}
-
-.pill-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.6rem;
-}
-
-.pill {
-  border: 1px solid #e2e8f0;
   background: #f8fafc;
-  padding: 0.35rem 0.8rem;
-  border-radius: 999px;
-  font-weight: 600;
-  cursor: pointer;
+  padding: 0.4rem;
+  display: grid;
+  gap: 0.3rem;
+  max-height: 160px;
+  overflow: auto;
 }
 
-.pill.active {
-  background: #111827;
-  color: #fff;
-  border-color: #111827;
+.option-search {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.45rem 0.6rem;
+  font-size: 0.85rem;
+  background: #fff;
+}
+
+.option-item {
+  border: none;
+  background: transparent;
+  text-align: left;
+  padding: 0.5rem 0.7rem;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 500;
+  color: #1f2937;
+}
+
+.option-item:hover {
+  background: #e2e8f0;
 }
 
 .count {
@@ -509,7 +576,7 @@ onMounted(fetchMeetingRecords)
     padding: 2.5rem 6vw 3.5rem;
   }
 
-  .panel-grid {
+  .split-layout {
     grid-template-columns: minmax(0, 1fr);
   }
 }
