@@ -10,6 +10,11 @@ const activePath = computed(() => router?.currentRoute?.value?.path || '')
 const records = ref([])
 const activeRecord = ref(null)
 const activeRecordMeta = ref(null)
+const activeClient = ref('')
+const activeVendor = ref('')
+const activeProduct = ref('')
+const activeMeeting = ref(null)
+const searchQuery = ref('')
 const isLoading = ref(false)
 const showResult = ref(false)
 const resultTitle = ref('')
@@ -46,6 +51,65 @@ const formatContent = (record) => {
   if (!record?.content_text) return '目前僅支援文字檔案預覽（txt）。'
   return record.content_text
 }
+
+const filteredClients = computed(() => {
+  const query = searchQuery.value.trim().toLowerCase()
+  if (!query) return records.value
+  return records.value.filter((client) => client.name.toLowerCase().includes(query))
+})
+
+const getVendors = () => {
+  const client = records.value.find((item) => item.name === activeClient.value)
+  return client?.vendors || []
+}
+
+const getProducts = () => {
+  const vendors = getVendors()
+  if (activeVendor.value) {
+    const vendor = vendors.find((item) => item.name === activeVendor.value)
+    return vendor?.products || []
+  }
+  return vendors.flatMap((vendor) => vendor.products)
+}
+
+const getMeetings = () => {
+  const products = getProducts()
+  if (activeProduct.value) {
+    const product = products.find((item) => item.name === activeProduct.value)
+    return product?.meetings || []
+  }
+  return products.flatMap((product) => product.meetings)
+}
+
+const selectClient = (clientName) => {
+  activeClient.value = clientName
+  activeVendor.value = ''
+  activeProduct.value = ''
+  activeMeeting.value = null
+  activeRecord.value = null
+  activeRecordMeta.value = null
+}
+
+const selectVendor = (vendorName) => {
+  activeVendor.value = vendorName
+  activeProduct.value = ''
+  activeMeeting.value = null
+  activeRecord.value = null
+  activeRecordMeta.value = null
+}
+
+const selectProduct = (productName) => {
+  activeProduct.value = productName
+  activeMeeting.value = null
+  activeRecord.value = null
+  activeRecordMeta.value = null
+}
+
+const selectMeeting = (meeting) => {
+  activeMeeting.value = meeting
+  activeRecord.value = null
+  activeRecordMeta.value = null
+}
 const fetchMeetingRecords = async () => {
   const auth = readAuthStorage()
   if (!auth) {
@@ -67,6 +131,7 @@ const fetchMeetingRecords = async () => {
       return
     }
     records.value = data.data || []
+    activeClient.value = records.value[0]?.name || ''
   } catch (error) {
     console.error(error)
     resultTitle.value = '讀取失敗'
@@ -109,82 +174,129 @@ onMounted(fetchMeetingRecords)
     <section class="meeting-list">
       <div v-if="isLoading" class="loading-state">載入中...</div>
       <div v-else-if="records.length === 0" class="empty-state">尚無會議記錄</div>
-      <div v-else class="split-layout">
-        <div class="folder-list">
-          <article v-for="client in records" :key="client.name" class="tree-card">
-            <details class="tree-node">
-              <summary class="tree-summary">
-                <span class="tree-title">客戶：{{ client.name }}</span>
-              </summary>
-              <div class="tree-children">
-                <details v-for="vendor in client.vendors" :key="vendor.name" class="tree-node">
-                  <summary class="tree-summary">
-                    <span class="tree-title">廠家：{{ vendor.name }}</span>
-                  </summary>
-                  <div class="tree-children">
-                    <details
-                      v-for="product in vendor.products"
-                      :key="product.name"
-                      class="tree-node"
-                    >
-                      <summary class="tree-summary">
-                        <span class="tree-title">廠家產品：{{ product.name }}</span>
-                      </summary>
-                      <div class="tree-children">
-                        <details
-                          v-for="meeting in product.meetings"
-                          :key="meeting.id"
-                          class="tree-node"
-                        >
-                          <summary class="tree-summary">
-                            <span class="tree-title">
-                              會議時間：{{ formatDateTimeDisplay(meeting.meeting_time) }}
-                            </span>
-                            <span class="tree-meta">
-                              建立者：{{ meeting.created_by_email }}｜建立時間：{{
-                                formatDateTimeDisplay(meeting.created_at)
-                              }}
-                            </span>
-                            <span class="count">{{ meeting.records.length }} 份記錄</span>
-                          </summary>
-                          <div class="tree-children record-list">
-                            <button
-                              v-for="record in meeting.records"
-                              :key="record.id"
-                              type="button"
-                              class="record-button"
-                              @click="activeRecord = record; activeRecordMeta = meeting"
-                            >
-                              <div class="record-title">
-                                <strong>{{ record.file_name }}</strong>
-                                <span class="record-path">{{ record.file_path }}</span>
-                              </div>
-                              <span class="record-meta">會議：{{ formatDateTimeDisplay(meeting.meeting_time) }}</span>
-                            </button>
-                          </div>
-                        </details>
-                      </div>
-                    </details>
-                  </div>
-                </details>
-              </div>
-            </details>
-          </article>
-        </div>
-        <aside class="preview-panel">
-          <header class="preview-header">
-            <h2>{{ activeRecord ? activeRecord.file_name : '選擇檔案預覽' }}</h2>
-            <p v-if="activeRecord" class="record-path">{{ activeRecord.file_path }}</p>
+      <div v-else class="single-panel">
+        <div class="panel-grid">
+          <div class="panel-section">
+            <div class="panel-header">
+              <h2>客戶</h2>
+              <span class="count">共 {{ filteredClients.length }} 筆</span>
+            </div>
+            <input
+              v-model="searchQuery"
+              class="search-input"
+              type="text"
+              placeholder="搜尋客戶"
+            />
+            <div class="pill-list">
+              <button
+                v-for="client in filteredClients"
+                :key="client.name"
+                type="button"
+                class="pill"
+                :class="{ active: activeClient === client.name }"
+                @click="selectClient(client.name)"
+              >
+                {{ client.name }}
+              </button>
+            </div>
+          </div>
+
+          <div class="panel-section">
+            <div class="panel-header">
+              <h2>廠家</h2>
+              <span class="count">共 {{ getVendors().length }} 筆</span>
+            </div>
+            <div class="pill-list">
+              <button
+                v-for="vendor in getVendors()"
+                :key="vendor.name"
+                type="button"
+                class="pill"
+                :class="{ active: activeVendor === vendor.name }"
+                @click="selectVendor(vendor.name)"
+              >
+                {{ vendor.name }}
+              </button>
+            </div>
+          </div>
+
+          <div class="panel-section">
+            <div class="panel-header">
+              <h2>廠家產品</h2>
+              <span class="count">共 {{ getProducts().length }} 筆</span>
+            </div>
+            <div class="pill-list">
+              <button
+                v-for="product in getProducts()"
+                :key="product.name"
+                type="button"
+                class="pill"
+                :class="{ active: activeProduct === product.name }"
+                @click="selectProduct(product.name)"
+              >
+                {{ product.name }}
+              </button>
+            </div>
+          </div>
+
+          <div class="panel-section">
+            <div class="panel-header">
+              <h2>會議時間</h2>
+              <span class="count">共 {{ getMeetings().length }} 筆</span>
+            </div>
+            <div class="meeting-list-grid">
+              <button
+                v-for="meeting in getMeetings()"
+                :key="meeting.id"
+                type="button"
+                class="meeting-card"
+                :class="{ active: activeMeeting?.id === meeting.id }"
+                @click="selectMeeting(meeting)"
+              >
+                <strong>{{ formatDateTimeDisplay(meeting.meeting_time) }}</strong>
+                <span class="meeting-meta">
+                  建立者：{{ meeting.created_by_email }}｜{{ formatDateTimeDisplay(meeting.created_at) }}
+                </span>
+                <span class="meeting-count">{{ meeting.records.length }} 份記錄</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="panel-section wide">
+            <div class="panel-header">
+              <h2>會議記錄</h2>
+              <span class="count">共 {{ activeMeeting?.records?.length || 0 }} 份</span>
+            </div>
+            <div class="record-list">
+              <button
+                v-for="record in activeMeeting?.records || []"
+                :key="record.id"
+                type="button"
+                class="record-button"
+                @click="activeRecord = record; activeRecordMeta = activeMeeting"
+              >
+                <div class="record-title">
+                  <strong>{{ record.file_name }}</strong>
+                  <span class="record-path">{{ record.file_path }}</span>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          <div class="panel-section wide">
+            <div class="panel-header">
+              <h2>{{ activeRecord ? activeRecord.file_name : '檔案預覽' }}</h2>
+            </div>
             <p v-if="activeRecordMeta" class="meta">
               會議時間：{{ formatDateTimeDisplay(activeRecordMeta.meeting_time) }}｜建立者：{{
                 activeRecordMeta.created_by_email
               }}｜建立時間：{{ formatDateTimeDisplay(activeRecordMeta.created_at) }}
             </p>
-          </header>
-          <pre class="record-content">
-{{ activeRecord ? formatContent(activeRecord) : '請從左側選擇會議記錄檔案。' }}
-          </pre>
-        </aside>
+            <pre class="record-content">
+{{ activeRecord ? formatContent(activeRecord) : '請先選擇會議記錄。' }}
+            </pre>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -231,62 +343,65 @@ onMounted(fetchMeetingRecords)
   gap: 1.5rem;
 }
 
-.split-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 1.5rem;
-}
-
-.folder-list {
-  display: grid;
-  gap: 1.5rem;
-}
-
-.tree-card {
+.single-panel {
   background: #fff;
   border-radius: 24px;
   padding: 1.8rem;
   box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
+}
+
+.panel-grid {
   display: grid;
-  gap: 1.2rem;
-  max-height: 70vh;
-  overflow: auto;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.5rem;
 }
 
-.tree-node {
-  border-radius: 16px;
-  padding: 0.4rem 0;
+.panel-section {
+  display: grid;
+  gap: 0.8rem;
 }
 
-.tree-summary {
+.panel-section.wide {
+  grid-column: 1 / -1;
+}
+
+.panel-header {
   display: flex;
   align-items: center;
-  gap: 0.8rem;
-  cursor: pointer;
+  justify-content: space-between;
+}
+
+.panel-header h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.search-input {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.6rem 0.8rem;
   font-weight: 600;
 }
 
-.tree-summary::-webkit-details-marker {
-  display: none;
-}
-
-.tree-title {
-  font-size: 0.95rem;
-}
-
-.tree-meta {
-  font-size: 0.85rem;
-  color: #64748b;
-}
-
-.tree-children {
-  padding: 0.6rem 0 0.6rem 1.4rem;
-  display: grid;
+.pill-list {
+  display: flex;
+  flex-wrap: wrap;
   gap: 0.6rem;
 }
 
-.tree-children.record-list {
-  padding-left: 0;
+.pill {
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  padding: 0.35rem 0.8rem;
+  border-radius: 999px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pill.active {
+  background: #111827;
+  color: #fff;
+  border-color: #111827;
 }
 
 .count {
@@ -333,17 +448,6 @@ onMounted(fetchMeetingRecords)
   font-size: 0.8rem;
 }
 
-.preview-panel {
-  background: #fff;
-  border-radius: 24px;
-  padding: 1.8rem;
-  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
-  display: grid;
-  gap: 0.8rem;
-  max-height: 70vh;
-  overflow: auto;
-}
-
 .preview-header h2 {
   margin: 0 0 0.2rem;
   font-size: 1.2rem;
@@ -357,6 +461,44 @@ onMounted(fetchMeetingRecords)
   color: #1f2937;
 }
 
+.meeting-list-grid {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.meeting-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 0.8rem;
+  background: #f8fafc;
+  text-align: left;
+  cursor: pointer;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.meeting-card.active {
+  border-color: #111827;
+  background: #111827;
+  color: #fff;
+}
+
+.meeting-card.active .meeting-meta,
+.meeting-card.active .meeting-count {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.meeting-meta {
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.meeting-count {
+  font-size: 0.8rem;
+  color: #4338ca;
+  font-weight: 600;
+}
+
 .loading-state,
 .empty-state {
   color: #64748b;
@@ -367,13 +509,8 @@ onMounted(fetchMeetingRecords)
     padding: 2.5rem 6vw 3.5rem;
   }
 
-  .split-layout {
+  .panel-grid {
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  .tree-card,
-  .preview-panel {
-    max-height: none;
   }
 }
 </style>
