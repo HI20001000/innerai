@@ -159,6 +159,9 @@ const ensureTables = async (connection) => {
     )`,
     `CREATE TABLE IF NOT EXISTS meeting_folders (
       id INT AUTO_INCREMENT PRIMARY KEY,
+      client_name VARCHAR(255) NOT NULL,
+      vendor_name VARCHAR(255) NOT NULL,
+      product_name VARCHAR(255) NOT NULL,
       meeting_time DATETIME NOT NULL,
       created_by_email VARCHAR(255) NOT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -247,6 +250,27 @@ const ensureTables = async (connection) => {
   }
   try {
     await connection.query('ALTER TABLE meeting_records ADD COLUMN content_text LONGTEXT')
+  } catch (error) {
+    if (error?.code !== 'ER_DUP_FIELDNAME') {
+      throw error
+    }
+  }
+  try {
+    await connection.query("ALTER TABLE meeting_folders ADD COLUMN client_name VARCHAR(255) NOT NULL")
+  } catch (error) {
+    if (error?.code !== 'ER_DUP_FIELDNAME') {
+      throw error
+    }
+  }
+  try {
+    await connection.query("ALTER TABLE meeting_folders ADD COLUMN vendor_name VARCHAR(255) NOT NULL")
+  } catch (error) {
+    if (error?.code !== 'ER_DUP_FIELDNAME') {
+      throw error
+    }
+  }
+  try {
+    await connection.query("ALTER TABLE meeting_folders ADD COLUMN product_name VARCHAR(255) NOT NULL")
   } catch (error) {
     if (error?.code !== 'ER_DUP_FIELDNAME') {
       throw error
@@ -596,9 +620,9 @@ const handlePostMeetingRecords = async (req, res) => {
     await connection.beginTransaction()
     const [folderResult] = await connection.query(
       `INSERT INTO meeting_folders
-        (meeting_time, created_by_email)
-       VALUES (?, ?)`,
-      [normalizedMeetingTime, user.mail]
+        (client_name, vendor_name, product_name, meeting_time, created_by_email)
+       VALUES (?, ?, ?, ?, ?)`,
+      [client.trim(), vendor.trim(), product.trim(), normalizedMeetingTime, user.mail]
     )
     const folderId = folderResult.insertId
     await connection.query(
@@ -853,6 +877,13 @@ const handleDeleteTaskSubmission = async (req, res, id) => {
     await connection.commit()
     sendJson(res, 200, { success: true, message: '任務已刪除' })
   } catch (error) {
+    if (connection) {
+      try {
+        await connection.rollback()
+      } catch (rollbackError) {
+        console.error(rollbackError)
+      }
+    }
     console.error(error)
     sendJson(res, 500, { success: false, message: '任務刪除失敗' })
   }
