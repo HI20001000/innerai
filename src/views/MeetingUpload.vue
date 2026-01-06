@@ -2,6 +2,7 @@
 import { computed, getCurrentInstance, onMounted, ref } from 'vue'
 import WorkspaceSidebar from '../components/WorkspaceSidebar.vue'
 import ResultModal from '../components/ResultModal.vue'
+import { getTaipeiNowInput } from '../scripts/time.js'
 
 const clients = ref([])
 const vendors = ref([])
@@ -138,12 +139,7 @@ const handleFileChange = async (event) => {
   selectedFiles.value = files
 }
 
-const getTaipeiDateTimeLocal = () => {
-  const now = new Date()
-  const utcMs = now.getTime() + now.getTimezoneOffset() * 60 * 1000
-  const taipei = new Date(utcMs + 8 * 60 * 60 * 1000)
-  return taipei.toISOString().slice(0, 16)
-}
+const getTaipeiDateTimeLocal = () => getTaipeiNowInput()
 
 const fileToBase64 = (file) =>
   new Promise((resolve, reject) => {

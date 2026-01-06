@@ -3,6 +3,8 @@ import { computed, getCurrentInstance, onMounted, ref } from 'vue'
 import WorkspaceSidebar from '../components/WorkspaceSidebar.vue'
 import ResultModal from '../components/ResultModal.vue'
 import ScrollPanel from '../components/element/ScrollPanel.vue'
+import { formatDateTimeDisplay } from '../scripts/time.js'
+import { formatDateTimeDisplay } from '../scripts/time.js'
 
 const props = defineProps({
   embedded: {
@@ -204,20 +206,6 @@ const fetchMeetingRecords = async () => {
   } finally {
     isLoading.value = false
   }
-}
-
-const formatDateTimeDisplay = (value) => {
-  if (!value) return ''
-  if (typeof value === 'string') {
-    const trimmed = value.replace('T', ' ').replace('Z', '')
-    if (!value.endsWith('Z')) return trimmed.slice(0, 19)
-    const parsed = new Date(value)
-    if (Number.isNaN(parsed.getTime())) return trimmed.slice(0, 19)
-    const taipei = new Date(parsed.getTime() + 8 * 60 * 60 * 1000)
-    return taipei.toISOString().replace('T', ' ').slice(0, 19)
-  }
-  const taipei = new Date(new Date(value).getTime() + 8 * 60 * 60 * 1000)
-  return taipei.toISOString().replace('T', ' ').slice(0, 19)
 }
 
 onMounted(fetchMeetingRecords)
