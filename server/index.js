@@ -435,16 +435,25 @@ const getRequiredAuthUser = async (req, res) => {
 
 const isNonEmptyString = (value) => typeof value === 'string' && value.trim().length > 0
 
+const formatToTaipeiDateTime = (date) => {
+  const taipeiMs = date.getTime() + 8 * 60 * 60 * 1000
+  const taipei = new Date(taipeiMs)
+  const pad = (value) => String(value).padStart(2, '0')
+  return `${taipei.getUTCFullYear()}-${pad(taipei.getUTCMonth() + 1)}-${pad(
+    taipei.getUTCDate()
+  )} ${pad(taipei.getUTCHours())}:${pad(taipei.getUTCMinutes())}:${pad(taipei.getUTCSeconds())}`
+}
+
 const normalizeScheduledAt = (value) => {
   if (typeof value !== 'string') return value
   if (value.includes('.')) {
     const [base] = value.split('.')
     if (base) return normalizeScheduledAt(base)
   }
-  if (value.includes('T') || value.endsWith('Z')) {
+  if (value.endsWith('Z')) {
     const parsed = new Date(value)
     if (!Number.isNaN(parsed.getTime())) {
-      return parsed.toISOString().slice(0, 19).replace('T', ' ')
+      return formatToTaipeiDateTime(parsed)
     }
   }
   if (!value.includes('T')) return value

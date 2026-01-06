@@ -73,19 +73,38 @@ const formatDateTimeDisplay = (value) => {
     if (trimmed.includes('.')) {
       return trimmed.split('.')[0]
     }
-    return trimmed.length > 19 ? trimmed.slice(0, 19) : trimmed
+    if (!value.endsWith('Z')) {
+      return trimmed.length > 19 ? trimmed.slice(0, 19) : trimmed
+    }
+    const parsed = new Date(value)
+    if (Number.isNaN(parsed.getTime())) {
+      return trimmed.length > 19 ? trimmed.slice(0, 19) : trimmed
+    }
+    const taipei = new Date(parsed.getTime() + 8 * 60 * 60 * 1000)
+    return taipei.toISOString().replace('T', ' ').slice(0, 19)
   }
-  return new Date(value).toISOString().replace('T', ' ').slice(0, 19)
+  const taipei = new Date(new Date(value).getTime() + 8 * 60 * 60 * 1000)
+  return taipei.toISOString().replace('T', ' ').slice(0, 19)
 }
 
 const formatDateTimeInput = (value) => {
   if (!value) return ''
   if (typeof value === 'string') {
     const trimmed = value.replace('Z', '')
-    const normalized = trimmed.includes('T') ? trimmed : trimmed.replace(' ', 'T')
-    return normalized.split('.')[0].slice(0, 16)
+    if (!value.endsWith('Z')) {
+      const normalized = trimmed.includes('T') ? trimmed : trimmed.replace(' ', 'T')
+      return normalized.split('.')[0].slice(0, 16)
+    }
+    const parsed = new Date(value)
+    if (Number.isNaN(parsed.getTime())) {
+      const normalized = trimmed.includes('T') ? trimmed : trimmed.replace(' ', 'T')
+      return normalized.split('.')[0].slice(0, 16)
+    }
+    const taipei = new Date(parsed.getTime() + 8 * 60 * 60 * 1000)
+    return taipei.toISOString().slice(0, 16)
   }
-  return new Date(value).toISOString().slice(0, 16)
+  const taipei = new Date(new Date(value).getTime() + 8 * 60 * 60 * 1000)
+  return taipei.toISOString().slice(0, 16)
 }
 
 const getRelatedUsers = (item) => item.related_users || []

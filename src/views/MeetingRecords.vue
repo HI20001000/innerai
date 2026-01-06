@@ -208,8 +208,16 @@ const fetchMeetingRecords = async () => {
 
 const formatDateTimeDisplay = (value) => {
   if (!value) return ''
-  if (typeof value === 'string') return value.replace('T', ' ').slice(0, 19)
-  return new Date(value).toISOString().replace('T', ' ').slice(0, 19)
+  if (typeof value === 'string') {
+    const trimmed = value.replace('T', ' ').replace('Z', '')
+    if (!value.endsWith('Z')) return trimmed.slice(0, 19)
+    const parsed = new Date(value)
+    if (Number.isNaN(parsed.getTime())) return trimmed.slice(0, 19)
+    const taipei = new Date(parsed.getTime() + 8 * 60 * 60 * 1000)
+    return taipei.toISOString().replace('T', ' ').slice(0, 19)
+  }
+  const taipei = new Date(new Date(value).getTime() + 8 * 60 * 60 * 1000)
+  return taipei.toISOString().replace('T', ' ').slice(0, 19)
 }
 
 onMounted(fetchMeetingRecords)
