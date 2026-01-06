@@ -202,6 +202,9 @@ const selectOption = (type, item) => {
       selectedTags.value = [...selectedTags.value, item]
     }
   }
+  if (type === 'user') {
+    selectedRelatedUser.value = item
+  }
   activeList.value = null
 }
 
@@ -617,6 +620,49 @@ onMounted(() => {
                 {{ item }}
                 <button type="button" class="chip-remove" @click="removeTag(item)">×</button>
               </span>
+            </div>
+          </div>
+          <div class="field select-field-wrapper">
+            <div class="field-header">
+              <span>關聯用戶</span>
+            </div>
+            <button class="select-field" type="button" @click="openList('user')">
+              {{
+                selectedRelatedUsers.length > 0
+                  ? selectedRelatedUsers
+                      .map((user) => `${user.username || ''} <${user.mail}>`)
+                      .join(', ')
+                  : '選擇關聯用戶'
+              }}
+            </button>
+            <p v-if="showRequiredHints && selectedRelatedUsers.length === 0" class="required-hint">
+              必填
+            </p>
+            <div v-if="activeList === 'user'" class="option-list">
+              <input
+                v-model="searchQuery.user"
+                class="option-search"
+                type="text"
+                placeholder="搜尋用戶"
+              />
+              <button
+                v-for="item in getFilteredOptions('user')"
+                :key="item.mail"
+                type="button"
+                class="option-item user-option"
+                @click="toggleRelatedUser(item)"
+              >
+                <span
+                  class="user-avatar"
+                  :style="{ backgroundColor: item.icon_bg || '#e2e8f0' }"
+                >
+                  {{ item.icon || '🙂' }}
+                </span>
+                <span class="user-label">
+                  {{ item.username || 'user' }} &lt;{{ item.mail }}&gt;
+                </span>
+                <span v-if="isRelatedUserSelected(item)" class="user-selected">已選</span>
+              </button>
             </div>
           </div>
           <div class="field select-field-wrapper">
