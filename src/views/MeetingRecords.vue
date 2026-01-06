@@ -109,80 +109,83 @@ onMounted(fetchMeetingRecords)
     <section class="meeting-list">
       <div v-if="isLoading" class="loading-state">載入中...</div>
       <div v-else-if="records.length === 0" class="empty-state">尚無會議記錄</div>
-      <div v-else class="folder-list">
-        <article v-for="client in records" :key="client.name" class="tree-card">
-          <details class="tree-node">
-            <summary class="tree-summary">
-              <span class="tree-title">客戶：{{ client.name }}</span>
-            </summary>
-            <div class="tree-children">
-              <details v-for="vendor in client.vendors" :key="vendor.name" class="tree-node">
-                <summary class="tree-summary">
-                  <span class="tree-title">廠家：{{ vendor.name }}</span>
-                </summary>
-                <div class="tree-children">
-                  <details
-                    v-for="product in vendor.products"
-                    :key="product.name"
-                    class="tree-node"
-                  >
-                    <summary class="tree-summary">
-                      <span class="tree-title">廠家產品：{{ product.name }}</span>
-                    </summary>
-                    <div class="tree-children">
-                      <details
-                        v-for="meeting in product.meetings"
-                        :key="meeting.id"
-                        class="tree-node"
-                      >
-                        <summary class="tree-summary">
-                          <span class="tree-title">
-                            會議時間：{{ formatDateTimeDisplay(meeting.meeting_time) }}
-                          </span>
-                          <span class="tree-meta">
-                            建立者：{{ meeting.created_by_email }}｜建立時間：{{
-                              formatDateTimeDisplay(meeting.created_at)
-                            }}
-                          </span>
-                          <span class="count">{{ meeting.records.length }} 份記錄</span>
-                        </summary>
-                        <div class="tree-children record-list">
-                          <button
-                            v-for="record in meeting.records"
-                            :key="record.id"
-                            type="button"
-                            class="record-button"
-                            @click="activeRecord = record; activeRecordMeta = meeting"
-                          >
-                            <div class="record-title">
-                              <strong>{{ record.file_name }}</strong>
-                              <span class="record-path">{{ record.file_path }}</span>
-                            </div>
-                            <span class="record-meta">會議：{{ formatDateTimeDisplay(meeting.meeting_time) }}</span>
-                          </button>
-                        </div>
-                      </details>
-                    </div>
-                  </details>
-                </div>
-              </details>
-            </div>
-          </details>
-        </article>
+      <div v-else class="split-layout">
+        <div class="folder-list">
+          <article v-for="client in records" :key="client.name" class="tree-card">
+            <details class="tree-node">
+              <summary class="tree-summary">
+                <span class="tree-title">客戶：{{ client.name }}</span>
+              </summary>
+              <div class="tree-children">
+                <details v-for="vendor in client.vendors" :key="vendor.name" class="tree-node">
+                  <summary class="tree-summary">
+                    <span class="tree-title">廠家：{{ vendor.name }}</span>
+                  </summary>
+                  <div class="tree-children">
+                    <details
+                      v-for="product in vendor.products"
+                      :key="product.name"
+                      class="tree-node"
+                    >
+                      <summary class="tree-summary">
+                        <span class="tree-title">廠家產品：{{ product.name }}</span>
+                      </summary>
+                      <div class="tree-children">
+                        <details
+                          v-for="meeting in product.meetings"
+                          :key="meeting.id"
+                          class="tree-node"
+                        >
+                          <summary class="tree-summary">
+                            <span class="tree-title">
+                              會議時間：{{ formatDateTimeDisplay(meeting.meeting_time) }}
+                            </span>
+                            <span class="tree-meta">
+                              建立者：{{ meeting.created_by_email }}｜建立時間：{{
+                                formatDateTimeDisplay(meeting.created_at)
+                              }}
+                            </span>
+                            <span class="count">{{ meeting.records.length }} 份記錄</span>
+                          </summary>
+                          <div class="tree-children record-list">
+                            <button
+                              v-for="record in meeting.records"
+                              :key="record.id"
+                              type="button"
+                              class="record-button"
+                              @click="activeRecord = record; activeRecordMeta = meeting"
+                            >
+                              <div class="record-title">
+                                <strong>{{ record.file_name }}</strong>
+                                <span class="record-path">{{ record.file_path }}</span>
+                              </div>
+                              <span class="record-meta">會議：{{ formatDateTimeDisplay(meeting.meeting_time) }}</span>
+                            </button>
+                          </div>
+                        </details>
+                      </div>
+                    </details>
+                  </div>
+                </details>
+              </div>
+            </details>
+          </article>
+        </div>
+        <aside class="preview-panel">
+          <header class="preview-header">
+            <h2>{{ activeRecord ? activeRecord.file_name : '選擇檔案預覽' }}</h2>
+            <p v-if="activeRecord" class="record-path">{{ activeRecord.file_path }}</p>
+            <p v-if="activeRecordMeta" class="meta">
+              會議時間：{{ formatDateTimeDisplay(activeRecordMeta.meeting_time) }}｜建立者：{{
+                activeRecordMeta.created_by_email
+              }}｜建立時間：{{ formatDateTimeDisplay(activeRecordMeta.created_at) }}
+            </p>
+          </header>
+          <pre class="record-content">
+{{ activeRecord ? formatContent(activeRecord) : '請從左側選擇會議記錄檔案。' }}
+          </pre>
+        </aside>
       </div>
-    </section>
-
-    <section v-if="activeRecord" class="preview-panel">
-      <header class="preview-header">
-        <h2>{{ activeRecord.file_name }}</h2>
-        <p class="record-path">{{ activeRecord.file_path }}</p>
-        <p v-if="activeRecordMeta" class="meta">
-          會議時間：{{ formatDateTimeDisplay(activeRecordMeta.meeting_time) }}｜建立者：{{
-            activeRecordMeta.created_by_email
-          }}｜建立時間：{{ formatDateTimeDisplay(activeRecordMeta.created_at) }}
-        </p>
-      </header>
-      <pre class="record-content">{{ formatContent(activeRecord) }}</pre>
     </section>
 
     <ResultModal
@@ -224,6 +227,11 @@ onMounted(fetchMeetingRecords)
 }
 
 .meeting-list {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.split-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 1.5rem;
@@ -359,7 +367,7 @@ onMounted(fetchMeetingRecords)
     padding: 2.5rem 6vw 3.5rem;
   }
 
-  .meeting-list {
+  .split-layout {
     grid-template-columns: minmax(0, 1fr);
   }
 
