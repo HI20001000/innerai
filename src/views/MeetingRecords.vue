@@ -2,6 +2,7 @@
 import { computed, getCurrentInstance, onMounted, ref } from 'vue'
 import WorkspaceSidebar from '../components/WorkspaceSidebar.vue'
 import ResultModal from '../components/ResultModal.vue'
+import ScrollPanel from '../components/element/ScrollPanel.vue'
 
 const apiBaseUrl = 'http://localhost:3001'
 const router = getCurrentInstance().appContext.config.globalProperties.$router
@@ -210,6 +211,7 @@ onMounted(fetchMeetingRecords)
       <div v-else-if="records.length === 0" class="empty-state">尚無會議記錄</div>
       <div v-else class="split-layout">
         <aside class="selection-panel">
+          <ScrollPanel height="calc(100vh - 240px)">
           <div class="panel-section">
             <div class="panel-header">
               <h2>客戶</h2>
@@ -313,9 +315,11 @@ onMounted(fetchMeetingRecords)
               </button>
             </div>
           </div>
+          </ScrollPanel>
         </aside>
 
         <aside class="preview-panel">
+          <ScrollPanel height="calc(100vh - 240px)">
           <div class="panel-section">
             <div class="panel-header">
               <h2>會議記錄</h2>
@@ -350,6 +354,7 @@ onMounted(fetchMeetingRecords)
 {{ activeRecord ? formatContent(activeRecord) : '請先選擇會議記錄。' }}
             </pre>
           </div>
+          </ScrollPanel>
         </aside>
       </div>
     </section>
@@ -411,6 +416,7 @@ onMounted(fetchMeetingRecords)
   box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
   display: grid;
   gap: 1.5rem;
+  height: calc(100vh - 240px);
 }
 
 .panel-section {
