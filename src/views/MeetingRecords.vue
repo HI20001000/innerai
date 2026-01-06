@@ -70,7 +70,9 @@ const getVendors = () => {
 
 const getProducts = () => {
   const vendors = getVendors()
-  if (!activeVendor.value) return []
+  if (!activeVendor.value) {
+    return vendors.flatMap((vendor) => vendor.products)
+  }
   const vendor = vendors.find((item) => item.name === activeVendor.value)
   return vendor?.products || []
 }
