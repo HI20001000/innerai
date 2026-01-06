@@ -126,14 +126,18 @@ const fetchSubmissions = async () => {
 
 const startEdit = (submission) => {
   editingId.value = submission.id
+  const tagValue = Array.isArray(submission.tags) ? submission.tags.join(', ') : submission.tags || ''
+  const followUpValue = Array.isArray(submission.follow_ups)
+    ? submission.follow_ups.join('\n')
+    : submission.follow_ups || ''
   editForm.value = {
     client: submission.client_name,
     vendor: submission.vendor_name,
     product: submission.product_name,
-    tag: submission.tag_name,
+    tag: tagValue,
     scheduled_at: formatDateTimeInput(submission.scheduled_at),
     location: submission.location,
-    follow_up: submission.follow_up,
+    follow_up: followUpValue,
   }
 }
 
@@ -142,11 +146,19 @@ const cancelEdit = () => {
 }
 
 const saveEdit = async (id) => {
+  const tagItems = editForm.value.tag
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+  const followUpItems = editForm.value.follow_up
+    .split('\n')
+    .map((item) => item.trim())
+    .filter(Boolean)
   if (
     !editForm.value.client?.trim() ||
     !editForm.value.vendor?.trim() ||
     !editForm.value.product?.trim() ||
-    !editForm.value.tag?.trim()
+    tagItems.length === 0
   ) {
     resultTitle.value = '更新失敗'
     resultMessage.value = '請完整填寫客戶、廠家、產品、標籤。'
@@ -161,13 +173,18 @@ const saveEdit = async (id) => {
     return
   }
   try {
+    const payload = {
+      ...editForm.value,
+      tag: tagItems,
+      follow_up: followUpItems,
+    }
     const response = await fetch(`${apiBaseUrl}/api/task-submissions/${id}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${auth.token}`,
       },
-      body: JSON.stringify(editForm.value),
+      body: JSON.stringify(payload),
     })
     const data = await parseJsonSafe(response)
     if (!response.ok || !data?.success) {
@@ -294,9 +311,12 @@ onMounted(fetchSubmissions)
               </td>
               <td>
                 <template v-if="editingId === item.id">
-                  <input v-model="editForm.tag" type="text" />
+                  <input v-model="editForm.tag" type="text" placeholder="以逗號分隔標籤" />
                 </template>
-                <template v-else>{{ item.tag_name }}</template>
+                <template v-else>
+                  <span v-if="item.tags?.length">{{ item.tags.join('、') }}</span>
+                  <span v-else>-</span>
+                </template>
               </td>
               <td>
                 <template v-if="editingId === item.id">
@@ -314,7 +334,12 @@ onMounted(fetchSubmissions)
                 <template v-if="editingId === item.id">
                   <textarea v-model="editForm.follow_up" rows="2"></textarea>
                 </template>
-                <template v-else>{{ item.follow_up }}</template>
+                <template v-else>
+                  <ul v-if="item.follow_ups?.length" class="follow-up-list">
+                    <li v-for="entry in item.follow_ups" :key="entry">{{ entry }}</li>
+                  </ul>
+                  <span v-else>-</span>
+                </template>
               </td>
               <td>{{ item.created_by_email }}</td>
               <td>{{ formatDateTimeDisplay(item.created_at) }}</td>
@@ -422,6 +447,12 @@ onMounted(fetchSubmissions)
   border-radius: 999px;
   font-weight: 600;
   cursor: pointer;
+}
+
+.follow-up-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: #0f172a;
 }
 
 .task-table-section {
