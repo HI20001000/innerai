@@ -444,6 +444,8 @@ const formatToTaipeiDateTime = (date) => {
   )} ${pad(taipei.getUTCHours())}:${pad(taipei.getUTCMinutes())}:${pad(taipei.getUTCSeconds())}`
 }
 
+const formatToTaipeiIso = (date) => formatToTaipeiDateTime(date).replace(' ', 'T')
+
 const normalizeScheduledAt = (value) => {
   if (typeof value !== 'string') return value
   if (value.includes('.')) {
@@ -1084,7 +1086,7 @@ const createAuthToken = async (email) => {
     tokenHash,
     expiresAt,
   ])
-  return { token, expiresAt: expiresAt.toISOString() }
+  return { token, expiresAt: formatToTaipeiIso(expiresAt) }
 }
 
 const requestVerificationCode = async (req, res) => {
@@ -1107,7 +1109,9 @@ const requestVerificationCode = async (req, res) => {
   const expiresAt = now + 60 * 1000
   verificationCodes.set(email, { code, expiresAt, lastSentAt: now })
   console.log(
-    `Verification code for ${email}: ${code} (valid 60s, expires at ${new Date(expiresAt).toISOString()})`
+    `Verification code for ${email}: ${code} (valid 60s, expires at ${formatToTaipeiDateTime(
+      new Date(expiresAt)
+    )})`
   )
   sendJson(res, 200, { message: 'Verification code sent' })
 }
@@ -1221,7 +1225,7 @@ const verifyAuthToken = async (req, res) => {
       return
     }
     sendJson(res, 200, {
-      expiresAt: new Date(record.expires_at).toISOString(),
+      expiresAt: formatToTaipeiIso(new Date(record.expires_at)),
       user: {
         mail: record.mail,
         icon: record.icon,
