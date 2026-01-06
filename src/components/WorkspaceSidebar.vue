@@ -41,6 +41,16 @@
         <span class="sidebar-glyph">⬆</span>
         會議記錄
       </button>
+      <button
+        class="sidebar-button"
+        :class="{ active: activePath === '/meetings' }"
+        type="button"
+        aria-label="檢視會議記錄"
+        @click="onViewMeetings"
+      >
+        <span class="sidebar-glyph">📄</span>
+        記錄檢視
+      </button>
     </div>
     <div class="sidebar-bottom">
       <button
@@ -64,7 +74,15 @@
 <script setup>
 import { onMounted, onUnmounted, ref } from 'vue'
 
-const { onCreateTask, onGoHome, onGoProfile, onViewTasks, onUploadMeeting, activePath } = defineProps({
+const {
+  onCreateTask,
+  onGoHome,
+  onGoProfile,
+  onViewTasks,
+  onUploadMeeting,
+  onViewMeetings,
+  activePath,
+} = defineProps({
   onCreateTask: {
     type: Function,
     default: () => {},
@@ -74,6 +92,10 @@ const { onCreateTask, onGoHome, onGoProfile, onViewTasks, onUploadMeeting, activ
     default: () => {},
   },
   onUploadMeeting: {
+    type: Function,
+    default: () => {},
+  },
+  onViewMeetings: {
     type: Function,
     default: () => {},
   },
@@ -176,6 +198,22 @@ onUnmounted(() => {
   line-height: 1.1;
   cursor: pointer;
   box-shadow: 0 14px 26px rgba(147, 147, 147, 0.4);
+}
+
+.sidebar-button.active {
+  background: #1d4ed8;
+  box-shadow: 0 16px 28px rgba(29, 78, 216, 0.5);
+}
+
+.sidebar-glyph {
+  width: 28px;
+  height: 28px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.2);
+  font-size: 1.1rem;
+  line-height: 1;
 }
 
 .sidebar-button.active {

@@ -4,6 +4,7 @@ import HomeView from '../views/Home.vue'
 import TaskCreateView from '../views/TaskCreate.vue'
 import TaskSubmissionsView from '../views/TaskSubmissions.vue'
 import MeetingUploadView from '../views/MeetingUpload.vue'
+import MeetingRecordsView from '../views/MeetingRecords.vue'
 import NotFoundView from '../views/NotFound.vue'
 import ProfileSettingsView from '../views/ProfileSettings.vue'
 
@@ -13,6 +14,7 @@ const routeRecords = [
   { path: '/tasks/new', name: 'task-create', component: TaskCreateView },
   { path: '/tasks/view', name: 'task-view', component: TaskSubmissionsView },
   { path: '/meetings/upload', name: 'meeting-upload', component: MeetingUploadView },
+  { path: '/meetings', name: 'meeting-records', component: MeetingRecordsView },
   { path: '/settings', name: 'settings', component: ProfileSettingsView },
   { path: '/:pathMatch(.*)*', name: 'not-found', component: NotFoundView },
 ]

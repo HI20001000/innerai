@@ -42,6 +42,10 @@ const goToTaskList = () => {
 const goToMeetingUpload = () => {
   router?.push('/meetings/upload')
 }
+
+const goToMeetingRecords = () => {
+  router?.push('/meetings')
+}
 const readAuthStorage = () => {
   const raw = window.localStorage.getItem('innerai_auth')
   if (!raw) return null
@@ -231,6 +235,7 @@ onMounted(fetchSubmissions)
       :on-go-profile="goToProfile"
       :on-view-tasks="goToTaskList"
       :on-upload-meeting="goToMeetingUpload"
+      :on-view-meetings="goToMeetingRecords"
       :active-path="activePath"
     />
 

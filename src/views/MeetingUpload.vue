@@ -34,6 +34,7 @@ const goToTaskList = () => router?.push('/tasks/view')
 const goToHome = () => router?.push('/home')
 const goToProfile = () => router?.push('/settings')
 const goToMeetingUpload = () => router?.push('/meetings/upload')
+const goToMeetingRecords = () => router?.push('/meetings')
 
 const readAuthStorage = () => {
   const raw = window.localStorage.getItem('innerai_auth')
@@ -234,6 +235,7 @@ onMounted(() => {
       :on-go-profile="goToProfile"
       :active-path="activePath"
       :on-upload-meeting="goToMeetingUpload"
+      :on-view-meetings="goToMeetingRecords"
     />
     <header class="meeting-header">
       <div>

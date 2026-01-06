@@ -18,6 +18,10 @@ const goToMeetingUpload = () => {
   router?.push('/meetings/upload')
 }
 
+const goToMeetingRecords = () => {
+  router?.push('/meetings')
+}
+
 const goToHome = () => {
   router?.push('/home')
 }
@@ -46,6 +50,7 @@ onMounted(loadUser)
       :on-create-task="goToNewTask"
       :on-view-tasks="goToTaskList"
       :on-upload-meeting="goToMeetingUpload"
+      :on-view-meetings="goToMeetingRecords"
       :on-go-home="goToHome"
       :on-go-profile="goToProfile"
       :active-path="activePath"

@@ -606,6 +606,63 @@ const handlePostMeetingRecords = async (req, res) => {
   }
 }
 
+const handleGetMeetingRecords = async (req, res) => {
+  const user = await getRequiredAuthUser(req, res)
+  if (!user) return
+  try {
+    const connection = await getConnection()
+    const [rows] = await connection.query(
+      `SELECT meeting_folders.id,
+        meeting_folders.client_name,
+        meeting_folders.vendor_name,
+        meeting_folders.product_name,
+        meeting_folders.meeting_time,
+        meeting_folders.created_by_email,
+        meeting_folders.created_at,
+        meeting_records.id as record_id,
+        meeting_records.file_name,
+        meeting_records.file_path,
+        meeting_records.mime_type,
+        meeting_records.file_content
+       FROM meeting_folders
+       LEFT JOIN meeting_records ON meeting_records.folder_id = meeting_folders.id
+       ORDER BY meeting_folders.created_at DESC, meeting_records.id ASC`
+    )
+    const grouped = new Map()
+    for (const row of rows) {
+      if (!grouped.has(row.id)) {
+        grouped.set(row.id, {
+          id: row.id,
+          client_name: row.client_name,
+          vendor_name: row.vendor_name,
+          product_name: row.product_name,
+          meeting_time: row.meeting_time,
+          created_by_email: row.created_by_email,
+          created_at: row.created_at,
+          records: [],
+        })
+      }
+      if (row.record_id) {
+        const content =
+          row.file_content && Buffer.isBuffer(row.file_content)
+            ? row.file_content.toString('base64')
+            : null
+        grouped.get(row.id).records.push({
+          id: row.record_id,
+          file_name: row.file_name,
+          file_path: row.file_path,
+          mime_type: row.mime_type,
+          content_base64: content,
+        })
+      }
+    }
+    sendJson(res, 200, { success: true, data: Array.from(grouped.values()) })
+  } catch (error) {
+    console.error(error)
+    sendJson(res, 500, { success: false, message: '無法讀取會議記錄' })
+  }
+}
+
 const handleUpdateTaskSubmission = async (req, res, id) => {
   const user = await getRequiredAuthUser(req, res)
   if (!user) return
@@ -753,6 +810,13 @@ const handlePostDifyAutoFill = async (req, res) => {
     }
     sendJson(res, 200, { success: true, data })
   } catch (error) {
+    if (connection) {
+      try {
+        await connection.rollback()
+      } catch (rollbackError) {
+        console.error(rollbackError)
+      }
+    }
     console.error(error)
     sendJson(res, 500, { success: false, message: 'Dify 連線失敗' })
   }
@@ -1071,6 +1135,10 @@ const start = async () => {
     }
     if (url.pathname === '/api/meeting-records' && req.method === 'POST') {
       await handlePostMeetingRecords(req, res)
+      return
+    }
+    if (url.pathname === '/api/meeting-records' && req.method === 'GET') {
+      await handleGetMeetingRecords(req, res)
       return
     }
     if (url.pathname === '/api/dify/auto-fill' && req.method === 'POST') {
