@@ -169,8 +169,14 @@ const ensureTables = async (connection) => {
       id INT AUTO_INCREMENT PRIMARY KEY,
       submission_id INT NOT NULL,
       content TEXT NOT NULL,
+      status_id INT,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       INDEX idx_task_submission_followups_submission (submission_id)
+    )`,
+    `CREATE TABLE IF NOT EXISTS follow_up_statuses (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(255) NOT NULL UNIQUE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
     `CREATE TABLE IF NOT EXISTS meeting_folders (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -253,6 +259,24 @@ const ensureTables = async (connection) => {
     if (error?.code !== 'ER_DUP_FIELDNAME') {
       throw error
     }
+  }
+  try {
+    await connection.query('ALTER TABLE task_submission_followups ADD COLUMN status_id INT NULL')
+  } catch (error) {
+    if (error?.code !== 'ER_DUP_FIELDNAME') {
+      throw error
+    }
+  }
+  try {
+    await connection.query(
+      `CREATE TABLE IF NOT EXISTS follow_up_statuses (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(255) NOT NULL UNIQUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )`
+    )
+  } catch (error) {
+    throw error
   }
   try {
     await connection.query('ALTER TABLE task_submissions ADD COLUMN recorded_at DATETIME')
