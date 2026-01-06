@@ -8,6 +8,7 @@ const router = getCurrentInstance().appContext.config.globalProperties.$router
 const activePath = computed(() => router?.currentRoute?.value?.path || '')
 
 const records = ref([])
+const activeRecord = ref(null)
 const isLoading = ref(false)
 const showResult = ref(false)
 const resultTitle = ref('')
@@ -40,15 +41,10 @@ const parseJsonSafe = async (response) => {
   }
 }
 
-const decodeBase64 = (value) => {
-  if (!value) return ''
-  try {
-    return atob(value)
-  } catch {
-    return ''
-  }
+const formatContent = (record) => {
+  if (!record?.content_text) return '無法預覽此檔案內容'
+  return record.content_text
 }
-
 const fetchMeetingRecords = async () => {
   const auth = readAuthStorage()
   if (!auth) {
@@ -113,34 +109,73 @@ onMounted(fetchMeetingRecords)
       <div v-if="isLoading" class="loading-state">載入中...</div>
       <div v-else-if="records.length === 0" class="empty-state">尚無會議記錄</div>
       <div v-else class="folder-list">
-        <article v-for="folder in records" :key="folder.id" class="folder-card">
-          <header class="folder-header">
-            <div>
-              <h2>
-                {{ folder.client_name }} / {{ folder.vendor_name }} / {{ folder.product_name }}
-              </h2>
-              <p class="meta">
-                會議時間：{{ formatDateTimeDisplay(folder.meeting_time) }}
-              </p>
-              <p class="meta">
-                建立者：{{ folder.created_by_email }}｜建立時間：{{
-                  formatDateTimeDisplay(folder.created_at)
-                }}
-              </p>
+        <article v-for="client in records" :key="client.name" class="tree-card">
+          <details class="tree-node">
+            <summary class="tree-summary">
+              <span class="tree-title">客戶：{{ client.name }}</span>
+            </summary>
+            <div class="tree-children">
+              <details v-for="vendor in client.vendors" :key="vendor.name" class="tree-node">
+                <summary class="tree-summary">
+                  <span class="tree-title">廠家：{{ vendor.name }}</span>
+                </summary>
+                <div class="tree-children">
+                  <details
+                    v-for="product in vendor.products"
+                    :key="product.name"
+                    class="tree-node"
+                  >
+                    <summary class="tree-summary">
+                      <span class="tree-title">廠家產品：{{ product.name }}</span>
+                    </summary>
+                    <div class="tree-children">
+                      <details
+                        v-for="meeting in product.meetings"
+                        :key="meeting.id"
+                        class="tree-node"
+                      >
+                        <summary class="tree-summary">
+                          <span class="tree-title">
+                            會議時間：{{ formatDateTimeDisplay(meeting.meeting_time) }}
+                          </span>
+                          <span class="tree-meta">
+                            建立者：{{ meeting.created_by_email }}｜建立時間：{{
+                              formatDateTimeDisplay(meeting.created_at)
+                            }}
+                          </span>
+                          <span class="count">{{ meeting.records.length }} 份記錄</span>
+                        </summary>
+                        <div class="tree-children record-list">
+                          <button
+                            v-for="record in meeting.records"
+                            :key="record.id"
+                            type="button"
+                            class="record-button"
+                            @click="activeRecord = record"
+                          >
+                            <div class="record-title">
+                              <strong>{{ record.file_name }}</strong>
+                              <span class="record-path">{{ record.file_path }}</span>
+                            </div>
+                          </button>
+                        </div>
+                      </details>
+                    </div>
+                  </details>
+                </div>
+              </details>
             </div>
-            <span class="count">{{ folder.records.length }} 份記錄</span>
-          </header>
-          <div class="record-list">
-            <div v-for="record in folder.records" :key="record.id" class="record-card">
-              <div class="record-title">
-                <strong>{{ record.file_name }}</strong>
-                <span class="record-path">{{ record.file_path }}</span>
-              </div>
-              <pre class="record-content">{{ decodeBase64(record.content_base64) }}</pre>
-            </div>
-          </div>
+          </details>
         </article>
       </div>
+    </section>
+
+    <section v-if="activeRecord" class="preview-panel">
+      <header class="preview-header">
+        <h2>{{ activeRecord.file_name }}</h2>
+        <p class="record-path">{{ activeRecord.file_path }}</p>
+      </header>
+      <pre class="record-content">{{ formatContent(activeRecord) }}</pre>
     </section>
 
     <ResultModal
@@ -191,7 +226,7 @@ onMounted(fetchMeetingRecords)
   gap: 1.5rem;
 }
 
-.folder-card {
+.tree-card {
   background: #fff;
   border-radius: 24px;
   padding: 1.8rem;
@@ -200,22 +235,36 @@ onMounted(fetchMeetingRecords)
   gap: 1.2rem;
 }
 
-.folder-header {
+.tree-node {
+  border-radius: 16px;
+  padding: 0.4rem 0;
+}
+
+.tree-summary {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 1.5rem;
+  align-items: center;
+  gap: 0.8rem;
+  cursor: pointer;
+  font-weight: 600;
 }
 
-.folder-header h2 {
-  margin: 0 0 0.4rem;
-  font-size: 1.2rem;
+.tree-summary::-webkit-details-marker {
+  display: none;
 }
 
-.meta {
-  margin: 0;
+.tree-title {
+  font-size: 0.95rem;
+}
+
+.tree-meta {
+  font-size: 0.85rem;
   color: #64748b;
-  font-size: 0.9rem;
+}
+
+.tree-children {
+  padding: 0.6rem 0 0.6rem 1.4rem;
+  display: grid;
+  gap: 0.6rem;
 }
 
 .count {
@@ -232,13 +281,19 @@ onMounted(fetchMeetingRecords)
   gap: 1rem;
 }
 
-.record-card {
+.record-button {
   border: 1px solid #e2e8f0;
   border-radius: 16px;
-  padding: 1rem;
+  padding: 0.8rem;
   background: #f8fafc;
+  text-align: left;
+  cursor: pointer;
   display: grid;
-  gap: 0.6rem;
+  gap: 0.4rem;
+}
+
+.record-button:hover {
+  background: #e2e8f0;
 }
 
 .record-title {
@@ -249,6 +304,20 @@ onMounted(fetchMeetingRecords)
 .record-path {
   color: #94a3b8;
   font-size: 0.8rem;
+}
+
+.preview-panel {
+  background: #fff;
+  border-radius: 24px;
+  padding: 1.8rem;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
+  display: grid;
+  gap: 0.8rem;
+}
+
+.preview-header h2 {
+  margin: 0 0 0.2rem;
+  font-size: 1.2rem;
 }
 
 .record-content {
@@ -267,11 +336,6 @@ onMounted(fetchMeetingRecords)
 @media (max-width: 720px) {
   .meeting-records-page {
     padding: 2.5rem 6vw 3.5rem;
-  }
-
-  .folder-header {
-    flex-direction: column;
-    align-items: flex-start;
   }
 }
 </style>

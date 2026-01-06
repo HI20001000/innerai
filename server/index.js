@@ -159,9 +159,6 @@ const ensureTables = async (connection) => {
     )`,
     `CREATE TABLE IF NOT EXISTS meeting_folders (
       id INT AUTO_INCREMENT PRIMARY KEY,
-      client_name VARCHAR(255) NOT NULL,
-      vendor_name VARCHAR(255) NOT NULL,
-      product_name VARCHAR(255) NOT NULL,
       meeting_time DATETIME NOT NULL,
       created_by_email VARCHAR(255) NOT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -173,8 +170,30 @@ const ensureTables = async (connection) => {
       file_path VARCHAR(1024),
       mime_type VARCHAR(255),
       file_content LONGBLOB,
+      content_text LONGTEXT,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       INDEX idx_meeting_records_folder (folder_id)
+    )`,
+    `CREATE TABLE IF NOT EXISTS client_vendor_links (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      client_name VARCHAR(255) NOT NULL,
+      vendor_name VARCHAR(255) NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_client_vendor (client_name, vendor_name)
+    )`,
+    `CREATE TABLE IF NOT EXISTS vendor_product_links (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      vendor_name VARCHAR(255) NOT NULL,
+      product_name VARCHAR(255) NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_vendor_product (vendor_name, product_name)
+    )`,
+    `CREATE TABLE IF NOT EXISTS product_meeting_links (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      product_name VARCHAR(255) NOT NULL,
+      meeting_folder_id INT NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_product_meeting (product_name, meeting_folder_id)
     )`,
   ]
   for (const statement of statements) {
@@ -570,25 +589,42 @@ const handlePostMeetingRecords = async (req, res) => {
     await connection.beginTransaction()
     const [folderResult] = await connection.query(
       `INSERT INTO meeting_folders
-        (client_name, vendor_name, product_name, meeting_time, created_by_email)
-       VALUES (?, ?, ?, ?, ?)`,
-      [client.trim(), vendor.trim(), product.trim(), normalizedMeetingTime, user.mail]
+        (meeting_time, created_by_email)
+       VALUES (?, ?)`,
+      [normalizedMeetingTime, user.mail]
     )
     const folderId = folderResult.insertId
+    await connection.query(
+      'INSERT IGNORE INTO client_vendor_links (client_name, vendor_name) VALUES (?, ?)',
+      [client.trim(), vendor.trim()]
+    )
+    await connection.query(
+      'INSERT IGNORE INTO vendor_product_links (vendor_name, product_name) VALUES (?, ?)',
+      [vendor.trim(), product.trim()]
+    )
+    await connection.query(
+      'INSERT IGNORE INTO product_meeting_links (product_name, meeting_folder_id) VALUES (?, ?)',
+      [product.trim(), folderId]
+    )
     const records = files.map((file) => {
       const content = file?.contentBase64
         ? Buffer.from(String(file.contentBase64), 'base64')
         : null
+      const isText =
+        file?.type?.startsWith('text/') ||
+        String(file?.name || '').toLowerCase().endsWith('.txt')
+      const contentText = isText && content ? content.toString('utf8') : null
       return [
         folderId,
         file?.name || 'unknown',
         file?.path || null,
         file?.type || null,
         content,
+        contentText,
       ]
     })
     await connection.query(
-      'INSERT INTO meeting_records (folder_id, file_name, file_path, mime_type, file_content) VALUES ?',
+      'INSERT INTO meeting_records (folder_id, file_name, file_path, mime_type, file_content, content_text) VALUES ?',
       [records]
     )
     await connection.commit()
@@ -611,52 +647,90 @@ const handleGetMeetingRecords = async (req, res) => {
   if (!user) return
   try {
     const connection = await getConnection()
-    const [rows] = await connection.query(
-      `SELECT meeting_folders.id,
-        meeting_folders.client_name,
-        meeting_folders.vendor_name,
-        meeting_folders.product_name,
-        meeting_folders.meeting_time,
-        meeting_folders.created_by_email,
-        meeting_folders.created_at,
-        meeting_records.id as record_id,
-        meeting_records.file_name,
-        meeting_records.file_path,
-        meeting_records.mime_type,
-        meeting_records.file_content
-       FROM meeting_folders
-       LEFT JOIN meeting_records ON meeting_records.folder_id = meeting_folders.id
-       ORDER BY meeting_folders.created_at DESC, meeting_records.id ASC`
+    const [clientVendors] = await connection.query(
+      'SELECT client_name, vendor_name FROM client_vendor_links'
     )
-    const grouped = new Map()
-    for (const row of rows) {
-      if (!grouped.has(row.id)) {
-        grouped.set(row.id, {
-          id: row.id,
-          client_name: row.client_name,
-          vendor_name: row.vendor_name,
-          product_name: row.product_name,
-          meeting_time: row.meeting_time,
-          created_by_email: row.created_by_email,
-          created_at: row.created_at,
-          records: [],
-        })
-      }
-      if (row.record_id) {
-        const content =
-          row.file_content && Buffer.isBuffer(row.file_content)
-            ? row.file_content.toString('base64')
-            : null
-        grouped.get(row.id).records.push({
-          id: row.record_id,
-          file_name: row.file_name,
-          file_path: row.file_path,
-          mime_type: row.mime_type,
-          content_base64: content,
+    const [vendorProducts] = await connection.query(
+      'SELECT vendor_name, product_name FROM vendor_product_links'
+    )
+    const [productMeetings] = await connection.query(
+      'SELECT product_name, meeting_folder_id FROM product_meeting_links'
+    )
+    const [folders] = await connection.query(
+      'SELECT id, meeting_time, created_by_email, created_at FROM meeting_folders'
+    )
+    const [records] = await connection.query(
+      `SELECT id, folder_id, file_name, file_path, mime_type, content_text
+       FROM meeting_records
+       ORDER BY id ASC`
+    )
+
+    const foldersById = new Map()
+    for (const folder of folders) {
+      foldersById.set(folder.id, { ...folder, records: [] })
+    }
+    for (const record of records) {
+      const folder = foldersById.get(record.folder_id)
+      if (folder) {
+        folder.records.push({
+          id: record.id,
+          file_name: record.file_name,
+          file_path: record.file_path,
+          mime_type: record.mime_type,
+          content_text: record.content_text,
         })
       }
     }
-    sendJson(res, 200, { success: true, data: Array.from(grouped.values()) })
+
+    const productMeetingsMap = new Map()
+    for (const link of productMeetings) {
+      if (!productMeetingsMap.has(link.product_name)) {
+        productMeetingsMap.set(link.product_name, [])
+      }
+      const folder = foldersById.get(link.meeting_folder_id)
+      if (folder) {
+        productMeetingsMap.get(link.product_name).push(folder)
+      }
+    }
+
+    const vendorProductsMap = new Map()
+    for (const link of vendorProducts) {
+      if (!vendorProductsMap.has(link.vendor_name)) {
+        vendorProductsMap.set(link.vendor_name, [])
+      }
+      vendorProductsMap.get(link.vendor_name).push(link.product_name)
+    }
+
+    const clientVendorsMap = new Map()
+    for (const link of clientVendors) {
+      if (!clientVendorsMap.has(link.client_name)) {
+        clientVendorsMap.set(link.client_name, [])
+      }
+      clientVendorsMap.get(link.client_name).push(link.vendor_name)
+    }
+
+    const data = []
+    for (const [clientName, vendors] of clientVendorsMap.entries()) {
+      const vendorNodes = vendors.map((vendorName) => {
+        const products = vendorProductsMap.get(vendorName) || []
+        const productNodes = products.map((productName) => {
+          const meetings = productMeetingsMap.get(productName) || []
+          return {
+            name: productName,
+            meetings: meetings.map((meeting) => ({
+              id: meeting.id,
+              meeting_time: meeting.meeting_time,
+              created_by_email: meeting.created_by_email,
+              created_at: meeting.created_at,
+              records: meeting.records,
+            })),
+          }
+        })
+        return { name: vendorName, products: productNodes }
+      })
+      data.push({ name: clientName, vendors: vendorNodes })
+    }
+    sendJson(res, 200, { success: true, data })
   } catch (error) {
     console.error(error)
     sendJson(res, 500, { success: false, message: '無法讀取會議記錄' })
@@ -772,6 +846,13 @@ const handleDeleteTaskSubmission = async (req, res, id) => {
     await connection.commit()
     sendJson(res, 200, { success: true, message: '任務已刪除' })
   } catch (error) {
+    if (connection) {
+      try {
+        await connection.rollback()
+      } catch (rollbackError) {
+        console.error(rollbackError)
+      }
+    }
     console.error(error)
     sendJson(res, 500, { success: false, message: '任務刪除失敗' })
   }
@@ -810,13 +891,6 @@ const handlePostDifyAutoFill = async (req, res) => {
     }
     sendJson(res, 200, { success: true, data })
   } catch (error) {
-    if (connection) {
-      try {
-        await connection.rollback()
-      } catch (rollbackError) {
-        console.error(rollbackError)
-      }
-    }
     console.error(error)
     sendJson(res, 500, { success: false, message: 'Dify 連線失敗' })
   }
