@@ -4,7 +4,6 @@ import WorkspaceSidebar from '../components/WorkspaceSidebar.vue'
 import ResultModal from '../components/ResultModal.vue'
 import ScrollPanel from '../components/element/ScrollPanel.vue'
 import { formatDateTimeDisplay } from '../scripts/time.js'
-import { formatDateTimeDisplay } from '../scripts/time.js'
 
 const props = defineProps({
   embedded: {
