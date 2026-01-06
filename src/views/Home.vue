@@ -1,6 +1,7 @@
 <script setup>
 import { computed, getCurrentInstance, onMounted, ref } from 'vue'
 import WorkspaceSidebar from '../components/WorkspaceSidebar.vue'
+import MonthlyCalendar from '../components/MonthlyCalendar.vue'
 
 const router = getCurrentInstance().appContext.config.globalProperties.$router
 const username = ref('hi')
@@ -172,47 +173,7 @@ onMounted(loadUser)
         </article>
 
         <article class="panel wide">
-          <header class="panel-header">
-            <h2>本週行事曆</h2>
-            <p>視覺化本週節奏，拖曳即可安排內容。</p>
-          </header>
-          <div class="calendar">
-            <div class="calendar-day active">
-              <span class="day-label">週一</span>
-              <span class="day-date">04</span>
-              <span class="day-chip">3 件待辦</span>
-            </div>
-            <div class="calendar-day">
-              <span class="day-label">週二</span>
-              <span class="day-date">05</span>
-              <span class="day-chip">2 會議</span>
-            </div>
-            <div class="calendar-day">
-              <span class="day-label">週三</span>
-              <span class="day-date">06</span>
-              <span class="day-chip">UI 審查</span>
-            </div>
-            <div class="calendar-day">
-              <span class="day-label">週四</span>
-              <span class="day-date">07</span>
-              <span class="day-chip">回報進度</span>
-            </div>
-            <div class="calendar-day">
-              <span class="day-label">週五</span>
-              <span class="day-date">08</span>
-              <span class="day-chip">交付日</span>
-            </div>
-            <div class="calendar-day muted">
-              <span class="day-label">週六</span>
-              <span class="day-date">09</span>
-              <span class="day-chip">休息</span>
-            </div>
-            <div class="calendar-day muted">
-              <span class="day-label">週日</span>
-              <span class="day-date">10</span>
-              <span class="day-chip">整理</span>
-            </div>
-          </div>
+          <MonthlyCalendar />
         </article>
       </section>
     </main>
@@ -427,56 +388,6 @@ onMounted(loadUser)
   border-radius: inherit;
 }
 
-.calendar {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 1.2rem;
-}
-
-.calendar-day {
-  border-radius: 18px;
-  padding: 1.2rem;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  display: grid;
-  gap: 0.6rem;
-}
-
-.calendar-day.active {
-  background: #111827;
-  color: #fff;
-  border-color: transparent;
-}
-
-.calendar-day.muted {
-  opacity: 0.7;
-}
-
-.day-label {
-  font-size: 0.85rem;
-  color: inherit;
-  opacity: 0.7;
-}
-
-.day-date {
-  font-size: 1.6rem;
-  font-weight: 600;
-}
-
-.day-chip {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.3rem 0.7rem;
-  border-radius: 999px;
-  background: rgba(15, 23, 42, 0.08);
-  font-size: 0.75rem;
-  color: inherit;
-}
-
-.calendar-day.active .day-chip {
-  background: rgba(255, 255, 255, 0.2);
-}
 
 @media (max-width: 960px) {
   .home-content {
