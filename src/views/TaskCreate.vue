@@ -12,12 +12,14 @@ const tags = ref([])
 const selectedClient = ref('')
 const selectedVendor = ref('')
 const selectedProduct = ref('')
-const selectedTag = ref('')
+const selectedTags = ref([])
 const selectedRelatedUsers = ref([])
 const activeList = ref(null)
 const selectedTime = ref('')
+const recordedAt = ref('')
 const selectedLocation = ref('')
-const followUpContent = ref('')
+const followUpInput = ref('')
+const followUpItems = ref([])
 const showRequiredHints = ref(false)
 const searchQuery = reactive({
   client: '',
@@ -194,12 +196,31 @@ const selectOption = (type, item) => {
     selectedProduct.value = item
   }
   if (type === 'tag') {
-    selectedTag.value = item
+    if (selectedTags.value.includes(item)) {
+      selectedTags.value = selectedTags.value.filter((tag) => tag !== item)
+    } else {
+      selectedTags.value = [...selectedTags.value, item]
+    }
   }
   if (type === 'user') {
     selectedRelatedUser.value = item
   }
   activeList.value = null
+}
+
+const removeTag = (tag) => {
+  selectedTags.value = selectedTags.value.filter((item) => item !== tag)
+}
+
+const addFollowUpItem = () => {
+  const value = followUpInput.value.trim()
+  if (!value) return
+  followUpItems.value = [...followUpItems.value, value]
+  followUpInput.value = ''
+}
+
+const removeFollowUpItem = (item) => {
+  followUpItems.value = followUpItems.value.filter((entry) => entry !== item)
 }
 
 const isRelatedUserSelected = (item) =>
@@ -298,11 +319,12 @@ const saveDraft = () => {
     selectedClient: selectedClient.value,
     selectedVendor: selectedVendor.value,
     selectedProduct: selectedProduct.value,
-    selectedTag: selectedTag.value,
+    selectedTags: selectedTags.value,
     selectedRelatedUsers: selectedRelatedUsers.value,
     selectedTime: selectedTime.value,
+    recordedAt: recordedAt.value,
     selectedLocation: selectedLocation.value,
-    followUpContent: followUpContent.value,
+    followUpItems: followUpItems.value,
   }
   window.localStorage.setItem(draftKey, JSON.stringify(payload))
   showDraftSaved.value = true
@@ -334,17 +356,18 @@ const submitTask = async () => {
     client: selectedClient.value,
     vendor: selectedVendor.value,
     product: selectedProduct.value,
-    tag: selectedTag.value,
+    tag: selectedTags.value,
     related_user_mail: selectedRelatedUsers.value.map((user) => user.mail),
     scheduled_at: selectedTime.value,
+    recorded_at: recordedAt.value,
     location: selectedLocation.value,
-    follow_up: followUpContent.value,
+    follow_up: followUpItems.value,
   }
   if (
     !selectedClient.value ||
     !selectedVendor.value ||
     !selectedProduct.value ||
-    !selectedTag.value ||
+    selectedTags.value.length === 0 ||
     selectedRelatedUsers.value.length === 0
   ) {
     showRequiredHints.value = true
@@ -364,7 +387,9 @@ const submitTask = async () => {
     await ensureOptionExists('client', selectedClient.value)
     await ensureOptionExists('vendor', selectedVendor.value)
     await ensureOptionExists('product', selectedProduct.value)
-    await ensureOptionExists('tag', selectedTag.value)
+    for (const tag of selectedTags.value) {
+      await ensureOptionExists('tag', tag)
+    }
     const response = await fetch(`${apiBaseUrl}/api/task-submissions`, {
       method: 'POST',
       headers: {
@@ -399,9 +424,16 @@ const applyAutoFill = (payload) => {
   if (payload.client) selectedClient.value = payload.client
   if (payload.vendor) selectedVendor.value = payload.vendor
   if (payload.product) selectedProduct.value = payload.product
-  if (payload.tag) selectedTag.value = payload.tag
+  if (payload.tag) {
+    const tags = Array.isArray(payload.tag) ? payload.tag : [payload.tag]
+    selectedTags.value = tags.filter(Boolean)
+  }
+  if (payload.recorded_at) recordedAt.value = payload.recorded_at
   if (payload.scheduled_at) selectedTime.value = payload.scheduled_at
-  if (payload.follow_up) followUpContent.value = payload.follow_up
+  if (payload.follow_up) {
+    const followUps = Array.isArray(payload.follow_up) ? payload.follow_up : [payload.follow_up]
+    followUpItems.value = followUps.filter(Boolean)
+  }
 }
 
 const loadDraft = () => {
@@ -412,11 +444,12 @@ const loadDraft = () => {
     selectedClient.value = payload.selectedClient ?? ''
     selectedVendor.value = payload.selectedVendor ?? ''
     selectedProduct.value = payload.selectedProduct ?? ''
-    selectedTag.value = payload.selectedTag ?? ''
+    selectedTags.value = payload.selectedTags ?? []
     selectedRelatedUsers.value = payload.selectedRelatedUsers ?? []
     selectedTime.value = payload.selectedTime ?? ''
+    recordedAt.value = payload.recordedAt ?? ''
     selectedLocation.value = payload.selectedLocation ?? ''
-    followUpContent.value = payload.followUpContent ?? ''
+    followUpItems.value = payload.followUpItems ?? []
   } catch {
     window.localStorage.removeItem(draftKey)
   }
@@ -562,15 +595,9 @@ onMounted(() => {
               <button class="ghost-mini" type="button" @click="openModal('tag')">編輯</button>
             </div>
             <button class="select-field" type="button" @click="openList('tag')">
-              {{ selectedTag || '選擇標籤' }}
+              {{ selectedTags.length > 0 ? selectedTags.join('、') : '選擇標籤' }}
             </button>
-            <p v-if="showRequiredHints && !selectedTag" class="required-hint">必填</p>
-            <p
-              v-if="selectedTag && optionStatus('tag', selectedTag)"
-              :class="['option-status', optionStatusClass('tag', selectedTag)]"
-            >
-              {{ optionStatus('tag', selectedTag) }}
-            </p>
+            <p v-if="showRequiredHints && selectedTags.length === 0" class="required-hint">必填</p>
             <div v-if="activeList === 'tag'" class="option-list">
               <input
                 v-model="searchQuery.tag"
@@ -586,6 +613,55 @@ onMounted(() => {
                 @click="selectOption('tag', item)"
               >
                 {{ item }}
+              </button>
+            </div>
+            <div v-if="selectedTags.length > 0" class="tag-list">
+              <span v-for="item in selectedTags" :key="item" class="tag-chip">
+                {{ item }}
+                <button type="button" class="chip-remove" @click="removeTag(item)">×</button>
+              </span>
+            </div>
+          </div>
+          <div class="field select-field-wrapper">
+            <div class="field-header">
+              <span>關聯用戶</span>
+            </div>
+            <button class="select-field" type="button" @click="openList('user')">
+              {{
+                selectedRelatedUsers.length > 0
+                  ? selectedRelatedUsers
+                      .map((user) => `${user.username || ''} <${user.mail}>`)
+                      .join(', ')
+                  : '選擇關聯用戶'
+              }}
+            </button>
+            <p v-if="showRequiredHints && selectedRelatedUsers.length === 0" class="required-hint">
+              必填
+            </p>
+            <div v-if="activeList === 'user'" class="option-list">
+              <input
+                v-model="searchQuery.user"
+                class="option-search"
+                type="text"
+                placeholder="搜尋用戶"
+              />
+              <button
+                v-for="item in getFilteredOptions('user')"
+                :key="item.mail"
+                type="button"
+                class="option-item user-option"
+                @click="toggleRelatedUser(item)"
+              >
+                <span
+                  class="user-avatar"
+                  :style="{ backgroundColor: item.icon_bg || '#e2e8f0' }"
+                >
+                  {{ item.icon || '🙂' }}
+                </span>
+                <span class="user-label">
+                  {{ item.username || 'user' }} &lt;{{ item.mail }}&gt;
+                </span>
+                <span v-if="isRelatedUserSelected(item)" class="user-selected">已選</span>
               </button>
             </div>
           </div>
@@ -637,16 +713,33 @@ onMounted(() => {
             <input v-model="selectedTime" type="datetime-local" />
           </label>
           <label class="field">
+            <span>記錄時間</span>
+            <input v-model="recordedAt" type="datetime-local" />
+          </label>
+          <label class="field">
             <span>地點</span>
             <input v-model="selectedLocation" type="text" placeholder="輸入會議/拜訪地點" />
           </label>
           <label class="field wide">
             <span>需跟進內容</span>
-            <textarea
-              v-model="followUpContent"
-              rows="5"
-              placeholder="描述需跟進的重點或待辦事項"
-            ></textarea>
+            <div class="follow-up-input">
+              <input
+                v-model="followUpInput"
+                type="text"
+                placeholder="輸入需跟進內容並加入"
+              />
+              <button type="button" class="primary-button small" @click="addFollowUpItem">
+                新增
+              </button>
+            </div>
+            <div v-if="followUpItems.length > 0" class="follow-up-list">
+              <div v-for="item in followUpItems" :key="item" class="follow-up-item">
+                <span>{{ item }}</span>
+                <button type="button" class="chip-remove" @click="removeFollowUpItem(item)">
+                  ×
+                </button>
+              </div>
+            </div>
           </label>
         </div>
 
@@ -903,6 +996,32 @@ onMounted(() => {
   background: #fff;
 }
 
+.tag-list {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.tag-chip {
+  background: #eef2ff;
+  color: #4338ca;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.chip-remove {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: inherit;
+}
+
 .option-status {
   margin: 0.35rem 0 0;
   font-size: 0.8rem;
@@ -914,6 +1033,41 @@ onMounted(() => {
   font-size: 0.8rem;
   color: #dc2626;
   font-weight: 600;
+}
+
+.follow-up-input {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.follow-up-input input {
+  flex: 1;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.6rem 0.8rem;
+}
+
+.primary-button.small {
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+}
+
+.follow-up-list {
+  margin-top: 0.6rem;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.follow-up-item {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.4rem 0.6rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.6rem;
 }
 
 .option-status.exists {

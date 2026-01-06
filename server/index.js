@@ -138,6 +138,7 @@ const ensureTables = async (connection) => {
       scheduled_at DATETIME,
       location VARCHAR(255),
       follow_up TEXT,
+      recorded_at DATETIME,
       created_by_email VARCHAR(255) NOT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       INDEX idx_task_submissions_created_at (created_at)
@@ -156,6 +157,20 @@ const ensureTables = async (connection) => {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       INDEX idx_task_submission_users_submission (submission_id),
       INDEX idx_task_submission_users_user (user_mail)
+    )`,
+    `CREATE TABLE IF NOT EXISTS task_submission_tags (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      submission_id INT NOT NULL,
+      tag_name VARCHAR(255) NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_task_submission_tags_submission (submission_id)
+    )`,
+    `CREATE TABLE IF NOT EXISTS task_submission_followups (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      submission_id INT NOT NULL,
+      content TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_task_submission_followups_submission (submission_id)
     )`,
     `CREATE TABLE IF NOT EXISTS meeting_folders (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -250,6 +265,13 @@ const ensureTables = async (connection) => {
   }
   try {
     await connection.query('ALTER TABLE meeting_records ADD COLUMN content_text LONGTEXT')
+  } catch (error) {
+    if (error?.code !== 'ER_DUP_FIELDNAME') {
+      throw error
+    }
+  }
+  try {
+    await connection.query('ALTER TABLE task_submissions ADD COLUMN recorded_at DATETIME')
   } catch (error) {
     if (error?.code !== 'ER_DUP_FIELDNAME') {
       throw error
@@ -434,16 +456,21 @@ const handlePostTaskSubmission = async (req, res) => {
     tag,
     related_user_mail: relatedUserMail,
     scheduled_at: scheduledAt,
+    recorded_at: recordedAt,
     location,
     follow_up: followUp,
   } = body
-  if (
-    !isNonEmptyString(client) ||
-    !isNonEmptyString(vendor) ||
-    !isNonEmptyString(product) ||
-    !isNonEmptyString(tag)
-  ) {
-    sendJson(res, 400, { success: false, message: '客戶、廠家、產品、標籤、關聯用戶為必填' })
+  if (!isNonEmptyString(client) || !isNonEmptyString(vendor) || !isNonEmptyString(product)) {
+    sendJson(res, 400, { success: false, message: '客戶、廠家、產品為必填' })
+    return
+  }
+  const tags = Array.isArray(tag)
+    ? tag.map((item) => String(item).trim()).filter(Boolean)
+    : isNonEmptyString(tag)
+      ? [tag.trim()]
+      : []
+  if (tags.length === 0) {
+    sendJson(res, 400, { success: false, message: '任務標籤為必填' })
     return
   }
   const relatedUserMails = Array.isArray(relatedUserMail)
@@ -463,7 +490,12 @@ const handlePostTaskSubmission = async (req, res) => {
     sendJson(res, 400, { success: false, message: '欄位長度超過限制' })
     return
   }
-  if (followUp && followUp.length > 2000) {
+  const followUps = Array.isArray(followUp)
+    ? followUp.map((item) => String(item).trim()).filter(Boolean)
+    : isNonEmptyString(followUp)
+      ? [followUp.trim()]
+      : []
+  if (followUps.some((item) => item.length > 2000)) {
     sendJson(res, 400, { success: false, message: '需跟進內容長度過長' })
     return
   }
@@ -471,7 +503,12 @@ const handlePostTaskSubmission = async (req, res) => {
     sendJson(res, 400, { success: false, message: '時間格式不正確' })
     return
   }
+  if (recordedAt && Number.isNaN(Date.parse(recordedAt))) {
+    sendJson(res, 400, { success: false, message: '記錄時間格式不正確' })
+    return
+  }
   const normalizedScheduledAt = scheduledAt ? normalizeScheduledAt(scheduledAt) : null
+  const normalizedRecordedAt = recordedAt ? normalizeScheduledAt(recordedAt) : null
   const user = await getRequiredAuthUser(req, res)
   if (!user) {
     return
@@ -490,16 +527,17 @@ const handlePostTaskSubmission = async (req, res) => {
     }
     const [result] = await connection.query(
       `INSERT INTO task_submissions
-        (client_name, vendor_name, product_name, tag_name, scheduled_at, location, follow_up, created_by_email)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        (client_name, vendor_name, product_name, tag_name, scheduled_at, location, follow_up, recorded_at, created_by_email)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         client.trim(),
         vendor.trim(),
         product.trim(),
-        tag.trim(),
+        tags[0],
         normalizedScheduledAt,
         location ? location.trim() : null,
-        followUp ? followUp.trim() : null,
+        followUps[0] || null,
+        normalizedRecordedAt,
         user.mail,
       ]
     )
@@ -508,6 +546,18 @@ const handlePostTaskSubmission = async (req, res) => {
       'INSERT INTO task_submission_users (submission_id, user_mail) VALUES ?',
       [relationValues]
     )
+    const tagValues = tags.map((tagName) => [result.insertId, tagName])
+    await connection.query(
+      'INSERT INTO task_submission_tags (submission_id, tag_name) VALUES ?',
+      [tagValues]
+    )
+    if (followUps.length > 0) {
+      const followUpValues = followUps.map((item) => [result.insertId, item])
+      await connection.query(
+        'INSERT INTO task_submission_followups (submission_id, content) VALUES ?',
+        [followUpValues]
+      )
+    }
     await connection.commit()
     sendJson(res, 201, {
       success: true,
@@ -783,30 +833,46 @@ const handleUpdateTaskSubmission = async (req, res, id) => {
     tag,
     related_user_mail: relatedUserMail,
     scheduled_at: scheduledAt,
+    recorded_at: recordedAt,
     location,
     follow_up: followUp,
   } = body
-  if (
-    !isNonEmptyString(client) ||
-    !isNonEmptyString(vendor) ||
-    !isNonEmptyString(product) ||
-    !isNonEmptyString(tag) ||
-    !isNonEmptyString(relatedUserMail)
-  ) {
-    sendJson(res, 400, { success: false, message: '客戶、廠家、產品、標籤、關聯用戶為必填' })
+  if (!isNonEmptyString(client) || !isNonEmptyString(vendor) || !isNonEmptyString(product)) {
+    sendJson(res, 400, { success: false, message: '客戶、廠家、產品為必填' })
+    return
+  }
+  const tags = Array.isArray(tag)
+    ? tag.map((item) => String(item).trim()).filter(Boolean)
+    : isNonEmptyString(tag)
+      ? [tag.trim()]
+      : []
+  if (tags.length === 0) {
+    sendJson(res, 400, { success: false, message: '任務標籤為必填' })
+    return
+  }
+  const relatedUserMails = Array.isArray(relatedUserMail)
+    ? relatedUserMail.map((mail) => String(mail).trim()).filter(Boolean)
+    : []
+  if (relatedUserMails.length === 0) {
+    sendJson(res, 400, { success: false, message: '關聯用戶為必填' })
     return
   }
   if (
     client.length > 255 ||
     vendor.length > 255 ||
     product.length > 255 ||
-    tag.length > 255 ||
+    tags.some((tagName) => tagName.length > 255) ||
     (location && location.length > 255)
   ) {
     sendJson(res, 400, { success: false, message: '欄位長度超過限制' })
     return
   }
-  if (followUp && followUp.length > 2000) {
+  const followUps = Array.isArray(followUp)
+    ? followUp.map((item) => String(item).trim()).filter(Boolean)
+    : isNonEmptyString(followUp)
+      ? [followUp.trim()]
+      : []
+  if (followUps.some((item) => item.length > 2000)) {
     sendJson(res, 400, { success: false, message: '需跟進內容長度過長' })
     return
   }
@@ -814,31 +880,35 @@ const handleUpdateTaskSubmission = async (req, res, id) => {
     sendJson(res, 400, { success: false, message: '時間格式不正確' })
     return
   }
+  if (recordedAt && Number.isNaN(Date.parse(recordedAt))) {
+    sendJson(res, 400, { success: false, message: '記錄時間格式不正確' })
+    return
+  }
   const normalizedScheduledAt = scheduledAt ? normalizeScheduledAt(scheduledAt) : null
+  const normalizedRecordedAt = recordedAt ? normalizeScheduledAt(recordedAt) : null
   try {
     const connection = await getConnection()
-    if (relatedUserMails && relatedUserMails.length > 0) {
-      const [users] = await connection.query('SELECT mail FROM users WHERE mail IN (?)', [
-        relatedUserMails,
-      ])
-      if (users.length !== relatedUserMails.length) {
-        sendJson(res, 400, { success: false, message: '關聯用戶不存在' })
-        return
-      }
+    const [users] = await connection.query('SELECT mail FROM users WHERE mail IN (?)', [
+      relatedUserMails,
+    ])
+    if (users.length !== relatedUserMails.length) {
+      sendJson(res, 400, { success: false, message: '關聯用戶不存在' })
+      return
     }
     const [result] = await connection.query(
       `UPDATE task_submissions
        SET client_name = ?, vendor_name = ?, product_name = ?, tag_name = ?,
-           scheduled_at = ?, location = ?, follow_up = ?
+           scheduled_at = ?, location = ?, follow_up = ?, recorded_at = ?
        WHERE id = ?`,
       [
         client.trim(),
         vendor.trim(),
         product.trim(),
-        tag.trim(),
+        tags[0],
         normalizedScheduledAt,
         location ? location.trim() : null,
-        followUp ? followUp.trim() : null,
+        followUps[0] || null,
+        normalizedRecordedAt,
         id,
       ]
     )
@@ -846,12 +916,23 @@ const handleUpdateTaskSubmission = async (req, res, id) => {
       sendJson(res, 404, { success: false, message: '找不到任務資料' })
       return
     }
-    if (relatedUserMails && relatedUserMails.length > 0) {
-      await connection.query('DELETE FROM task_submission_users WHERE submission_id = ?', [id])
-      const relationValues = relatedUserMails.map((mail) => [id, mail])
+    await connection.query('DELETE FROM task_submission_users WHERE submission_id = ?', [id])
+    const relationValues = relatedUserMails.map((mail) => [id, mail])
+    await connection.query(
+      'INSERT INTO task_submission_users (submission_id, user_mail) VALUES ?',
+      [relationValues]
+    )
+    await connection.query('DELETE FROM task_submission_tags WHERE submission_id = ?', [id])
+    const tagValues = tags.map((tagName) => [id, tagName])
+    await connection.query('INSERT INTO task_submission_tags (submission_id, tag_name) VALUES ?', [
+      tagValues,
+    ])
+    await connection.query('DELETE FROM task_submission_followups WHERE submission_id = ?', [id])
+    if (followUps.length > 0) {
+      const followUpValues = followUps.map((item) => [id, item])
       await connection.query(
-        'INSERT INTO task_submission_users (submission_id, user_mail) VALUES ?',
-        [relationValues]
+        'INSERT INTO task_submission_followups (submission_id, content) VALUES ?',
+        [followUpValues]
       )
     }
     sendJson(res, 200, { success: true, message: '任務更新成功' })
