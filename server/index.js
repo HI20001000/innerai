@@ -623,11 +623,20 @@ const handleGetTaskSubmissions = async (req, res) => {
           client_name: row.client_name,
           vendor_name: row.vendor_name,
           product_name: row.product_name,
-          scheduled_at: row.scheduled_at,
-          recorded_at: row.recorded_at,
+          scheduled_at:
+            row.scheduled_at instanceof Date
+              ? formatToTaipeiDateTime(row.scheduled_at)
+              : row.scheduled_at,
+          recorded_at:
+            row.recorded_at instanceof Date
+              ? formatToTaipeiDateTime(row.recorded_at)
+              : row.recorded_at,
           location: row.location,
           created_by_email: row.created_by_email,
-          created_at: row.created_at,
+          created_at:
+            row.created_at instanceof Date
+              ? formatToTaipeiDateTime(row.created_at)
+              : row.created_at,
           related_users: [],
           tags: [],
           follow_ups: [],
@@ -780,7 +789,18 @@ const handleGetMeetingRecords = async (req, res) => {
 
     const foldersById = new Map()
     for (const folder of folders) {
-      foldersById.set(folder.id, { ...folder, records: [] })
+      foldersById.set(folder.id, {
+        ...folder,
+        meeting_time:
+          folder.meeting_time instanceof Date
+            ? formatToTaipeiDateTime(folder.meeting_time)
+            : folder.meeting_time,
+        created_at:
+          folder.created_at instanceof Date
+            ? formatToTaipeiDateTime(folder.created_at)
+            : folder.created_at,
+        records: [],
+      })
     }
     for (const record of records) {
       const folder = foldersById.get(record.folder_id)
@@ -929,17 +949,15 @@ const handleUpdateTaskSubmission = async (req, res, id) => {
     }
     const [result] = await connection.query(
       `UPDATE task_submissions
-       SET client_name = ?, vendor_name = ?, product_name = ?, tag_name = ?,
-           scheduled_at = ?, location = ?, follow_up = ?, recorded_at = ?
+       SET client_name = ?, vendor_name = ?, product_name = ?,
+           scheduled_at = ?, location = ?, recorded_at = ?
        WHERE id = ?`,
       [
         client.trim(),
         vendor.trim(),
         product.trim(),
-        tags[0],
         normalizedScheduledAt,
         location ? location.trim() : null,
-        followUps[0] || null,
         normalizedRecordedAt,
         id,
       ]
