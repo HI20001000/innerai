@@ -334,7 +334,6 @@ onMounted(fetchMeetingRecords)
           <div class="panel-section">
             <div class="panel-header">
               <h2>會議記錄</h2>
-              <span class="count">共 {{ activeMeeting?.records?.length || 0 }} 份</span>
             </div>
             <div class="record-list">
               <button
