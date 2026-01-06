@@ -245,6 +245,13 @@ const ensureTables = async (connection) => {
       throw error
     }
   }
+  try {
+    await connection.query('ALTER TABLE meeting_records ADD COLUMN content_text LONGTEXT')
+  } catch (error) {
+    if (error?.code !== 'ER_DUP_FIELDNAME') {
+      throw error
+    }
+  }
 }
 
 const seedDefaults = async (connection) => {
@@ -846,13 +853,6 @@ const handleDeleteTaskSubmission = async (req, res, id) => {
     await connection.commit()
     sendJson(res, 200, { success: true, message: '任務已刪除' })
   } catch (error) {
-    if (connection) {
-      try {
-        await connection.rollback()
-      } catch (rollbackError) {
-        console.error(rollbackError)
-      }
-    }
     console.error(error)
     sendJson(res, 500, { success: false, message: '任務刪除失敗' })
   }
