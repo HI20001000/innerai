@@ -138,6 +138,13 @@ const handleFileChange = async (event) => {
   selectedFiles.value = files
 }
 
+const getTaipeiDateTimeLocal = () => {
+  const now = new Date()
+  const utcMs = now.getTime() + now.getTimezoneOffset() * 60 * 1000
+  const taipei = new Date(utcMs + 8 * 60 * 60 * 1000)
+  return taipei.toISOString().slice(0, 16)
+}
+
 const fileToBase64 = (file) =>
   new Promise((resolve, reject) => {
     const reader = new FileReader()
@@ -223,6 +230,7 @@ onMounted(() => {
   fetchOptions('client').catch(() => {})
   fetchOptions('vendor').catch(() => {})
   fetchOptions('product').catch(() => {})
+  meetingTime.value = getTaipeiDateTimeLocal()
 })
 </script>
 
@@ -318,18 +326,21 @@ onMounted(() => {
           </div>
           <label class="field">
             <span>會議記錄時間</span>
-            <input v-model="meetingTime" type="datetime-local" />
+            <input v-model="meetingTime" type="datetime-local" class="text-input" />
             <p v-if="showRequiredHints && !meetingTime" class="required-hint">必填</p>
           </label>
           <label class="field wide">
             <span>會議記錄資料夾</span>
-            <input
-              type="file"
-              multiple
-              webkitdirectory
-              directory
-              @change="handleFileChange"
-            />
+            <label class="file-picker">
+              <input
+                type="file"
+                multiple
+                webkitdirectory
+                directory
+                @change="handleFileChange"
+              />
+              <span>選擇資料夾</span>
+            </label>
             <p class="hint">請選擇包含多個會議記錄的資料夾。</p>
             <p v-if="selectedFiles.length > 0" class="file-count">
               已選擇 {{ selectedFiles.length }} 個檔案
@@ -473,6 +484,14 @@ onMounted(() => {
   font-weight: 600;
 }
 
+.text-input {
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  padding: 0.65rem 0.8rem;
+  border-radius: 12px;
+  font-weight: 600;
+}
+
 .ghost-mini {
   border: 1px solid #e2e8f0;
   background: #fff;
@@ -521,6 +540,23 @@ onMounted(() => {
   font-size: 0.8rem;
   color: #dc2626;
   font-weight: 600;
+}
+
+.file-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #111827;
+  color: #fff;
+  padding: 0.6rem 1rem;
+  border-radius: 999px;
+  font-weight: 600;
+  cursor: pointer;
+  width: fit-content;
+}
+
+.file-picker input {
+  display: none;
 }
 
 .hint {

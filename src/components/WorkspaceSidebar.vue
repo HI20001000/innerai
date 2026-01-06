@@ -215,6 +215,11 @@ onUnmounted(() => {
   box-shadow: 0 16px 28px rgba(29, 78, 216, 0.5);
 }
 
+.sidebar-button.active {
+  background: #1d4ed8;
+  box-shadow: 0 16px 28px rgba(29, 78, 216, 0.5);
+}
+
 .sidebar-glyph {
   width: 28px;
   height: 28px;

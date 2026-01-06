@@ -9,6 +9,7 @@ const activePath = computed(() => router?.currentRoute?.value?.path || '')
 
 const records = ref([])
 const activeRecord = ref(null)
+const activeRecordMeta = ref(null)
 const isLoading = ref(false)
 const showResult = ref(false)
 const resultTitle = ref('')
@@ -42,7 +43,7 @@ const parseJsonSafe = async (response) => {
 }
 
 const formatContent = (record) => {
-  if (!record?.content_text) return '無法預覽此檔案內容'
+  if (!record?.content_text) return '目前僅支援文字檔案預覽（txt）。'
   return record.content_text
 }
 const fetchMeetingRecords = async () => {
@@ -151,12 +152,13 @@ onMounted(fetchMeetingRecords)
                             :key="record.id"
                             type="button"
                             class="record-button"
-                            @click="activeRecord = record"
+                            @click="activeRecord = record; activeRecordMeta = meeting"
                           >
                             <div class="record-title">
                               <strong>{{ record.file_name }}</strong>
                               <span class="record-path">{{ record.file_path }}</span>
                             </div>
+                            <span class="record-meta">會議：{{ formatDateTimeDisplay(meeting.meeting_time) }}</span>
                           </button>
                         </div>
                       </details>
@@ -174,6 +176,11 @@ onMounted(fetchMeetingRecords)
       <header class="preview-header">
         <h2>{{ activeRecord.file_name }}</h2>
         <p class="record-path">{{ activeRecord.file_path }}</p>
+        <p v-if="activeRecordMeta" class="meta">
+          會議時間：{{ formatDateTimeDisplay(activeRecordMeta.meeting_time) }}｜建立者：{{
+            activeRecordMeta.created_by_email
+          }}｜建立時間：{{ formatDateTimeDisplay(activeRecordMeta.created_at) }}
+        </p>
       </header>
       <pre class="record-content">{{ formatContent(activeRecord) }}</pre>
     </section>
@@ -218,6 +225,7 @@ onMounted(fetchMeetingRecords)
 
 .meeting-list {
   display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 1.5rem;
 }
 
@@ -233,6 +241,8 @@ onMounted(fetchMeetingRecords)
   box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
   display: grid;
   gap: 1.2rem;
+  max-height: 70vh;
+  overflow: auto;
 }
 
 .tree-node {
@@ -265,6 +275,10 @@ onMounted(fetchMeetingRecords)
   padding: 0.6rem 0 0.6rem 1.4rem;
   display: grid;
   gap: 0.6rem;
+}
+
+.tree-children.record-list {
+  padding-left: 0;
 }
 
 .count {
@@ -301,6 +315,11 @@ onMounted(fetchMeetingRecords)
   gap: 0.2rem;
 }
 
+.record-meta {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
 .record-path {
   color: #94a3b8;
   font-size: 0.8rem;
@@ -313,6 +332,8 @@ onMounted(fetchMeetingRecords)
   box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
   display: grid;
   gap: 0.8rem;
+  max-height: 70vh;
+  overflow: auto;
 }
 
 .preview-header h2 {
@@ -336,6 +357,15 @@ onMounted(fetchMeetingRecords)
 @media (max-width: 720px) {
   .meeting-records-page {
     padding: 2.5rem 6vw 3.5rem;
+  }
+
+  .meeting-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .tree-card,
+  .preview-panel {
+    max-height: none;
   }
 }
 </style>
