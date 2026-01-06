@@ -234,15 +234,6 @@ const ensureTables = async (connection) => {
     }
   }
   try {
-    await connection.query(
-      "ALTER TABLE task_submissions ADD COLUMN follow_up TEXT NOT NULL"
-    )
-  } catch (error) {
-    if (error?.code !== 'ER_DUP_FIELDNAME') {
-      throw error
-    }
-  }
-  try {
     await connection.query('ALTER TABLE task_submissions MODIFY scheduled_at DATETIME NULL')
   } catch (error) {
     if (error?.code !== 'ER_INVALID_USE_OF_NULL' && error?.code !== 'ER_BAD_FIELD_ERROR') {
@@ -251,13 +242,6 @@ const ensureTables = async (connection) => {
   }
   try {
     await connection.query('ALTER TABLE task_submissions MODIFY location VARCHAR(255) NULL')
-  } catch (error) {
-    if (error?.code !== 'ER_INVALID_USE_OF_NULL' && error?.code !== 'ER_BAD_FIELD_ERROR') {
-      throw error
-    }
-  }
-  try {
-    await connection.query('ALTER TABLE task_submissions MODIFY follow_up TEXT NULL')
   } catch (error) {
     if (error?.code !== 'ER_INVALID_USE_OF_NULL' && error?.code !== 'ER_BAD_FIELD_ERROR') {
       throw error
@@ -527,16 +511,14 @@ const handlePostTaskSubmission = async (req, res) => {
     }
     const [result] = await connection.query(
       `INSERT INTO task_submissions
-        (client_name, vendor_name, product_name, tag_name, scheduled_at, location, follow_up, recorded_at, created_by_email)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (client_name, vendor_name, product_name, scheduled_at, location, recorded_at, created_by_email)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [
         client.trim(),
         vendor.trim(),
         product.trim(),
-        tags[0],
         normalizedScheduledAt,
         location ? location.trim() : null,
-        followUps[0] || null,
         normalizedRecordedAt,
         user.mail,
       ]
@@ -584,8 +566,8 @@ const handleGetTaskSubmissions = async (req, res) => {
     const connection = await getConnection()
     const [rows] = await connection.query(
       `SELECT task_submissions.id, task_submissions.client_name, task_submissions.vendor_name,
-        task_submissions.product_name, task_submissions.tag_name, task_submissions.scheduled_at,
-        task_submissions.location, task_submissions.follow_up, task_submissions.created_by_email,
+        task_submissions.product_name, task_submissions.scheduled_at,
+        task_submissions.location, task_submissions.recorded_at, task_submissions.created_by_email,
         task_submissions.created_at,
         users.mail as related_mail, users.icon as related_icon, users.icon_bg as related_icon_bg,
         users.username as related_username
@@ -593,6 +575,12 @@ const handleGetTaskSubmissions = async (req, res) => {
        LEFT JOIN task_submission_users ON task_submission_users.submission_id = task_submissions.id
        LEFT JOIN users ON users.mail = task_submission_users.user_mail
        ORDER BY task_submissions.created_at DESC`
+    )
+    const [tagRows] = await connection.query(
+      'SELECT submission_id, tag_name FROM task_submission_tags'
+    )
+    const [followRows] = await connection.query(
+      'SELECT submission_id, content FROM task_submission_followups'
     )
     const grouped = new Map()
     for (const row of rows) {
@@ -602,13 +590,14 @@ const handleGetTaskSubmissions = async (req, res) => {
           client_name: row.client_name,
           vendor_name: row.vendor_name,
           product_name: row.product_name,
-          tag_name: row.tag_name,
           scheduled_at: row.scheduled_at,
+          recorded_at: row.recorded_at,
           location: row.location,
-          follow_up: row.follow_up,
           created_by_email: row.created_by_email,
           created_at: row.created_at,
           related_users: [],
+          tags: [],
+          follow_ups: [],
         })
       }
       if (row.related_mail) {
@@ -618,6 +607,16 @@ const handleGetTaskSubmissions = async (req, res) => {
           icon_bg: row.related_icon_bg,
           username: row.related_username,
         })
+      }
+    }
+    for (const row of tagRows) {
+      if (grouped.has(row.submission_id)) {
+        grouped.get(row.submission_id).tags.push(row.tag_name)
+      }
+    }
+    for (const row of followRows) {
+      if (grouped.has(row.submission_id)) {
+        grouped.get(row.submission_id).follow_ups.push(row.content)
       }
     }
     sendJson(res, 200, { success: true, data: Array.from(grouped.values()) })
