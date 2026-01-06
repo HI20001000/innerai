@@ -91,6 +91,13 @@ const handleRecordsSelected = async (records) => {
 </template>
 
 <style scoped>
+.summary-card {
+  background: #fff;
+  border-radius: 24px;
+  padding: 1.8rem;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
+}
+
 .dify-card {
   display: grid;
   gap: 0.8rem;
