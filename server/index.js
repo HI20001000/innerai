@@ -484,7 +484,7 @@ const handlePostTaskSubmission = async (req, res) => {
     client.length > 255 ||
     vendor.length > 255 ||
     product.length > 255 ||
-    tag.length > 255 ||
+    tags.some((tagName) => tagName.length > 255) ||
     (location && location.length > 255)
   ) {
     sendJson(res, 400, { success: false, message: '欄位長度超過限制' })
