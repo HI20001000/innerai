@@ -227,8 +227,13 @@ onMounted(fetchMeetingRecords)
           <ScrollPanel height="calc(100vh - 240px)">
           <div class="panel-section">
             <div class="panel-header">
-              <h2>客戶</h2>
-              <span class="count">共 {{ filteredClients.length }} 筆</span>
+              <div class="panel-title">
+                <h2>客戶</h2>
+                <span class="count">共 {{ filteredClients.length }} 筆</span>
+              </div>
+              <button class="ghost-button" type="button" @click="resetSelections">
+                重置
+              </button>
             </div>
             <button class="select-field" type="button" @click="openList('client')">
               {{ activeClient || '選擇客戶' }}
@@ -357,9 +362,6 @@ onMounted(fetchMeetingRecords)
           <div class="panel-section">
             <div class="panel-header">
               <h2>{{ activeRecord ? activeRecord.file_name : '檔案預覽' }}</h2>
-              <button class="ghost-button" type="button" @click="resetSelections">
-                重置
-              </button>
             </div>
             <p v-if="activeRecordMeta" class="meta">
               會議時間：{{ formatDateTimeDisplay(activeRecordMeta.meeting_time) }}｜建立者：{{
@@ -444,6 +446,12 @@ onMounted(fetchMeetingRecords)
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.panel-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
 }
 
 .panel-header h2 {
