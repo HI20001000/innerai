@@ -810,6 +810,13 @@ const handlePostDifyAutoFill = async (req, res) => {
     }
     sendJson(res, 200, { success: true, data })
   } catch (error) {
+    if (connection) {
+      try {
+        await connection.rollback()
+      } catch (rollbackError) {
+        console.error(rollbackError)
+      }
+    }
     console.error(error)
     sendJson(res, 500, { success: false, message: 'Dify 連線失敗' })
   }
