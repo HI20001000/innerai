@@ -184,7 +184,7 @@ onUnmounted(() => {
 
 .sidebar-button {
   border: none;
-  background: #2563eb;
+  background: rgba(255, 255, 255, 0.12);
   color: #fff;
   border-radius: 18px;
   padding: 0.75rem 0.6rem;
@@ -197,7 +197,39 @@ onUnmounted(() => {
   text-align: center;
   line-height: 1.1;
   cursor: pointer;
-  box-shadow: 0 14px 26px rgba(37, 99, 235, 0.4);
+  box-shadow: 0 14px 26px rgba(147, 147, 147, 0.4);
+}
+
+.sidebar-button.active {
+  background: #1d4ed8;
+  box-shadow: 0 16px 28px rgba(29, 78, 216, 0.5);
+}
+
+.sidebar-glyph {
+  width: 28px;
+  height: 28px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.2);
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.sidebar-button.active {
+  background: #1d4ed8;
+  box-shadow: 0 16px 28px rgba(29, 78, 216, 0.5);
+}
+
+.sidebar-glyph {
+  width: 28px;
+  height: 28px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.2);
+  font-size: 1.1rem;
+  line-height: 1;
 }
 
 .sidebar-button.active {

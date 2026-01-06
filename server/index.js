@@ -846,6 +846,13 @@ const handleDeleteTaskSubmission = async (req, res, id) => {
     await connection.commit()
     sendJson(res, 200, { success: true, message: '任務已刪除' })
   } catch (error) {
+    if (connection) {
+      try {
+        await connection.rollback()
+      } catch (rollbackError) {
+        console.error(rollbackError)
+      }
+    }
     console.error(error)
     sendJson(res, 500, { success: false, message: '任務刪除失敗' })
   }
