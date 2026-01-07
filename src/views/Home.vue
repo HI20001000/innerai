@@ -142,12 +142,54 @@ const timelineTitle = computed(() => {
   return `${year}年${month}月${day}日時間線`
 })
 
+const COMPLETED_STATUS_NAME = '已完成'
+
+const getScheduledAtDate = (value) => {
+  if (!value) return null
+  if (typeof value === 'string') {
+    const normalized = value.includes('T') ? value : value.replace(' ', 'T')
+    const parsed = new Date(normalized)
+    return Number.isNaN(parsed.getTime()) ? null : parsed
+  }
+  const parsed = new Date(value)
+  return Number.isNaN(parsed.getTime()) ? null : parsed
+}
+
+const isPendingStatus = (followUp) =>
+  String(followUp?.status_name || '').trim() !== COMPLETED_STATUS_NAME
+
 const pendingFollowUpCount = computed(() => countPendingFollowUps(timelineItems.value))
 const pendingBadge = computed(() => {
   if (pendingFollowUpCount.value === 0) {
     return { text: '已完成', className: 'panel-badge-complete' }
   }
   return { text: `待處理 ${pendingFollowUpCount.value}`, className: 'panel-badge-pending' }
+})
+
+const userSubmissions = computed(() => {
+  const mail = readUserMail()
+  if (!mail) return []
+  return submissions.value.filter((item) => {
+    const related = item.related_users || []
+    return related.some((user) => user.mail === mail)
+  })
+})
+
+const totalPendingCount = computed(() =>
+  userSubmissions.value.reduce((total, item) => {
+    const followUps = Array.isArray(item?.follow_ups) ? item.follow_ups : []
+    return total + followUps.filter((followUp) => isPendingStatus(followUp)).length
+  }, 0)
+)
+
+const overduePendingCount = computed(() => {
+  const now = new Date()
+  return userSubmissions.value.reduce((total, item) => {
+    const scheduledAt = getScheduledAtDate(item?.scheduled_at)
+    if (!scheduledAt || scheduledAt >= now) return total
+    const followUps = Array.isArray(item?.follow_ups) ? item.follow_ups : []
+    return total + followUps.filter((followUp) => isPendingStatus(followUp)).length
+  }, 0)
 })
 
 const updateFollowUpStatus = async (followUp, status) => {
@@ -317,24 +359,14 @@ onMounted(() => {
 
       <section class="summary-grid">
         <article class="summary-card">
-          <p class="card-label">進行中的專案</p>
-          <p class="card-value">6</p>
-          <p class="card-meta">本週新增 2 個</p>
+          <p class="card-label">待辦事項</p>
+          <p class="card-value">{{ totalPendingCount }}</p>
+          <p class="card-meta">統計所有標籤（除已完成）</p>
         </article>
         <article class="summary-card">
-          <p class="card-label">待完成任務</p>
-          <p class="card-value">18</p>
-          <p class="card-meta">今日需完成 5 項</p>
-        </article>
-        <article class="summary-card">
-          <p class="card-label">即將到期</p>
-          <p class="card-value">3</p>
-          <p class="card-meta">48 小時內</p>
-        </article>
-        <article class="summary-card">
-          <p class="card-label">團隊協作</p>
-          <p class="card-value">12</p>
-          <p class="card-meta">進行中的交接</p>
+          <p class="card-label">超時未完成</p>
+          <p class="card-value">{{ overduePendingCount }}</p>
+          <p class="card-meta">以目前時間計算</p>
         </article>
       </section>
 
