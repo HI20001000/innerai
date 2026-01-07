@@ -22,6 +22,7 @@ const followUpInput = ref('')
 const followUpItems = ref([])
 const editingFollowUpIndex = ref(null)
 const followUpEditValue = ref('')
+const activeFollowUpAssigneeMenu = ref(null)
 const activeQuickAssignMenu = ref(false)
 const showRequiredHints = ref(false)
 const searchQuery = reactive({
@@ -288,6 +289,12 @@ const toggleQuickAssignMenu = () => {
   searchQuery.user = ''
 }
 
+const toggleFollowUpAssigneeMenu = (index) => {
+  activeFollowUpAssigneeMenu.value =
+    activeFollowUpAssigneeMenu.value === index ? null : index
+  searchQuery.user = ''
+}
+
 const applyQuickAssign = (user) => {
   if (!user?.mail) return
   followUpItems.value = followUpItems.value.map((item) => ({
@@ -297,6 +304,11 @@ const applyQuickAssign = (user) => {
       : [...(item.assignees || []), user.mail],
   }))
   activeQuickAssignMenu.value = false
+}
+
+const getFollowUpAssigneeLabel = (item) => {
+  const count = item.assignees?.length || 0
+  return count > 0 ? `已選${count}人` : '設定跟進人'
 }
 
 const closeModal = () => {
