@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { getTaipeiTodayKey, toDateKey } from '../scripts/time.js'
+import { buildFollowUpStatusByDate } from '../scripts/followUps.js'
 
 const apiBaseUrl = 'http://localhost:3001'
 const submissions = ref([])
@@ -108,18 +109,9 @@ const openMonthPicker = () => {
   monthPicker.value?.click()
 }
 
-const todoCounts = computed(() => {
+const followUpStatusByDate = computed(() => {
   const mail = readUserMail()
-  if (!mail) return {}
-  const counts = {}
-  for (const item of submissions.value) {
-    const related = item.related_users || []
-    if (!related.some((user) => user.mail === mail)) continue
-    const dateKey = toDateKey(item.scheduled_at)
-    if (!dateKey) continue
-    counts[dateKey] = (counts[dateKey] || 0) + 1
-  }
-  return counts
+  return buildFollowUpStatusByDate(submissions.value, mail, toDateKey)
 })
 
 onMounted(fetchSubmissions)
@@ -169,8 +161,20 @@ onMounted(fetchSubmissions)
       >
         <template v-if="!cell.empty">
           <span class="calendar-date">{{ cell.day }}</span>
-          <span v-if="todoCounts[cell.dateKey]" class="calendar-badge">
-            {{ todoCounts[cell.dateKey] }} 待辦
+          <span
+            v-if="followUpStatusByDate[cell.dateKey]"
+            :class="[
+              'calendar-badge',
+              followUpStatusByDate[cell.dateKey].pending === 0
+                ? 'calendar-badge-complete'
+                : 'calendar-badge-pending',
+            ]"
+          >
+            {{
+              followUpStatusByDate[cell.dateKey].pending === 0
+                ? '已完成'
+                : `${followUpStatusByDate[cell.dateKey].pending} 待處理`
+            }}
           </span>
         </template>
       </button>
@@ -285,11 +289,20 @@ onMounted(fetchSubmissions)
 
 .calendar-badge {
   align-self: flex-start;
-  background: #111827;
-  color: #fff;
   padding: 0.2rem 0.5rem;
   border-radius: 999px;
   font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.calendar-badge-pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.calendar-badge-complete {
+  background: #dcfce7;
+  color: #166534;
 }
 
 .calendar-loading {
