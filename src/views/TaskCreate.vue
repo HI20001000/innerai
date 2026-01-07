@@ -22,7 +22,6 @@ const followUpInput = ref('')
 const followUpItems = ref([])
 const editingFollowUpIndex = ref(null)
 const followUpEditValue = ref('')
-const activeFollowUpAssigneeMenu = ref(null)
 const activeQuickAssignMenu = ref(false)
 const showRequiredHints = ref(false)
 const searchQuery = reactive({
@@ -284,24 +283,6 @@ const toggleRelatedUser = (item) => {
   selectedRelatedUsers.value = [...selectedRelatedUsers.value, item]
 }
 
-const toggleFollowUpAssigneeMenu = (index) => {
-  activeFollowUpAssigneeMenu.value =
-    activeFollowUpAssigneeMenu.value === index ? null : index
-  searchQuery.user = ''
-}
-
-const isFollowUpAssigneeSelected = (item, user) =>
-  Array.isArray(item.assignees) && item.assignees.includes(user.mail)
-
-const toggleFollowUpAssignee = (item, user) => {
-  if (!user?.mail) return
-  if (isFollowUpAssigneeSelected(item, user)) {
-    item.assignees = item.assignees.filter((mail) => mail !== user.mail)
-    return
-  }
-  item.assignees = [...(item.assignees || []), user.mail]
-}
-
 const toggleQuickAssignMenu = () => {
   activeQuickAssignMenu.value = !activeQuickAssignMenu.value
   searchQuery.user = ''
@@ -316,11 +297,6 @@ const applyQuickAssign = (user) => {
       : [...(item.assignees || []), user.mail],
   }))
   activeQuickAssignMenu.value = false
-}
-
-const getFollowUpAssigneeLabel = (item) => {
-  const count = item.assignees?.length || 0
-  return count > 0 ? `已選${count}人` : '設定跟進人'
 }
 
 const closeModal = () => {
@@ -1325,6 +1301,12 @@ onMounted(() => {
   position: relative;
 }
 
+.quick-assign-wrapper .option-list {
+  width: max-content;
+  min-width: 320px;
+  right: auto;
+}
+
 .ghost-button.small {
   padding: 0.45rem 0.8rem;
   font-size: 0.85rem;
@@ -1332,21 +1314,6 @@ onMounted(() => {
 }
 
 .ghost-button.small:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.follow-up-assignee {
-  position: relative;
-}
-
-.select-field.small {
-  padding: 0.4rem 0.6rem;
-  font-size: 0.8rem;
-  min-width: 150px;
-}
-
-.select-field.small:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
