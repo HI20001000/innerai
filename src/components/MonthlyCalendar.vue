@@ -171,7 +171,7 @@ onMounted(() => {
           {
             empty: cell.empty,
             selected: !cell.empty && cell.dateKey === props.selectedDate,
-            past: !cell.empty && cell.dateKey < todayKey,
+            today: !cell.empty && cell.dateKey === todayKey,
           },
         ]"
         type="button"
@@ -306,6 +306,10 @@ onMounted(() => {
 .calendar-cell.selected {
   outline: 2px solid #111827;
   background: #eef2ff;
+}
+
+.calendar-cell.today {
+  background: #dcfce7;
 }
 
 .calendar-date {
