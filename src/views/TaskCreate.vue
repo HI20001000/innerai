@@ -22,6 +22,7 @@ const followUpInput = ref('')
 const followUpItems = ref([])
 const editingFollowUpIndex = ref(null)
 const followUpEditValue = ref('')
+const activeQuickAssignMenu = ref(false)
 const showRequiredHints = ref(false)
 const searchQuery = reactive({
   client: '',
@@ -187,6 +188,15 @@ const getFilteredOptions = (type) => {
   return source.filter((item) => item.toLowerCase().includes(query))
 }
 
+const getFilteredRelatedUsers = () => {
+  const query = searchQuery.user?.trim().toLowerCase() ?? ''
+  const source = selectedRelatedUsers.value
+  if (!query) return source
+  return source.filter((item) =>
+    `${item.username || ''}${item.mail || ''}`.toLowerCase().includes(query)
+  )
+}
+
 const selectOption = (type, item) => {
   if (type === 'client') {
     selectedClient.value = item
@@ -214,7 +224,13 @@ const removeTag = (tag) => {
 const addFollowUpItem = () => {
   const value = followUpInput.value.trim()
   if (!value) return
-  followUpItems.value = [...followUpItems.value, value]
+  followUpItems.value = [
+    ...followUpItems.value,
+    {
+      content: value,
+      assignees: [],
+    },
+  ]
   followUpInput.value = ''
 }
 
@@ -228,15 +244,19 @@ const removeFollowUpItem = (index) => {
 
 const editFollowUpItem = (item, index) => {
   editingFollowUpIndex.value = index
-  followUpEditValue.value = item
+  followUpEditValue.value = item.content
 }
 
 const confirmFollowUpEdit = () => {
   const value = followUpEditValue.value.trim()
   if (!value || editingFollowUpIndex.value === null) return
-  followUpItems.value = followUpItems.value.map((item, index) =>
-    index === editingFollowUpIndex.value ? value : item
-  )
+  followUpItems.value = followUpItems.value.map((item, index) => {
+    if (index !== editingFollowUpIndex.value) return item
+    return {
+      ...item,
+      content: value,
+    }
+  })
   editingFollowUpIndex.value = null
   followUpEditValue.value = ''
 }
@@ -244,14 +264,44 @@ const confirmFollowUpEdit = () => {
 const isRelatedUserSelected = (item) =>
   selectedRelatedUsers.value.some((user) => user.mail === item.mail)
 
+const cleanupFollowUpAssignees = () => {
+  const allowedMails = new Set(selectedRelatedUsers.value.map((user) => user.mail))
+  followUpItems.value = followUpItems.value.map((item) => ({
+    ...item,
+    assignees: (item.assignees || []).filter((mail) => allowedMails.has(mail)),
+  }))
+}
+
 const toggleRelatedUser = (item) => {
   if (isRelatedUserSelected(item)) {
     selectedRelatedUsers.value = selectedRelatedUsers.value.filter(
       (user) => user.mail !== item.mail
     )
+    cleanupFollowUpAssignees()
     return
   }
   selectedRelatedUsers.value = [...selectedRelatedUsers.value, item]
+}
+
+const toggleQuickAssignMenu = () => {
+  activeQuickAssignMenu.value = !activeQuickAssignMenu.value
+  searchQuery.user = ''
+}
+
+const applyQuickAssign = (user) => {
+  if (!user?.mail) return
+  followUpItems.value = followUpItems.value.map((item) => ({
+    ...item,
+    assignees: item.assignees?.includes(user.mail)
+      ? item.assignees
+      : [...(item.assignees || []), user.mail],
+  }))
+  activeQuickAssignMenu.value = false
+}
+
+const getFollowUpAssigneeLabel = (item) => {
+  const count = item.assignees?.length || 0
+  return count > 0 ? `已選${count}人` : '設定跟進人'
 }
 
 const closeModal = () => {
@@ -379,7 +429,10 @@ const submitTask = async () => {
     scheduled_at: selectedTime.value,
     recorded_at: recordedAt.value,
     location: selectedLocation.value,
-    follow_up: followUpItems.value,
+    follow_up: followUpItems.value.map((item) => ({
+      content: item.content,
+      assignees: item.assignees || [],
+    })),
   }
   if (
     !selectedClient.value ||
@@ -450,7 +503,20 @@ const applyAutoFill = (payload) => {
   if (payload.scheduled_at) selectedTime.value = payload.scheduled_at
   if (payload.follow_up) {
     const followUps = Array.isArray(payload.follow_up) ? payload.follow_up : [payload.follow_up]
-    followUpItems.value = followUps.filter(Boolean)
+    followUpItems.value = followUps
+      .map((item) => {
+        if (typeof item === 'string') {
+          return { content: item, assignees: [] }
+        }
+        if (typeof item === 'object' && item?.content) {
+          return {
+            content: item.content,
+            assignees: Array.isArray(item.assignees) ? item.assignees : [],
+          }
+        }
+        return null
+      })
+      .filter(Boolean)
   }
 }
 
@@ -467,7 +533,20 @@ const loadDraft = () => {
     selectedTime.value = payload.selectedTime ?? ''
     recordedAt.value = payload.recordedAt ?? ''
     selectedLocation.value = payload.selectedLocation ?? ''
-    followUpItems.value = payload.followUpItems ?? []
+    followUpItems.value = Array.isArray(payload.followUpItems)
+      ? payload.followUpItems.map((item) => {
+          if (typeof item === 'string') {
+            return { content: item, assignees: [] }
+          }
+          if (item && typeof item === 'object') {
+            return {
+              content: item.content || '',
+              assignees: Array.isArray(item.assignees) ? item.assignees : [],
+            }
+          }
+          return null
+        }).filter(Boolean)
+      : []
   } catch {
     window.localStorage.removeItem(draftKey)
   }
@@ -698,6 +777,41 @@ onMounted(() => {
           <label class="field wide">
             <span>需跟進內容</span>
             <div class="follow-up-input">
+              <div class="quick-assign-wrapper">
+                <button
+                  type="button"
+                  class="ghost-button small"
+                  :disabled="selectedRelatedUsers.length === 0 || followUpItems.length === 0"
+                  @click="toggleQuickAssignMenu"
+                >
+                  一鍵指派
+                </button>
+                <div v-if="activeQuickAssignMenu" class="option-list assignee-list">
+                  <input
+                    v-model="searchQuery.user"
+                    class="option-search"
+                    type="text"
+                    placeholder="搜尋用戶"
+                  />
+                  <button
+                    v-for="user in getFilteredRelatedUsers()"
+                    :key="user.mail"
+                    type="button"
+                    class="option-item user-option"
+                    @click="applyQuickAssign(user)"
+                  >
+                    <span
+                      class="user-avatar"
+                      :style="{ backgroundColor: user.icon_bg || '#e2e8f0' }"
+                    >
+                      {{ user.icon || '🙂' }}
+                    </span>
+                    <span class="user-label">
+                      {{ user.username || 'user' }} &lt;{{ user.mail }}&gt;
+                    </span>
+                  </button>
+                </div>
+              </div>
               <input
                 v-model="followUpInput"
                 type="text"
@@ -708,11 +822,15 @@ onMounted(() => {
               </button>
             </div>
             <div v-if="followUpItems.length > 0" class="follow-up-list">
-              <div v-for="(item, index) in followUpItems" :key="`${item}-${index}`" class="follow-up-item">
+              <div
+                v-for="(item, index) in followUpItems"
+                :key="`${item.content}-${index}`"
+                class="follow-up-item"
+              >
                 <template v-if="editingFollowUpIndex === index">
                   <input v-model="followUpEditValue" type="text" class="follow-up-edit-input" />
                 </template>
-                <span v-else>{{ item }}</span>
+                <span v-else class="follow-up-content">{{ item.content }}</span>
                 <div class="follow-up-actions">
                   <button
                     type="button"
@@ -723,7 +841,7 @@ onMounted(() => {
                         : editFollowUpItem(item, index)
                     "
                   >
-                    {{ editingFollowUpIndex === index ? '確認' : '✎' }}
+                    {{ editingFollowUpIndex === index ? '✓' : '✎' }}
                   </button>
                   <button type="button" class="chip-remove" @click="removeFollowUpItem(index)">
                     ×
@@ -943,6 +1061,7 @@ onMounted(() => {
   background: #fff;
   text-align: left;
   cursor: pointer;
+  min-width: 160px;
 }
 
 .select-field::after {
@@ -1021,12 +1140,6 @@ onMounted(() => {
   color: inherit;
 }
 
-.follow-up-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-
 .option-status {
   margin: 0.35rem 0 0;
   font-size: 0.8rem;
@@ -1078,9 +1191,45 @@ onMounted(() => {
   border-radius: 12px;
   padding: 0.4rem 0.6rem;
   display: flex;
-  justify-content: space-between;
   align-items: center;
   gap: 0.6rem;
+}
+
+.follow-up-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: auto;
+}
+
+.follow-up-content {
+  flex: 1;
+  color: #0f172a;
+}
+
+.quick-assign-wrapper {
+  position: relative;
+}
+
+.quick-assign-wrapper .option-list {
+  width: max-content;
+  min-width: 320px;
+  right: auto;
+}
+
+.ghost-button.small {
+  padding: 0.45rem 0.8rem;
+  font-size: 0.85rem;
+  min-width: 110px;
+}
+
+.ghost-button.small:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.assignee-list {
+  max-height: 200px;
 }
 
 .option-status.exists {
