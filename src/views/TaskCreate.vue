@@ -911,12 +911,12 @@ onMounted(() => {
                         : editFollowUpItem(item, index)
                     "
                   >
-                    {{ editingFollowUpIndex === index ? '確認' : '✎' }}
+                    {{ editingFollowUpIndex === index ? '✓' : '✎' }}
                   </button>
                   <button type="button" class="chip-remove" @click="removeFollowUpItem(index)">
                     ×
                   </button>
-                  <div class="follow-up-assignee">
+                  <div v-if="editingFollowUpIndex === index" class="follow-up-assignee">
                     <button
                       type="button"
                       class="select-field small"
