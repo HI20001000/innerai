@@ -143,6 +143,12 @@ const timelineTitle = computed(() => {
 })
 
 const pendingFollowUpCount = computed(() => countPendingFollowUps(timelineItems.value))
+const pendingBadge = computed(() => {
+  if (pendingFollowUpCount.value === 0) {
+    return { text: '已完成', className: 'panel-badge-complete' }
+  }
+  return { text: `待處理 ${pendingFollowUpCount.value}`, className: 'panel-badge-pending' }
+})
 
 const updateFollowUpStatus = async (followUp, status) => {
   const auth = readAuthStorage()
@@ -337,7 +343,9 @@ onMounted(() => {
           <header class="panel-header">
             <div class="panel-title-row">
               <h2>{{ timelineTitle }}</h2>
-              <span class="panel-badge">待處理 {{ pendingFollowUpCount }}</span>
+              <span class="panel-badge" :class="pendingBadge.className">
+                {{ pendingBadge.text }}
+              </span>
             </div>
             <p>依時間快速檢視選取日期需要跟進的項目。</p>
           </header>
@@ -623,10 +631,18 @@ onMounted(() => {
   align-items: center;
   border-radius: 999px;
   padding: 0.25rem 0.7rem;
-  background: #fef3c7;
-  color: #92400e;
   font-size: 0.85rem;
   font-weight: 600;
+}
+
+.panel-badge-pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.panel-badge-complete {
+  background: #dcfce7;
+  color: #166534;
 }
 
 .panel-header p {
