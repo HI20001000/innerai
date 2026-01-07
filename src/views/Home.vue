@@ -1,12 +1,32 @@
 <script setup>
-import { getCurrentInstance, onMounted, ref } from 'vue'
+import { computed, getCurrentInstance, onMounted, ref } from 'vue'
 import WorkspaceSidebar from '../components/WorkspaceSidebar.vue'
+import MonthlyCalendar from '../components/MonthlyCalendar.vue'
+import { formatDateTimeDisplay, toDateKey, getTaipeiTodayKey } from '../scripts/time.js'
 
 const router = getCurrentInstance().appContext.config.globalProperties.$router
 const username = ref('hi')
+const activePath = computed(() => router?.currentRoute?.value?.path || '')
+const apiBaseUrl = 'http://localhost:3001'
+const submissions = ref([])
+const followUpStatuses = ref([])
+const selectedDate = ref(getTaipeiTodayKey())
+const isTimelineLoading = ref(false)
 
 const goToNewTask = () => {
   router?.push('/tasks/new')
+}
+
+const goToTaskList = () => {
+  router?.push('/tasks/view')
+}
+
+const goToMeetingUpload = () => {
+  router?.push('/meetings/upload')
+}
+
+const goToMeetingRecords = () => {
+  router?.push('/meetings')
 }
 
 const goToHome = () => {
@@ -28,12 +48,143 @@ const loadUser = () => {
   }
 }
 
-onMounted(loadUser)
+const readAuthStorage = () => {
+  const raw = window.localStorage.getItem('innerai_auth')
+  if (!raw) return null
+  try {
+    const data = JSON.parse(raw)
+    if (!data?.token || !data?.expiresAt) return null
+    return data
+  } catch {
+    return null
+  }
+}
+
+const readUserMail = () => {
+  const raw = window.localStorage.getItem('innerai_user')
+  if (!raw) return null
+  try {
+    const data = JSON.parse(raw)
+    return data?.mail || null
+  } catch {
+    return null
+  }
+}
+
+const fetchSubmissions = async () => {
+  const auth = readAuthStorage()
+  if (!auth) return
+  isTimelineLoading.value = true
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/task-submissions`, {
+      headers: { Authorization: `Bearer ${auth.token}` },
+    })
+    const data = await response.json()
+    if (!response.ok || !data?.success) return
+    submissions.value = data.data || []
+  } catch (error) {
+    console.error(error)
+  } finally {
+    isTimelineLoading.value = false
+  }
+}
+
+const fetchStatuses = async () => {
+  const auth = readAuthStorage()
+  if (!auth) return
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/follow-up-statuses`, {
+      headers: { Authorization: `Bearer ${auth.token}` },
+    })
+    const data = await response.json()
+    if (!response.ok || !data?.success) return
+    followUpStatuses.value = data.data || []
+  } catch (error) {
+    console.error(error)
+  }
+}
+
+const timelineItems = computed(() => {
+  const mail = readUserMail()
+  if (!mail) return []
+  return submissions.value
+    .filter((item) => {
+      const related = item.related_users || []
+      if (!related.some((user) => user.mail === mail)) return false
+      return toDateKey(item.scheduled_at) === selectedDate.value
+    })
+    .sort((a, b) => String(a.scheduled_at || '').localeCompare(String(b.scheduled_at || '')))
+})
+
+const formatTimeOnly = (value) => {
+  const formatted = formatDateTimeDisplay(value)
+  if (!formatted) return ''
+  const parts = formatted.split(' ')
+  return parts.length > 1 ? parts[1].slice(0, 5) : formatted
+}
+
+const ensureStatusId = async (name) => {
+  const trimmed = name.trim()
+  if (!trimmed) return null
+  const existing = followUpStatuses.value.find((status) => status.name === trimmed)
+  if (existing) return existing.id
+  const auth = readAuthStorage()
+  if (!auth) return null
+  const response = await fetch(`${apiBaseUrl}/api/follow-up-statuses`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${auth.token}`,
+    },
+    body: JSON.stringify({ name: trimmed }),
+  })
+  const data = await response.json()
+  if (!response.ok || !data?.success) return null
+  followUpStatuses.value = [...followUpStatuses.value, data.data]
+  return data.data.id
+}
+
+const updateFollowUpStatus = async (followUp, value) => {
+  const auth = readAuthStorage()
+  if (!auth) return
+  const trimmed = value.trim()
+  const statusId = trimmed ? await ensureStatusId(trimmed) : null
+  const response = await fetch(`${apiBaseUrl}/api/task-submission-followups/${followUp.id}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${auth.token}`,
+    },
+    body: JSON.stringify({ status_id: statusId }),
+  })
+  const data = await response.json()
+  if (!response.ok || !data?.success) return
+  followUp.status_id = statusId
+  followUp.status_name = trimmed || ''
+}
+
+const handleSelectDate = (dateKey) => {
+  selectedDate.value = dateKey
+}
+
+onMounted(() => {
+  loadUser()
+  fetchSubmissions()
+  fetchStatuses()
+})
 </script>
 
 <template>
   <div class="home-page">
-    <WorkspaceSidebar :on-create-task="goToNewTask" :on-go-home="goToHome" :on-go-profile="goToProfile" />
+    <WorkspaceSidebar
+      :on-create-task="goToNewTask"
+      :on-view-tasks="goToTaskList"
+      :on-upload-meeting="goToMeetingUpload"
+      :on-view-meetings="goToMeetingRecords"
+      :on-go-home="goToHome"
+      :on-go-profile="goToProfile"
+      :active-path="activePath"
+    />
 
     <main class="home-content">
       <header class="home-header">
@@ -75,35 +226,35 @@ onMounted(loadUser)
         <article class="panel">
           <header class="panel-header">
             <h2>今日時間線</h2>
-            <p>依時間快速檢視今日需要跟進的項目。</p>
+            <p>依時間快速檢視選取日期需要跟進的項目。</p>
           </header>
           <div class="timeline">
-            <div class="time-row">
-              <span class="time">09:30</span>
-              <div class="time-card">
-                <h3>專案 Kickoff 會議</h3>
-                <p>與設計、工程同步新版登入流程需求。</p>
-              </div>
-            </div>
-            <div class="time-row">
-              <span class="time">11:00</span>
-              <div class="time-card highlight">
-                <h3>客戶回覆整理</h3>
-                <p>彙整回饋，更新需求追蹤表。</p>
-              </div>
-            </div>
-            <div class="time-row">
-              <span class="time">14:00</span>
-              <div class="time-card">
-                <h3>進度檢視</h3>
-                <p>確認本週里程碑與交付節點。</p>
-              </div>
-            </div>
-            <div class="time-row">
-              <span class="time">16:30</span>
-              <div class="time-card">
-                <h3>內部討論</h3>
-                <p>討論首頁儀表板數據展示。</p>
+            <p v-if="isTimelineLoading" class="timeline-empty">載入中...</p>
+            <p v-else-if="timelineItems.length === 0" class="timeline-empty">
+              此日期沒有需要跟進的任務。
+            </p>
+            <div v-else class="timeline-list">
+              <div v-for="item in timelineItems" :key="item.id" class="time-row">
+                <span class="time">{{ formatTimeOnly(item.scheduled_at) || '--:--' }}</span>
+                <div class="time-card">
+                  <h3>{{ item.client_name }}_{{ item.vendor_name }}_{{ item.product_name }}</h3>
+                  <div v-if="item.follow_ups?.length" class="follow-up-list">
+                    <div v-for="follow in item.follow_ups" :key="follow.id" class="follow-up-row">
+                      <span class="follow-up-text">{{ follow.content }}</span>
+                      <input
+                        class="follow-up-status"
+                        :list="`status-options-${item.id}`"
+                        :value="follow.status_name || ''"
+                        placeholder="選擇或輸入狀態"
+                        @change="updateFollowUpStatus(follow, $event.target.value)"
+                      />
+                    </div>
+                    <datalist :id="`status-options-${item.id}`">
+                      <option v-for="status in followUpStatuses" :key="status.id" :value="status.name" />
+                    </datalist>
+                  </div>
+                  <p v-else class="timeline-note">尚無需跟進內容。</p>
+                </div>
               </div>
             </div>
           </div>
@@ -151,47 +302,7 @@ onMounted(loadUser)
         </article>
 
         <article class="panel wide">
-          <header class="panel-header">
-            <h2>本週行事曆</h2>
-            <p>視覺化本週節奏，拖曳即可安排內容。</p>
-          </header>
-          <div class="calendar">
-            <div class="calendar-day active">
-              <span class="day-label">週一</span>
-              <span class="day-date">04</span>
-              <span class="day-chip">3 件待辦</span>
-            </div>
-            <div class="calendar-day">
-              <span class="day-label">週二</span>
-              <span class="day-date">05</span>
-              <span class="day-chip">2 會議</span>
-            </div>
-            <div class="calendar-day">
-              <span class="day-label">週三</span>
-              <span class="day-date">06</span>
-              <span class="day-chip">UI 審查</span>
-            </div>
-            <div class="calendar-day">
-              <span class="day-label">週四</span>
-              <span class="day-date">07</span>
-              <span class="day-chip">回報進度</span>
-            </div>
-            <div class="calendar-day">
-              <span class="day-label">週五</span>
-              <span class="day-date">08</span>
-              <span class="day-chip">交付日</span>
-            </div>
-            <div class="calendar-day muted">
-              <span class="day-label">週六</span>
-              <span class="day-date">09</span>
-              <span class="day-chip">休息</span>
-            </div>
-            <div class="calendar-day muted">
-              <span class="day-label">週日</span>
-              <span class="day-date">10</span>
-              <span class="day-chip">整理</span>
-            </div>
-          </div>
+          <MonthlyCalendar :selected-date="selectedDate" @select-date="handleSelectDate" />
         </article>
       </section>
     </main>
@@ -331,6 +442,11 @@ onMounted(loadUser)
   gap: 1.2rem;
 }
 
+.timeline-list {
+  display: grid;
+  gap: 1rem;
+}
+
 .time-row {
   display: grid;
   grid-template-columns: 80px minmax(0, 1fr);
@@ -363,6 +479,45 @@ onMounted(loadUser)
 .time-card p {
   margin: 0;
   color: #64748b;
+}
+
+.timeline-empty {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
+.follow-up-list {
+  margin-top: 0.6rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.follow-up-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.follow-up-text {
+  color: #0f172a;
+  font-size: 0.9rem;
+}
+
+.follow-up-status {
+  min-width: 140px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.85rem;
+  background: #fff;
+}
+
+.timeline-note {
+  margin: 0.5rem 0 0;
+  color: #94a3b8;
+  font-size: 0.85rem;
 }
 
 .progress-list {
@@ -406,56 +561,6 @@ onMounted(loadUser)
   border-radius: inherit;
 }
 
-.calendar {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 1.2rem;
-}
-
-.calendar-day {
-  border-radius: 18px;
-  padding: 1.2rem;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  display: grid;
-  gap: 0.6rem;
-}
-
-.calendar-day.active {
-  background: #111827;
-  color: #fff;
-  border-color: transparent;
-}
-
-.calendar-day.muted {
-  opacity: 0.7;
-}
-
-.day-label {
-  font-size: 0.85rem;
-  color: inherit;
-  opacity: 0.7;
-}
-
-.day-date {
-  font-size: 1.6rem;
-  font-weight: 600;
-}
-
-.day-chip {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.3rem 0.7rem;
-  border-radius: 999px;
-  background: rgba(15, 23, 42, 0.08);
-  font-size: 0.75rem;
-  color: inherit;
-}
-
-.calendar-day.active .day-chip {
-  background: rgba(255, 255, 255, 0.2);
-}
 
 @media (max-width: 960px) {
   .home-content {
