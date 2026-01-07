@@ -15,6 +15,8 @@ const activeStatusMenu = ref(null)
 const statusSearch = ref('')
 const statusModalOpen = ref(false)
 const statusInput = ref('')
+const statusColor = ref('#fde68a')
+const editingStatusId = ref(null)
 const statusMessage = ref('')
 const statusMessageType = ref('')
 const isTimelineLoading = ref(false)
@@ -99,7 +101,7 @@ const fetchStatuses = async () => {
   const auth = readAuthStorage()
   if (!auth) return
   try {
-    const response = await fetch(`${apiBaseUrl}/api/follow-up-statuses`, {
+    const response = await fetch(endpoint, {
       headers: { Authorization: `Bearer ${auth.token}` },
     })
     const data = await response.json()
@@ -173,6 +175,8 @@ const filteredStatuses = computed(() => {
 const openStatusModal = () => {
   statusModalOpen.value = true
   statusInput.value = ''
+  statusColor.value = '#fde68a'
+  editingStatusId.value = null
   statusMessage.value = ''
   statusMessageType.value = ''
 }
@@ -180,6 +184,16 @@ const openStatusModal = () => {
 const closeStatusModal = () => {
   statusModalOpen.value = false
   statusInput.value = ''
+  statusColor.value = '#fde68a'
+  editingStatusId.value = null
+  statusMessage.value = ''
+  statusMessageType.value = ''
+}
+
+const startEditStatus = (status) => {
+  editingStatusId.value = status.id
+  statusInput.value = status.name
+  statusColor.value = status.bg_color || '#e2e8f0'
   statusMessage.value = ''
   statusMessageType.value = ''
 }
@@ -190,13 +204,16 @@ const addStatus = async () => {
   const auth = readAuthStorage()
   if (!auth) return
   try {
+    const endpoint = editingStatusId.value
+      ? `${apiBaseUrl}/api/follow-up-statuses/${editingStatusId.value}`
+      : `${apiBaseUrl}/api/follow-up-statuses`
     const response = await fetch(`${apiBaseUrl}/api/follow-up-statuses`, {
-      method: 'POST',
+      method: editingStatusId.value ? 'PUT' : 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${auth.token}`,
       },
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({ name, bg_color: statusColor.value }),
     })
     const data = await response.json()
     if (!response.ok || !data?.success) {
@@ -204,10 +221,19 @@ const addStatus = async () => {
       statusMessageType.value = 'error'
       return
     }
-    followUpStatuses.value = [...followUpStatuses.value, data.data]
-    statusMessage.value = `"${data.data.name}" 新增成功`
+    if (editingStatusId.value) {
+      followUpStatuses.value = followUpStatuses.value.map((item) =>
+        item.id === data.data.id ? data.data : item
+      )
+      statusMessage.value = `"${data.data.name}" 已更新`
+    } else {
+      followUpStatuses.value = [...followUpStatuses.value, data.data]
+      statusMessage.value = `"${data.data.name}" 新增成功`
+    }
     statusMessageType.value = 'success'
     statusInput.value = ''
+    statusColor.value = '#fde68a'
+    editingStatusId.value = null
   } catch (error) {
     console.error(error)
     statusMessage.value = '新增失敗'
@@ -297,7 +323,7 @@ onMounted(() => {
       </section>
 
       <section class="content-grid">
-        <article class="panel">
+        <article class="panel wide">
           <header class="panel-header">
             <h2>{{ timelineTitle }}</h2>
             <p>依時間快速檢視選取日期需要跟進的項目。</p>
@@ -316,17 +342,22 @@ onMounted(() => {
                     <div v-for="follow in item.follow_ups" :key="follow.id" class="follow-up-row">
                       <span class="follow-up-text">{{ follow.content }}</span>
                       <div class="status-select">
-                        <button
-                          type="button"
-                          class="status-select-button"
-                          @click="toggleStatusMenu(follow.id)"
-                        >
-                          {{ follow.status_name || '選擇狀態' }}
-                        </button>
-                        <div
-                          v-if="activeStatusMenu === follow.id"
-                          class="status-menu"
-                        >
+                  <button
+                    type="button"
+                    class="status-select-button"
+                    @click="toggleStatusMenu(follow.id)"
+                  >
+                    <span
+                      v-if="follow.status_bg_color"
+                      class="status-dot"
+                      :style="{ backgroundColor: follow.status_bg_color }"
+                    ></span>
+                    {{ follow.status_name || '選擇狀態' }}
+                  </button>
+                  <div
+                    v-if="activeStatusMenu === follow.id"
+                    class="status-menu"
+                  >
                           <input
                             v-model="statusSearch"
                             class="status-search"
@@ -343,6 +374,10 @@ onMounted(() => {
                               activeStatusMenu = null
                             "
                           >
+                            <span
+                              class="status-dot"
+                              :style="{ backgroundColor: status.bg_color || '#e2e8f0' }"
+                            ></span>
                             {{ status.name }}
                           </button>
                           <button
@@ -378,13 +413,25 @@ onMounted(() => {
         <p>新增或刪除可用的狀態選項。</p>
         <div class="modal-list">
           <div v-for="status in followUpStatuses" :key="status.id" class="modal-list-item">
-            <span>{{ status.name }}</span>
-            <button type="button" class="danger-text" @click="deleteStatus(status)">刪除</button>
+            <div class="modal-status">
+              <span
+                class="status-dot"
+                :style="{ backgroundColor: status.bg_color || '#e2e8f0' }"
+              ></span>
+              <span>{{ status.name }}</span>
+            </div>
+            <div class="modal-actions-inline">
+              <button type="button" class="ghost-mini" @click="startEditStatus(status)">編輯</button>
+              <button type="button" class="danger-text" @click="deleteStatus(status)">刪除</button>
+            </div>
           </div>
         </div>
         <div class="modal-actions">
-          <input v-model="statusInput" type="text" placeholder="新增狀態名稱" />
-          <button type="button" class="primary-button" @click="addStatus">新增</button>
+          <input v-model="statusInput" type="text" placeholder="狀態名稱" />
+          <input v-model="statusColor" type="color" class="color-input" />
+          <button type="button" class="primary-button" @click="addStatus">
+            {{ editingStatusId ? '更新' : '新增' }}
+          </button>
         </div>
         <p v-if="statusMessage" :class="['modal-message', statusMessageType]">
           {{ statusMessage }}
@@ -498,7 +545,7 @@ onMounted(() => {
 
 .content-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 1.8rem;
 }
 
@@ -646,12 +693,22 @@ onMounted(() => {
   cursor: pointer;
   font-size: 0.85rem;
   color: #0f172a;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
 .status-item.more {
   background: #eef2ff;
   color: #4338ca;
   font-weight: 600;
+}
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  display: inline-block;
 }
 
 .modal-overlay {
@@ -698,6 +755,26 @@ onMounted(() => {
   border-radius: 12px;
   background: #f8fafc;
   border: 1px solid #e2e8f0;
+}
+
+.modal-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.modal-actions-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.color-input {
+  width: 40px;
+  height: 36px;
+  border: none;
+  background: transparent;
+  padding: 0;
 }
 
 .modal-actions {
