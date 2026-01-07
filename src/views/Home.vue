@@ -23,7 +23,6 @@ const editingStatusId = ref(null)
 const statusMessage = ref('')
 const statusMessageType = ref('')
 const isTimelineLoading = ref(false)
-const allUsers = ref([])
 const assigneeSearch = ref('')
 const activeAssigneeMenu = ref(null)
 
@@ -187,8 +186,16 @@ const isPendingStatus = (followUp) =>
   String(followUp?.status_name || '').trim() !== COMPLETED_STATUS_NAME
 
 const pendingFollowUpCount = computed(() => countPendingFollowUps(timelineItems.value))
+const hasTimelineFollowUps = computed(() =>
+  timelineItems.value.some(
+    (item) => Array.isArray(item?.follow_ups) && item.follow_ups.length > 0
+  )
+)
 const pendingBadge = computed(() => {
   if (pendingFollowUpCount.value === 0) {
+    if (!hasTimelineFollowUps.value) {
+      return { text: '無任務', className: 'panel-badge-empty' }
+    }
     return { text: '已完成', className: 'panel-badge-complete' }
   }
   return { text: `待處理 ${pendingFollowUpCount.value}`, className: 'panel-badge-pending' }
@@ -244,7 +251,7 @@ const updateFollowUpStatus = async (followUp, status) => {
   }
 }
 
-const updateFollowUpAssignees = async (followUp, assignees) => {
+const updateFollowUpAssignees = async (followUp, assignees, relatedUsers = []) => {
   const auth = readAuthStorage()
   if (!auth) return
   const response = await fetch(`${apiBaseUrl}/api/task-submission-followups/${followUp.id}`, {
@@ -257,7 +264,7 @@ const updateFollowUpAssignees = async (followUp, assignees) => {
   })
   const data = await response.json()
   if (!response.ok || !data?.success) return
-  const selected = allUsers.value.filter((user) => assignees.includes(user.mail))
+  const selected = relatedUsers.filter((user) => assignees.includes(user.mail))
   followUp.assignees = selected
 }
 
@@ -278,7 +285,7 @@ const toggleAssigneeMenu = (followUpId) => {
 const isAssigneeSelected = (followUp, mail) =>
   Array.isArray(followUp?.assignees) && followUp.assignees.some((user) => user.mail === mail)
 
-const toggleAssignee = async (followUp, user) => {
+const toggleAssignee = async (followUp, user, relatedUsers) => {
   const mail = user?.mail
   if (!mail) return
   const current = Array.isArray(followUp?.assignees) ? followUp.assignees : []
@@ -286,7 +293,7 @@ const toggleAssignee = async (followUp, user) => {
   const next = mails.includes(mail)
     ? mails.filter((item) => item !== mail)
     : [...mails, mail]
-  await updateFollowUpAssignees(followUp, next)
+  await updateFollowUpAssignees(followUp, next, relatedUsers)
 }
 
 const filteredStatuses = computed(() => {
@@ -295,15 +302,21 @@ const filteredStatuses = computed(() => {
   return followUpStatuses.value.filter((status) => status.name.toLowerCase().includes(query))
 })
 
-const filteredUsers = computed(() => {
+const getFilteredRelatedUsers = (item) => {
+  const relatedUsers = Array.isArray(item?.related_users) ? item.related_users : []
   const query = assigneeSearch.value.trim().toLowerCase()
-  if (!query) return allUsers.value
-  return allUsers.value.filter((user) => {
+  if (!query) return relatedUsers
+  return relatedUsers.filter((user) => {
     const name = String(user.username || '').toLowerCase()
     const mail = String(user.mail || '').toLowerCase()
     return name.includes(query) || mail.includes(query)
   })
-})
+}
+
+const getAssigneeButtonText = (followUp) => {
+  const count = followUp?.assignees?.length || 0
+  return count > 0 ? `已選${count}人` : '選擇跟進人'
+}
 
 const openStatusModal = () => {
   statusModalOpen.value = true
@@ -560,13 +573,7 @@ onMounted(() => {
                             class="select-field"
                             @click="toggleAssigneeMenu(follow.id)"
                           >
-                            {{
-                              follow.assignees?.length
-                                ? follow.assignees
-                                    .map((user) => `${user.username || ''} <${user.mail}>`)
-                                    .join(', ')
-                                : '選擇關聯用戶'
-                            }}
+                            {{ getAssigneeButtonText(follow) }}
                           </button>
                           <div v-if="activeAssigneeMenu === follow.id" class="option-list">
                             <input
@@ -576,11 +583,11 @@ onMounted(() => {
                               placeholder="搜尋用戶"
                             />
                             <button
-                              v-for="user in filteredUsers"
+                              v-for="user in getFilteredRelatedUsers(item)"
                               :key="user.mail"
                               type="button"
                               class="option-item user-option"
-                              @click="toggleAssignee(follow, user)"
+                              @click="toggleAssignee(follow, user, item.related_users)"
                             >
                               <span
                                 class="user-avatar"
@@ -600,7 +607,7 @@ onMounted(() => {
                       </div>
                     </div>
                   </div>
-                  <p v-else class="timeline-note">尚無需跟進內容。</p>
+                  <p v-else class="timeline-note">無任務</p>
                 </div>
               </div>
             </div>
@@ -827,6 +834,11 @@ onMounted(() => {
   color: #166534;
 }
 
+.panel-badge-empty {
+  background: #f1f5f9;
+  color: #94a3b8;
+}
+
 .panel-header p {
   margin: 0.4rem 0 0;
   color: #64748b;
@@ -946,7 +958,7 @@ onMounted(() => {
 
 .timeline-note {
   margin: 0.5rem 0 0;
-  color: #94a3b8;
+  color: #cbd5e1;
   font-size: 0.85rem;
 }
 

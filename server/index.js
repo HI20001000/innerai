@@ -927,6 +927,9 @@ const handleUpdateTaskSubmissionFollowupStatus = async (req, res, id) => {
   const hasStatusUpdate = Object.prototype.hasOwnProperty.call(body || {}, 'status_id')
   const statusId = hasStatusUpdate ? body?.status_id ?? null : undefined
   const assignees = Array.isArray(body?.assignees) ? body.assignees : null
+  const cleanedAssignees = assignees
+    ? assignees.filter((mail) => typeof mail === 'string' && mail.trim())
+    : null
   let connection
   try {
     connection = await getConnection()
@@ -940,13 +943,30 @@ const handleUpdateTaskSubmissionFollowupStatus = async (req, res, id) => {
         return
       }
     }
-    if (!hasStatusUpdate && assignees) {
-      const [rows] = await connection.query(
-        'SELECT id FROM task_submission_followups WHERE id = ?',
+    if (assignees) {
+      const [followupRows] = await connection.query(
+        'SELECT submission_id FROM task_submission_followups WHERE id = ?',
         [id]
       )
-      if (rows.length === 0) {
+      if (followupRows.length === 0) {
         sendJson(res, 404, { success: false, message: '找不到跟進內容' })
+        return
+      }
+      const submissionId = followupRows[0]?.submission_id
+      if (!submissionId) {
+        sendJson(res, 404, { success: false, message: '找不到任務資料' })
+        return
+      }
+      const [relatedRows] = await connection.query(
+        'SELECT user_mail FROM task_submission_users WHERE submission_id = ?',
+        [submissionId]
+      )
+      const allowedAssignees = new Set(relatedRows.map((row) => row.user_mail))
+      const invalidAssignees = (cleanedAssignees || []).filter(
+        (mail) => !allowedAssignees.has(mail.trim())
+      )
+      if (invalidAssignees.length > 0) {
+        sendJson(res, 400, { success: false, message: '跟進人必須為任務關聯用戶' })
         return
       }
     }
@@ -967,9 +987,8 @@ const handleUpdateTaskSubmissionFollowupStatus = async (req, res, id) => {
         'DELETE FROM task_submission_followup_assignees WHERE followup_id = ?',
         [id]
       )
-      const cleaned = assignees.filter((mail) => typeof mail === 'string' && mail.trim())
-      if (cleaned.length) {
-        const values = cleaned.map((mail) => [id, mail.trim()])
+      if (cleanedAssignees && cleanedAssignees.length) {
+        const values = cleanedAssignees.map((mail) => [id, mail.trim()])
         await connection.query(
           'INSERT INTO task_submission_followup_assignees (followup_id, user_mail) VALUES ?',
           [values]
