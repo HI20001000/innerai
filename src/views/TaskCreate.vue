@@ -21,6 +21,7 @@ const selectedLocation = ref('')
 const followUpInput = ref('')
 const followUpItems = ref([])
 const editingFollowUpIndex = ref(null)
+const followUpEditValue = ref('')
 const showRequiredHints = ref(false)
 const searchQuery = reactive({
   client: '',
@@ -213,14 +214,6 @@ const removeTag = (tag) => {
 const addFollowUpItem = () => {
   const value = followUpInput.value.trim()
   if (!value) return
-  if (editingFollowUpIndex.value !== null) {
-    followUpItems.value = followUpItems.value.map((item, index) =>
-      index === editingFollowUpIndex.value ? value : item
-    )
-    editingFollowUpIndex.value = null
-    followUpInput.value = ''
-    return
-  }
   followUpItems.value = [...followUpItems.value, value]
   followUpInput.value = ''
 }
@@ -229,13 +222,23 @@ const removeFollowUpItem = (index) => {
   followUpItems.value = followUpItems.value.filter((_, idx) => idx !== index)
   if (editingFollowUpIndex.value === index) {
     editingFollowUpIndex.value = null
-    followUpInput.value = ''
+    followUpEditValue.value = ''
   }
 }
 
 const editFollowUpItem = (item, index) => {
-  followUpInput.value = item
   editingFollowUpIndex.value = index
+  followUpEditValue.value = item
+}
+
+const confirmFollowUpEdit = () => {
+  const value = followUpEditValue.value.trim()
+  if (!value || editingFollowUpIndex.value === null) return
+  followUpItems.value = followUpItems.value.map((item, index) =>
+    index === editingFollowUpIndex.value ? value : item
+  )
+  editingFollowUpIndex.value = null
+  followUpEditValue.value = ''
 }
 
 const isRelatedUserSelected = (item) =>
@@ -706,10 +709,21 @@ onMounted(() => {
             </div>
             <div v-if="followUpItems.length > 0" class="follow-up-list">
               <div v-for="(item, index) in followUpItems" :key="`${item}-${index}`" class="follow-up-item">
-                <span>{{ item }}</span>
+                <template v-if="editingFollowUpIndex === index">
+                  <input v-model="followUpEditValue" type="text" class="follow-up-edit-input" />
+                </template>
+                <span v-else>{{ item }}</span>
                 <div class="follow-up-actions">
-                  <button type="button" class="chip-edit" @click="editFollowUpItem(item, index)">
-                    ✎
+                  <button
+                    type="button"
+                    class="chip-edit"
+                    @click="
+                      editingFollowUpIndex === index
+                        ? confirmFollowUpEdit()
+                        : editFollowUpItem(item, index)
+                    "
+                  >
+                    {{ editingFollowUpIndex === index ? '確認' : '✎' }}
                   </button>
                   <button type="button" class="chip-remove" @click="removeFollowUpItem(index)">
                     ×
@@ -1037,6 +1051,14 @@ onMounted(() => {
   border: 1px solid #e2e8f0;
   border-radius: 12px;
   padding: 0.6rem 0.8rem;
+}
+
+.follow-up-edit-input {
+  flex: 1;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.85rem;
 }
 
 .primary-button.small {
