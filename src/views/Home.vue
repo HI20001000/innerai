@@ -191,12 +191,18 @@ const hasTimelineFollowUps = computed(() =>
     (item) => Array.isArray(item?.follow_ups) && item.follow_ups.length > 0
   )
 )
+const isSelectedDatePast = computed(
+  () => selectedDate.value && selectedDate.value < getTaipeiTodayKey()
+)
 const pendingBadge = computed(() => {
   if (pendingFollowUpCount.value === 0) {
     if (!hasTimelineFollowUps.value) {
       return { text: '無任務', className: 'panel-badge-empty' }
     }
     return { text: '已完成', className: 'panel-badge-complete' }
+  }
+  if (isSelectedDatePast.value) {
+    return { text: `${pendingFollowUpCount.value} 未完成`, className: 'panel-badge-overdue' }
   }
   return { text: `待處理 ${pendingFollowUpCount.value}`, className: 'panel-badge-pending' }
 })
@@ -827,6 +833,11 @@ onMounted(() => {
 .panel-badge-pending {
   background: #fef3c7;
   color: #92400e;
+}
+
+.panel-badge-overdue {
+  background: #fee2e2;
+  color: #b91c1c;
 }
 
 .panel-badge-complete {
