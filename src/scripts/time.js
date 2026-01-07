@@ -51,3 +51,21 @@ export const formatTaipeiDateTime = (date) => {
     taipei.getUTCSeconds()
   )}`
 }
+
+export const toDateKey = (value) => {
+  if (!value) return null
+  if (typeof value === 'string') {
+    if (value.endsWith('Z')) {
+      const parsed = new Date(value)
+      if (Number.isNaN(parsed.getTime())) return null
+      return toTaipeiDate(parsed).toISOString().slice(0, 10)
+    }
+    const normalized = value.replace('T', ' ').split('.')[0]
+    return normalized.split(' ')[0]
+  }
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return null
+  return toTaipeiDate(parsed).toISOString().slice(0, 10)
+}
+
+export const getTaipeiTodayKey = () => toDateKey(new Date())

@@ -35,6 +35,7 @@ const DEFAULT_DATA = {
   vendors: ['青雲材料', '耀達製造', '風尚供應', '遠景工廠'],
   products: ['智慧儀表 X1', '節能模組 A3', '自動化平台 Pro', '雲端控制盒'],
   task_tags: ['客戶跟進', '客戶匯報', '需求整理', '合約追蹤'],
+  follow_up_statuses: ['待處理', '進行中', '已完成'],
 }
 
 const TABLES = {
@@ -615,7 +616,11 @@ const handleGetTaskSubmissions = async (req, res) => {
       'SELECT submission_id, tag_name FROM task_submission_tags'
     )
     const [followRows] = await connection.query(
-      'SELECT submission_id, content FROM task_submission_followups'
+      `SELECT task_submission_followups.id, task_submission_followups.submission_id,
+        task_submission_followups.content, task_submission_followups.status_id,
+        follow_up_statuses.name as status_name
+       FROM task_submission_followups
+       LEFT JOIN follow_up_statuses ON follow_up_statuses.id = task_submission_followups.status_id`
     )
     const grouped = new Map()
     for (const row of rows) {
@@ -660,7 +665,12 @@ const handleGetTaskSubmissions = async (req, res) => {
     }
     for (const row of followRows) {
       if (grouped.has(row.submission_id)) {
-        grouped.get(row.submission_id).follow_ups.push(row.content)
+        grouped.get(row.submission_id).follow_ups.push({
+          id: row.id,
+          content: row.content,
+          status_id: row.status_id,
+          status_name: row.status_name,
+        })
       }
     }
     sendJson(res, 200, { success: true, data: Array.from(grouped.values()) })
@@ -682,6 +692,95 @@ const handleGetUsers = async (req, res) => {
   } catch (error) {
     console.error(error)
     sendJson(res, 500, { success: false, message: '無法讀取使用者清單' })
+  }
+}
+
+const handleGetFollowUpStatuses = async (req, res) => {
+  const user = await getRequiredAuthUser(req, res)
+  if (!user) return
+  try {
+    const connection = await getConnection()
+    const [rows] = await connection.query(
+      'SELECT id, name FROM follow_up_statuses ORDER BY id ASC'
+    )
+    sendJson(res, 200, { success: true, data: rows })
+  } catch (error) {
+    console.error(error)
+    sendJson(res, 500, { success: false, message: '無法讀取跟進狀態' })
+  }
+}
+
+const handlePostFollowUpStatus = async (req, res) => {
+  const user = await getRequiredAuthUser(req, res)
+  if (!user) return
+  const body = await parseBody(req)
+  const name = body?.name?.trim()
+  if (!name) {
+    sendJson(res, 400, { success: false, message: '狀態名稱為必填' })
+    return
+  }
+  if (name.length > 255) {
+    sendJson(res, 400, { success: false, message: '狀態名稱過長' })
+    return
+  }
+  try {
+    const connection = await getConnection()
+    try {
+      const [result] = await connection.query(
+        'INSERT INTO follow_up_statuses (name) VALUES (?)',
+        [name]
+      )
+      sendJson(res, 201, { success: true, data: { id: result.insertId, name } })
+      return
+    } catch (error) {
+      if (error?.code !== 'ER_DUP_ENTRY') {
+        throw error
+      }
+    }
+    const [rows] = await connection.query('SELECT id, name FROM follow_up_statuses WHERE name = ?', [
+      name,
+    ])
+    const status = rows[0]
+    if (!status) {
+      sendJson(res, 500, { success: false, message: '無法建立狀態' })
+      return
+    }
+    sendJson(res, 200, { success: true, data: status })
+  } catch (error) {
+    console.error(error)
+    sendJson(res, 500, { success: false, message: '新增狀態失敗' })
+  }
+}
+
+const handleUpdateTaskSubmissionFollowupStatus = async (req, res, id) => {
+  const user = await getRequiredAuthUser(req, res)
+  if (!user) return
+  const body = await parseBody(req)
+  const statusId = body?.status_id ?? null
+  try {
+    const connection = await getConnection()
+    if (statusId !== null) {
+      const [rows] = await connection.query(
+        'SELECT id FROM follow_up_statuses WHERE id = ?',
+        [statusId]
+      )
+      if (rows.length === 0) {
+        sendJson(res, 400, { success: false, message: '狀態不存在' })
+        return
+      }
+    }
+    const [result] = await connection.query(
+      'UPDATE task_submission_followups SET status_id = ? WHERE id = ?',
+      [statusId, id]
+    )
+    if (result.affectedRows === 0) {
+      sendJson(res, 404, { success: false, message: '找不到跟進內容' })
+      return
+    }
+    sendJson(res, 200, { success: true, message: '狀態已更新' })
+  } catch (error) {
+    console.error(error)
+    sendJson(res, 500, { success: false, message: '狀態更新失敗' })
   }
 }
 
@@ -1365,6 +1464,27 @@ const start = async () => {
     if (url.pathname === '/api/users' && req.method === 'GET') {
       await handleGetUsers(req, res)
       return
+    }
+    if (url.pathname === '/api/follow-up-statuses') {
+      if (req.method === 'GET') {
+        await handleGetFollowUpStatuses(req, res)
+        return
+      }
+      if (req.method === 'POST') {
+        await handlePostFollowUpStatus(req, res)
+        return
+      }
+    }
+    if (url.pathname.startsWith('/api/task-submission-followups/')) {
+      const id = Number(url.pathname.split('/').pop())
+      if (!Number.isFinite(id)) {
+        sendJson(res, 400, { success: false, message: '跟進內容 ID 無效' })
+        return
+      }
+      if (req.method === 'PUT') {
+        await handleUpdateTaskSubmissionFollowupStatus(req, res, id)
+        return
+      }
     }
     if (url.pathname === '/api/meeting-records' && req.method === 'POST') {
       await handlePostMeetingRecords(req, res)

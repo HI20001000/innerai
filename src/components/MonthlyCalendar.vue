@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
+import { getTaipeiTodayKey, toDateKey } from '../scripts/time.js'
 
 const apiBaseUrl = 'http://localhost:3001'
 const submissions = ref([])
@@ -28,25 +29,14 @@ const readUserMail = () => {
   }
 }
 
-const taipeiOffsetMs = 8 * 60 * 60 * 1000
+const props = defineProps({
+  selectedDate: {
+    type: String,
+    default: () => getTaipeiTodayKey(),
+  },
+})
 
-const toDateKey = (value) => {
-  if (!value) return null
-  if (typeof value === 'string') {
-    if (value.endsWith('Z')) {
-      const parsed = new Date(value)
-      if (Number.isNaN(parsed.getTime())) return null
-      const taipei = new Date(parsed.getTime() + taipeiOffsetMs)
-      return taipei.toISOString().slice(0, 10)
-    }
-    const normalized = value.replace('T', ' ').split('.')[0]
-    return normalized.split(' ')[0]
-  }
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return null
-  const taipei = new Date(parsed.getTime() + taipeiOffsetMs)
-  return taipei.toISOString().slice(0, 10)
-}
+const emit = defineEmits(['select-date'])
 
 const fetchSubmissions = async () => {
   const auth = readAuthStorage()
@@ -143,10 +133,16 @@ onMounted(fetchSubmissions)
         {{ day }}
       </div>
 
-      <div
+      <button
         v-for="cell in calendarDays"
         :key="cell.key || cell.dateKey"
-        :class="['calendar-cell', { empty: cell.empty }]"
+        :class="[
+          'calendar-cell',
+          { empty: cell.empty, selected: !cell.empty && cell.dateKey === props.selectedDate },
+        ]"
+        type="button"
+        :disabled="cell.empty"
+        @click="emit('select-date', cell.dateKey)"
       >
         <template v-if="!cell.empty">
           <span class="calendar-date">{{ cell.day }}</span>
@@ -154,7 +150,7 @@ onMounted(fetchSubmissions)
             {{ todoCounts[cell.dateKey] }} 待辦
           </span>
         </template>
-      </div>
+      </button>
     </div>
 
     <p v-if="isLoading" class="calendar-loading">載入待辦中...</p>
@@ -234,11 +230,20 @@ onMounted(fetchSubmissions)
   flex-direction: column;
   justify-content: space-between;
   gap: 0.3rem;
+  border: none;
+  text-align: left;
+  cursor: pointer;
 }
 
 .calendar-cell.empty {
   background: transparent;
   box-shadow: none;
+  cursor: default;
+}
+
+.calendar-cell.selected {
+  outline: 2px solid #111827;
+  background: #eef2ff;
 }
 
 .calendar-date {

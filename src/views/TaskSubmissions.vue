@@ -107,7 +107,10 @@ const startEdit = (submission) => {
   editingId.value = submission.id
   const tagValue = Array.isArray(submission.tags) ? submission.tags.join(', ') : submission.tags || ''
   const followUpValue = Array.isArray(submission.follow_ups)
-    ? submission.follow_ups.join('\n')
+    ? submission.follow_ups
+        .map((entry) => (typeof entry === 'string' ? entry : entry?.content))
+        .filter(Boolean)
+        .join('\n')
     : submission.follow_ups || ''
   editForm.value = {
     client: submission.client_name,
@@ -315,7 +318,9 @@ onMounted(fetchSubmissions)
                 </template>
                 <template v-else>
                   <ul v-if="item.follow_ups?.length" class="follow-up-list">
-                    <li v-for="entry in item.follow_ups" :key="entry">{{ entry }}</li>
+                    <li v-for="entry in item.follow_ups" :key="entry.id || entry">
+                      {{ typeof entry === 'string' ? entry : entry.content }}
+                    </li>
                   </ul>
                   <span v-else>-</span>
                 </template>
