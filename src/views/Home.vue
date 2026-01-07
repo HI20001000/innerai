@@ -3,6 +3,7 @@ import { computed, getCurrentInstance, onMounted, ref } from 'vue'
 import WorkspaceSidebar from '../components/WorkspaceSidebar.vue'
 import MonthlyCalendar from '../components/MonthlyCalendar.vue'
 import { formatDateTimeDisplay, toDateKey, getTaipeiTodayKey } from '../scripts/time.js'
+import { countPendingFollowUps } from '../scripts/followUps.js'
 
 const router = getCurrentInstance().appContext.config.globalProperties.$router
 const username = ref('hi')
@@ -141,6 +142,8 @@ const timelineTitle = computed(() => {
   return `${year}年${month}月${day}日時間線`
 })
 
+const pendingFollowUpCount = computed(() => countPendingFollowUps(timelineItems.value))
+
 const updateFollowUpStatus = async (followUp, status) => {
   const auth = readAuthStorage()
   if (!auth) return
@@ -157,6 +160,7 @@ const updateFollowUpStatus = async (followUp, status) => {
   if (!response.ok || !data?.success) return
   followUp.status_id = statusId
   followUp.status_name = status?.name || ''
+  followUp.status_bg_color = status?.bg_color || ''
 }
 
 const handleSelectDate = (dateKey) => {
@@ -331,7 +335,10 @@ onMounted(() => {
       <section class="content-grid">
         <article class="panel wide">
           <header class="panel-header">
-            <h2>{{ timelineTitle }}</h2>
+            <div class="panel-title-row">
+              <h2>{{ timelineTitle }}</h2>
+              <span class="panel-badge">待處理 {{ pendingFollowUpCount }}</span>
+            </div>
             <p>依時間快速檢視選取日期需要跟進的項目。</p>
           </header>
           <div class="timeline">
@@ -343,9 +350,16 @@ onMounted(() => {
               <div v-for="item in timelineItems" :key="item.id" class="time-row">
                 <span class="time">{{ formatTimeOnly(item.scheduled_at) || '--:--' }}</span>
                 <div class="time-card">
-                  <h3>{{ item.client_name }}_{{ item.vendor_name }}_{{ item.product_name }}</h3>
+                  <h3 class="time-card-title">
+                    {{ item.client_name }}_{{ item.vendor_name }}_{{ item.product_name }}
+                  </h3>
                   <div v-if="item.follow_ups?.length" class="follow-up-list">
-                    <div v-for="follow in item.follow_ups" :key="follow.id" class="follow-up-row">
+                    <div
+                      v-for="(follow, index) in item.follow_ups"
+                      :key="follow.id"
+                      class="follow-up-row"
+                    >
+                      <span class="follow-up-index">{{ index + 1 }}.</span>
                       <span class="follow-up-text">{{ follow.content }}</span>
                       <div class="status-select">
                   <button
@@ -597,6 +611,24 @@ onMounted(() => {
   font-size: 1.35rem;
 }
 
+.panel-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.panel-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.25rem 0.7rem;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
 .panel-header p {
   margin: 0.4rem 0 0;
   color: #64748b;
@@ -641,6 +673,10 @@ onMounted(() => {
   font-size: 1rem;
 }
 
+.time-card-title {
+  font-weight: 700;
+}
+
 .time-card p {
   margin: 0;
   color: #64748b;
@@ -659,15 +695,20 @@ onMounted(() => {
 }
 
 .follow-up-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.6rem;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.8rem;
 }
 
 .follow-up-text {
   color: #0f172a;
   font-size: 0.9rem;
+}
+
+.follow-up-index {
+  font-weight: 600;
+  color: #64748b;
 }
 
 .timeline-note {
