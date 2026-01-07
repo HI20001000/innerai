@@ -66,17 +66,17 @@ const fetchSubmissions = async () => {
   }
 }
 
+const selectedMonth = ref(new Date())
+
 const monthLabel = computed(() => {
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = now.getMonth() + 1
+  const year = selectedMonth.value.getFullYear()
+  const month = selectedMonth.value.getMonth() + 1
   return `${year} 年 ${month} 月`
 })
 
 const calendarDays = computed(() => {
-  const now = new Date()
-  const year = now.getFullYear()
-  const monthIndex = now.getMonth()
+  const year = selectedMonth.value.getFullYear()
+  const monthIndex = selectedMonth.value.getMonth()
   const firstDay = new Date(year, monthIndex, 1)
   const lastDay = new Date(year, monthIndex + 1, 0)
   const startWeekday = firstDay.getDay()
@@ -95,6 +95,15 @@ const calendarDays = computed(() => {
   }
   return cells
 })
+
+const changeMonth = (offset) => {
+  const base = selectedMonth.value
+  selectedMonth.value = new Date(base.getFullYear(), base.getMonth() + offset, 1)
+}
+
+const resetMonth = () => {
+  selectedMonth.value = new Date()
+}
 
 const todoCounts = computed(() => {
   const mail = readUserMail()
@@ -120,7 +129,13 @@ onMounted(fetchSubmissions)
         <h3 class="calendar-title">本月行事曆</h3>
         <p class="calendar-subtitle">顯示與你相關的待辦數量</p>
       </div>
-      <span class="calendar-month">{{ monthLabel }}</span>
+      <div class="calendar-controls">
+        <button class="calendar-nav" type="button" @click="changeMonth(-1)">‹</button>
+        <button class="calendar-month" type="button" @click="resetMonth">
+          {{ monthLabel }}
+        </button>
+        <button class="calendar-nav" type="button" @click="changeMonth(1)">›</button>
+      </div>
     </header>
 
     <div class="calendar-grid">
@@ -148,10 +163,7 @@ onMounted(fetchSubmissions)
 
 <style scoped>
 .monthly-calendar {
-  background: #fff;
-  border-radius: 24px;
-  padding: 1.8rem;
-  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+  padding: 0.2rem 0;
 }
 
 .calendar-header {
@@ -174,18 +186,37 @@ onMounted(fetchSubmissions)
   font-size: 0.9rem;
 }
 
+.calendar-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.calendar-nav {
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  font-size: 1rem;
+  cursor: pointer;
+  color: #475569;
+}
+
 .calendar-month {
+  border: none;
+  background: #f1f5f9;
   font-weight: 600;
   color: #0f172a;
-  background: #f1f5f9;
-  padding: 0.4rem 0.9rem;
+  padding: 0.35rem 0.9rem;
   border-radius: 999px;
+  cursor: pointer;
 }
 
 .calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 0.6rem;
+  gap: 0.45rem;
 }
 
 .calendar-weekday {
@@ -196,13 +227,13 @@ onMounted(fetchSubmissions)
 
 .calendar-cell {
   background: #f8fafc;
-  border-radius: 16px;
-  min-height: 82px;
-  padding: 0.6rem;
+  border-radius: 14px;
+  min-height: 64px;
+  padding: 0.45rem 0.55rem;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: 0.4rem;
+  gap: 0.3rem;
 }
 
 .calendar-cell.empty {
@@ -213,15 +244,16 @@ onMounted(fetchSubmissions)
 .calendar-date {
   font-weight: 600;
   color: #0f172a;
+  font-size: 0.9rem;
 }
 
 .calendar-badge {
   align-self: flex-start;
   background: #111827;
   color: #fff;
-  padding: 0.25rem 0.6rem;
+  padding: 0.2rem 0.5rem;
   border-radius: 999px;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
 }
 
 .calendar-loading {
