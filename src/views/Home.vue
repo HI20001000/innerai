@@ -16,6 +16,8 @@ const statusSearch = ref('')
 const statusModalOpen = ref(false)
 const statusInput = ref('')
 const statusColor = ref('#fde68a')
+const defaultStatusColors = ['#fca5a5', '#fde68a', '#86efac']
+const showColorPicker = ref(false)
 const editingStatusId = ref(null)
 const statusMessage = ref('')
 const statusMessageType = ref('')
@@ -101,7 +103,7 @@ const fetchStatuses = async () => {
   const auth = readAuthStorage()
   if (!auth) return
   try {
-    const response = await fetch(endpoint, {
+    const response = await fetch(`${apiBaseUrl}/api/follow-up-statuses`, {
       headers: { Authorization: `Bearer ${auth.token}` },
     })
     const data = await response.json()
@@ -176,6 +178,7 @@ const openStatusModal = () => {
   statusModalOpen.value = true
   statusInput.value = ''
   statusColor.value = '#fde68a'
+  showColorPicker.value = false
   editingStatusId.value = null
   statusMessage.value = ''
   statusMessageType.value = ''
@@ -185,6 +188,7 @@ const closeStatusModal = () => {
   statusModalOpen.value = false
   statusInput.value = ''
   statusColor.value = '#fde68a'
+  showColorPicker.value = false
   editingStatusId.value = null
   statusMessage.value = ''
   statusMessageType.value = ''
@@ -194,6 +198,7 @@ const startEditStatus = (status) => {
   editingStatusId.value = status.id
   statusInput.value = status.name
   statusColor.value = status.bg_color || '#e2e8f0'
+  showColorPicker.value = false
   statusMessage.value = ''
   statusMessageType.value = ''
 }
@@ -233,6 +238,7 @@ const addStatus = async () => {
     statusMessageType.value = 'success'
     statusInput.value = ''
     statusColor.value = '#fde68a'
+    showColorPicker.value = false
     editingStatusId.value = null
   } catch (error) {
     console.error(error)
@@ -428,7 +434,31 @@ onMounted(() => {
         </div>
         <div class="modal-actions">
           <input v-model="statusInput" type="text" placeholder="狀態名稱" />
-          <input v-model="statusColor" type="color" class="color-input" />
+          <div class="color-picker-row">
+            <div class="color-swatches">
+              <button
+                v-for="color in defaultStatusColors"
+                :key="color"
+                type="button"
+                class="color-swatch"
+                :style="{ backgroundColor: color }"
+                @click="statusColor = color"
+              ></button>
+              <button
+                type="button"
+                class="color-swatch add-swatch"
+                @click="showColorPicker = !showColorPicker"
+              >
+                +
+              </button>
+            </div>
+            <input
+              v-if="showColorPicker"
+              v-model="statusColor"
+              type="color"
+              class="color-input"
+            />
+          </div>
           <button type="button" class="primary-button" @click="addStatus">
             {{ editingStatusId ? '更新' : '新增' }}
           </button>
@@ -777,13 +807,40 @@ onMounted(() => {
   padding: 0;
 }
 
+.color-picker-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.color-swatches {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.color-swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid #e2e8f0;
+  cursor: pointer;
+  padding: 0;
+}
+
+.color-swatch.add-swatch {
+  background: #fff;
+  color: #64748b;
+  font-weight: 600;
+}
+
 .modal-actions {
   display: flex;
   gap: 0.6rem;
   align-items: center;
 }
 
-.modal-actions input {
+.modal-actions input[type='text'] {
   flex: 1;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
