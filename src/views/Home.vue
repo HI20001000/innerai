@@ -23,6 +23,8 @@ const editingStatusId = ref(null)
 const statusMessage = ref('')
 const statusMessageType = ref('')
 const isTimelineLoading = ref(false)
+const assigneeSearch = ref('')
+const activeAssigneeMenu = ref(null)
 
 const goToNewTask = () => {
   router?.push('/tasks/new')
@@ -77,6 +79,16 @@ const readUserMail = () => {
   try {
     const data = JSON.parse(raw)
     return data?.mail || null
+  } catch {
+    return null
+  }
+}
+
+const readUserProfile = () => {
+  const raw = window.localStorage.getItem('innerai_user')
+  if (!raw) return null
+  try {
+    return JSON.parse(raw)
   } catch {
     return null
   }
@@ -142,12 +154,62 @@ const timelineTitle = computed(() => {
   return `${year}年${month}月${day}日時間線`
 })
 
+const COMPLETED_STATUS_NAME = '已完成'
+
+const getScheduledAtDate = (value) => {
+  if (!value) return null
+  if (typeof value === 'string') {
+    const normalized = value.includes('T') ? value : value.replace(' ', 'T')
+    const parsed = new Date(normalized)
+    return Number.isNaN(parsed.getTime()) ? null : parsed
+  }
+  const parsed = new Date(value)
+  return Number.isNaN(parsed.getTime()) ? null : parsed
+}
+
+const isPendingStatus = (followUp) =>
+  String(followUp?.status_name || '').trim() !== COMPLETED_STATUS_NAME
+
 const pendingFollowUpCount = computed(() => countPendingFollowUps(timelineItems.value))
+const hasTimelineFollowUps = computed(() =>
+  timelineItems.value.some(
+    (item) => Array.isArray(item?.follow_ups) && item.follow_ups.length > 0
+  )
+)
 const pendingBadge = computed(() => {
   if (pendingFollowUpCount.value === 0) {
+    if (!hasTimelineFollowUps.value) {
+      return { text: '無任務', className: 'panel-badge-empty' }
+    }
     return { text: '已完成', className: 'panel-badge-complete' }
   }
   return { text: `待處理 ${pendingFollowUpCount.value}`, className: 'panel-badge-pending' }
+})
+
+const userSubmissions = computed(() => {
+  const mail = readUserMail()
+  if (!mail) return []
+  return submissions.value.filter((item) => {
+    const related = item.related_users || []
+    return related.some((user) => user.mail === mail)
+  })
+})
+
+const totalPendingCount = computed(() =>
+  userSubmissions.value.reduce((total, item) => {
+    const followUps = Array.isArray(item?.follow_ups) ? item.follow_ups : []
+    return total + followUps.filter((followUp) => isPendingStatus(followUp)).length
+  }, 0)
+)
+
+const overduePendingCount = computed(() => {
+  const now = new Date()
+  return userSubmissions.value.reduce((total, item) => {
+    const scheduledAt = getScheduledAtDate(item?.scheduled_at)
+    if (!scheduledAt || scheduledAt >= now) return total
+    const followUps = Array.isArray(item?.follow_ups) ? item.follow_ups : []
+    return total + followUps.filter((followUp) => isPendingStatus(followUp)).length
+  }, 0)
 })
 
 const updateFollowUpStatus = async (followUp, status) => {
@@ -167,6 +229,28 @@ const updateFollowUpStatus = async (followUp, status) => {
   followUp.status_id = statusId
   followUp.status_name = status?.name || ''
   followUp.status_bg_color = status?.bg_color || ''
+  const user = readUserProfile()
+  if (user) {
+    followUp.status_updated_by = user.mail || ''
+    followUp.status_updated_by_name = user.username || ''
+  }
+}
+
+const updateFollowUpAssignees = async (followUp, assignees, relatedUsers = []) => {
+  const auth = readAuthStorage()
+  if (!auth) return
+  const response = await fetch(`${apiBaseUrl}/api/task-submission-followups/${followUp.id}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${auth.token}`,
+    },
+    body: JSON.stringify({ assignees }),
+  })
+  const data = await response.json()
+  if (!response.ok || !data?.success) return
+  const selected = relatedUsers.filter((user) => assignees.includes(user.mail))
+  followUp.assignees = selected
 }
 
 const handleSelectDate = (dateKey) => {
@@ -178,11 +262,46 @@ const toggleStatusMenu = (followUpId) => {
   statusSearch.value = ''
 }
 
+const toggleAssigneeMenu = (followUpId) => {
+  activeAssigneeMenu.value = activeAssigneeMenu.value === followUpId ? null : followUpId
+  assigneeSearch.value = ''
+}
+
+const isAssigneeSelected = (followUp, mail) =>
+  Array.isArray(followUp?.assignees) && followUp.assignees.some((user) => user.mail === mail)
+
+const toggleAssignee = async (followUp, user, relatedUsers) => {
+  const mail = user?.mail
+  if (!mail) return
+  const current = Array.isArray(followUp?.assignees) ? followUp.assignees : []
+  const mails = current.map((assignee) => assignee.mail)
+  const next = mails.includes(mail)
+    ? mails.filter((item) => item !== mail)
+    : [...mails, mail]
+  await updateFollowUpAssignees(followUp, next, relatedUsers)
+}
+
 const filteredStatuses = computed(() => {
   const query = statusSearch.value.trim().toLowerCase()
   if (!query) return followUpStatuses.value
   return followUpStatuses.value.filter((status) => status.name.toLowerCase().includes(query))
 })
+
+const getFilteredRelatedUsers = (item) => {
+  const relatedUsers = Array.isArray(item?.related_users) ? item.related_users : []
+  const query = assigneeSearch.value.trim().toLowerCase()
+  if (!query) return relatedUsers
+  return relatedUsers.filter((user) => {
+    const name = String(user.username || '').toLowerCase()
+    const mail = String(user.mail || '').toLowerCase()
+    return name.includes(query) || mail.includes(query)
+  })
+}
+
+const getAssigneeButtonText = (followUp) => {
+  const count = followUp?.assignees?.length || 0
+  return count > 0 ? `已選${count}人` : '選擇跟進人'
+}
 
 const openStatusModal = () => {
   statusModalOpen.value = true
@@ -317,24 +436,14 @@ onMounted(() => {
 
       <section class="summary-grid">
         <article class="summary-card">
-          <p class="card-label">進行中的專案</p>
-          <p class="card-value">6</p>
-          <p class="card-meta">本週新增 2 個</p>
+          <p class="card-label">待辦事項</p>
+          <p class="card-value">{{ totalPendingCount }}</p>
+          <p class="card-meta">統計所有標籤（除已完成）</p>
         </article>
         <article class="summary-card">
-          <p class="card-label">待完成任務</p>
-          <p class="card-value">18</p>
-          <p class="card-meta">今日需完成 5 項</p>
-        </article>
-        <article class="summary-card">
-          <p class="card-label">即將到期</p>
-          <p class="card-value">3</p>
-          <p class="card-meta">48 小時內</p>
-        </article>
-        <article class="summary-card">
-          <p class="card-label">團隊協作</p>
-          <p class="card-value">12</p>
-          <p class="card-meta">進行中的交接</p>
+          <p class="card-label">超時未完成</p>
+          <p class="card-value">{{ overduePendingCount }}</p>
+          <p class="card-meta">以目前時間計算</p>
         </article>
       </section>
 
@@ -368,24 +477,46 @@ onMounted(() => {
                       class="follow-up-row"
                     >
                       <span class="follow-up-index">{{ index + 1 }}.</span>
-                      <span class="follow-up-text">{{ follow.content }}</span>
-                      <div class="status-select">
-                  <button
-                    type="button"
-                    class="status-select-button"
-                    @click="toggleStatusMenu(follow.id)"
-                  >
-                    <span
-                      v-if="follow.status_bg_color"
-                      class="status-dot"
-                      :style="{ backgroundColor: follow.status_bg_color }"
-                    ></span>
-                    {{ follow.status_name || '選擇狀態' }}
-                  </button>
-                  <div
-                    v-if="activeStatusMenu === follow.id"
-                    class="status-menu"
-                  >
+                      <div class="follow-up-main">
+                        <span class="follow-up-text">{{ follow.content }}</span>
+                        <div class="follow-up-meta">
+                          <div class="follow-up-meta-item">
+                            <span class="meta-label">跟進人</span>
+                            <span class="meta-value">
+                              {{
+                                follow.assignees?.length
+                                  ? follow.assignees.map((user) => user.username).join('、')
+                                  : '未指派'
+                              }}
+                            </span>
+                          </div>
+                          <div class="follow-up-meta-item">
+                            <span class="meta-label">狀態修改者</span>
+                            <span class="meta-value">
+                              {{
+                                follow.status_updated_by_name ||
+                                follow.status_updated_by ||
+                                '尚未更新'
+                              }}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="follow-up-actions">
+                        <div class="status-select">
+                          <button
+                            type="button"
+                            class="status-select-button"
+                            @click="toggleStatusMenu(follow.id)"
+                          >
+                            <span
+                              v-if="follow.status_bg_color"
+                              class="status-dot"
+                              :style="{ backgroundColor: follow.status_bg_color }"
+                            ></span>
+                            {{ follow.status_name || '選擇狀態' }}
+                          </button>
+                          <div v-if="activeStatusMenu === follow.id" class="status-menu">
                           <input
                             v-model="statusSearch"
                             class="status-search"
@@ -419,10 +550,48 @@ onMounted(() => {
                             更多
                           </button>
                         </div>
+                        </div>
+                        <div class="assignee-select">
+                          <button
+                            type="button"
+                            class="select-field"
+                            @click="toggleAssigneeMenu(follow.id)"
+                          >
+                            {{ getAssigneeButtonText(follow) }}
+                          </button>
+                          <div v-if="activeAssigneeMenu === follow.id" class="option-list">
+                            <input
+                              v-model="assigneeSearch"
+                              class="option-search"
+                              type="text"
+                              placeholder="搜尋用戶"
+                            />
+                            <button
+                              v-for="user in getFilteredRelatedUsers(item)"
+                              :key="user.mail"
+                              type="button"
+                              class="option-item user-option"
+                              @click="toggleAssignee(follow, user, item.related_users)"
+                            >
+                              <span
+                                class="user-avatar"
+                                :style="{ backgroundColor: user.icon_bg || '#e2e8f0' }"
+                              >
+                                {{ user.icon || '🙂' }}
+                              </span>
+                              <span class="user-label">
+                                {{ user.username || 'user' }} &lt;{{ user.mail }}&gt;
+                              </span>
+                              <span v-if="isAssigneeSelected(follow, user.mail)" class="user-selected">
+                                已選
+                              </span>
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
-                  <p v-else class="timeline-note">尚無需跟進內容。</p>
+                  <p v-else class="timeline-note">無任務</p>
                 </div>
               </div>
             </div>
@@ -430,7 +599,11 @@ onMounted(() => {
         </article>
 
         <article class="panel wide">
-          <MonthlyCalendar :selected-date="selectedDate" @select-date="handleSelectDate" />
+          <MonthlyCalendar
+            :selected-date="selectedDate"
+            :submissions="submissions"
+            @select-date="handleSelectDate"
+          />
         </article>
       </section>
     </main>
@@ -645,6 +818,11 @@ onMounted(() => {
   color: #166534;
 }
 
+.panel-badge-empty {
+  background: #f1f5f9;
+  color: #94a3b8;
+}
+
 .panel-header p {
   margin: 0.4rem 0 0;
   color: #64748b;
@@ -714,7 +892,12 @@ onMounted(() => {
   display: grid;
   grid-template-columns: auto 1fr auto;
   gap: 0.6rem;
-  align-items: center;
+  align-items: start;
+}
+
+.follow-up-main {
+  display: grid;
+  gap: 0.35rem;
 }
 
 .follow-up-text {
@@ -727,9 +910,39 @@ onMounted(() => {
   color: #64748b;
 }
 
+.follow-up-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+
+.follow-up-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.meta-label {
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+.meta-value {
+  color: #475569;
+}
+
+.follow-up-actions {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
 .timeline-note {
   margin: 0.5rem 0 0;
-  color: #94a3b8;
+  color: #cbd5e1;
   font-size: 0.85rem;
 }
 
@@ -788,6 +1001,93 @@ onMounted(() => {
 .status-item.more {
   background: #eef2ff;
   color: #4338ca;
+  font-weight: 600;
+}
+
+.assignee-select {
+  position: relative;
+  min-width: 220px;
+  flex: 1;
+}
+
+.select-field {
+  width: 100%;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  border-radius: 12px;
+  padding: 0.45rem 0.7rem;
+  font-size: 0.85rem;
+  text-align: left;
+  cursor: pointer;
+  color: #0f172a;
+}
+
+.option-list {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  left: 0;
+  right: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+  padding: 0.4rem;
+  display: grid;
+  gap: 0.3rem;
+  max-height: 180px;
+  overflow: auto;
+  z-index: 10;
+  box-shadow: 0 18px 30px rgba(15, 23, 42, 0.12);
+}
+
+.option-search {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.45rem 0.6rem;
+  font-size: 0.85rem;
+  background: #fff;
+}
+
+.option-item {
+  border: none;
+  background: transparent;
+  text-align: left;
+  padding: 0.5rem 0.7rem;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 500;
+  color: #1f2937;
+}
+
+.option-item:hover {
+  background: #e2e8f0;
+}
+
+.user-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+}
+
+.user-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 0.75rem;
+  background: #e2e8f0;
+}
+
+.user-label {
+  font-size: 0.85rem;
+  color: #1f2937;
+}
+
+.user-selected {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: #16a34a;
   font-weight: 600;
 }
 
