@@ -1,5 +1,5 @@
 <script setup>
-import { computed, getCurrentInstance, onMounted, ref } from 'vue'
+import { computed, getCurrentInstance, onMounted, reactive, ref } from 'vue'
 import WorkspaceSidebar from '../components/WorkspaceSidebar.vue'
 import ResultModal from '../components/ResultModal.vue'
 import RelatedUsersTooltip from '../components/RelatedUsersTooltip.vue'
@@ -11,14 +11,25 @@ const activePath = computed(() => router?.currentRoute?.value?.path || '')
 const submissions = ref([])
 const isLoading = ref(false)
 const editingId = ref(null)
+const tagOptions = ref([])
+const relatedUsers = ref([])
+const selectedTags = ref([])
+const selectedRelatedUsers = ref([])
+const activeList = ref(null)
+const searchQuery = reactive({
+  tag: '',
+  user: '',
+})
+const followUpInput = ref('')
+const followUpItems = ref([])
+const editingFollowUpIndex = ref(null)
+const followUpEditValue = ref('')
 const editForm = ref({
   client: '',
   vendor: '',
   product: '',
-  tag: '',
   scheduled_at: '',
   location: '',
-  follow_up: '',
 })
 const showResult = ref(false)
 const resultTitle = ref('')
@@ -69,6 +80,33 @@ const parseJsonSafe = async (response) => {
 
 const getRelatedUsers = (item) => item.related_users || []
 
+const fetchTagOptions = async () => {
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/options/tag`)
+    if (!response.ok) return
+    const data = await response.json()
+    tagOptions.value = Array.isArray(data) ? data : []
+  } catch (error) {
+    console.error(error)
+  }
+}
+
+const fetchUsers = async () => {
+  const auth = readAuthStorage()
+  if (!auth) return
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/users`, {
+      headers: { Authorization: `Bearer ${auth.token}` },
+    })
+    if (!response.ok) return
+    const data = await response.json()
+    if (!data?.success) return
+    relatedUsers.value = data.data || []
+  } catch (error) {
+    console.error(error)
+  }
+}
+
 const fetchSubmissions = async () => {
   const auth = readAuthStorage()
   if (!auth) {
@@ -103,47 +141,132 @@ const fetchSubmissions = async () => {
   }
 }
 
+const openList = async (type) => {
+  if (activeList.value === type) {
+    activeList.value = null
+    return
+  }
+  activeList.value = type
+  searchQuery[type] = ''
+  if (type === 'tag') {
+    await fetchTagOptions()
+  }
+  if (type === 'user') {
+    await fetchUsers()
+  }
+}
+
+const getFilteredOptions = (type) => {
+  const query = searchQuery[type]?.trim().toLowerCase() ?? ''
+  const source = type === 'tag' ? tagOptions.value : relatedUsers.value
+  if (!query) return source
+  if (type === 'user') {
+    return source.filter((item) =>
+      `${item.username || ''}${item.mail || ''}`.toLowerCase().includes(query)
+    )
+  }
+  return source.filter((item) => item.toLowerCase().includes(query))
+}
+
+const toggleTag = (tag) => {
+  if (selectedTags.value.includes(tag)) {
+    selectedTags.value = selectedTags.value.filter((item) => item !== tag)
+  } else {
+    selectedTags.value = [...selectedTags.value, tag]
+  }
+}
+
+const removeTag = (tag) => {
+  selectedTags.value = selectedTags.value.filter((item) => item !== tag)
+}
+
+const isRelatedUserSelected = (item) =>
+  selectedRelatedUsers.value.some((user) => user.mail === item.mail)
+
+const toggleRelatedUser = (item) => {
+  if (isRelatedUserSelected(item)) {
+    selectedRelatedUsers.value = selectedRelatedUsers.value.filter(
+      (user) => user.mail !== item.mail
+    )
+    return
+  }
+  selectedRelatedUsers.value = [...selectedRelatedUsers.value, item]
+}
+
+const addFollowUpItem = () => {
+  const value = followUpInput.value.trim()
+  if (!value) return
+  followUpItems.value = [...followUpItems.value, value]
+  followUpInput.value = ''
+}
+
+const removeFollowUpItem = (index) => {
+  followUpItems.value = followUpItems.value.filter((_, idx) => idx !== index)
+  if (editingFollowUpIndex.value === index) {
+    editingFollowUpIndex.value = null
+    followUpEditValue.value = ''
+  }
+}
+
+const editFollowUpItem = (item, index) => {
+  editingFollowUpIndex.value = index
+  followUpEditValue.value = item
+}
+
+const confirmFollowUpEdit = () => {
+  const value = followUpEditValue.value.trim()
+  if (!value || editingFollowUpIndex.value === null) return
+  followUpItems.value = followUpItems.value.map((item, index) =>
+    index === editingFollowUpIndex.value ? value : item
+  )
+  editingFollowUpIndex.value = null
+  followUpEditValue.value = ''
+}
+
 const startEdit = (submission) => {
   editingId.value = submission.id
-  const tagValue = Array.isArray(submission.tags) ? submission.tags.join(', ') : submission.tags || ''
-  const followUpValue = Array.isArray(submission.follow_ups)
+  selectedTags.value = Array.isArray(submission.tags) ? submission.tags : []
+  selectedRelatedUsers.value = Array.isArray(submission.related_users)
+    ? submission.related_users
+    : []
+  followUpItems.value = Array.isArray(submission.follow_ups)
     ? submission.follow_ups
         .map((entry) => (typeof entry === 'string' ? entry : entry?.content))
         .filter(Boolean)
-        .join('\n')
-    : submission.follow_ups || ''
+    : []
+  followUpInput.value = ''
+  editingFollowUpIndex.value = null
+  followUpEditValue.value = ''
+  activeList.value = null
+  searchQuery.tag = ''
+  searchQuery.user = ''
   editForm.value = {
     client: submission.client_name,
     vendor: submission.vendor_name,
     product: submission.product_name,
-    tag: tagValue,
     scheduled_at: formatDateTimeInput(submission.scheduled_at),
     location: submission.location,
-    follow_up: followUpValue,
   }
 }
 
 const cancelEdit = () => {
   editingId.value = null
+  activeList.value = null
 }
 
 const saveEdit = async (id) => {
-  const tagItems = editForm.value.tag
-    .split(',')
-    .map((item) => item.trim())
-    .filter(Boolean)
-  const followUpItems = editForm.value.follow_up
-    .split('\n')
-    .map((item) => item.trim())
-    .filter(Boolean)
+  const tagItems = selectedTags.value
+  const relatedUserMails = selectedRelatedUsers.value.map((user) => user.mail)
+  const followUpPayload = followUpItems.value
   if (
     !editForm.value.client?.trim() ||
     !editForm.value.vendor?.trim() ||
     !editForm.value.product?.trim() ||
-    tagItems.length === 0
+    tagItems.length === 0 ||
+    relatedUserMails.length === 0
   ) {
     resultTitle.value = '更新失敗'
-    resultMessage.value = '請完整填寫客戶、廠家、產品、標籤。'
+    resultMessage.value = '請完整填寫客戶、廠家、產品、標籤與關聯用戶。'
     showResult.value = true
     return
   }
@@ -158,7 +281,8 @@ const saveEdit = async (id) => {
     const payload = {
       ...editForm.value,
       tag: tagItems,
-      follow_up: followUpItems,
+      follow_up: followUpPayload,
+      related_user_mail: relatedUserMails,
     }
     const response = await fetch(`${apiBaseUrl}/api/task-submissions/${id}`, {
       method: 'PUT',
@@ -223,7 +347,11 @@ const deleteSubmission = async (id) => {
   }
 }
 
-onMounted(fetchSubmissions)
+onMounted(() => {
+  fetchSubmissions()
+  fetchTagOptions()
+  fetchUsers()
+})
 </script>
 
 <template>
@@ -293,7 +421,34 @@ onMounted(fetchSubmissions)
               </td>
               <td>
                 <template v-if="editingId === item.id">
-                  <input v-model="editForm.tag" type="text" placeholder="以逗號分隔標籤" />
+                  <div class="inline-select">
+                    <button class="select-field" type="button" @click="openList('tag')">
+                      {{ selectedTags.length > 0 ? selectedTags.join('、') : '選擇標籤' }}
+                    </button>
+                    <div v-if="activeList === 'tag'" class="option-list">
+                      <input
+                        v-model="searchQuery.tag"
+                        class="option-search"
+                        type="text"
+                        placeholder="搜尋標籤"
+                      />
+                      <button
+                        v-for="tag in getFilteredOptions('tag')"
+                        :key="tag"
+                        type="button"
+                        class="option-item"
+                        @click="toggleTag(tag)"
+                      >
+                        {{ tag }}
+                      </button>
+                    </div>
+                    <div v-if="selectedTags.length > 0" class="tag-list">
+                      <span v-for="tag in selectedTags" :key="tag" class="tag-chip">
+                        {{ tag }}
+                        <button type="button" class="chip-remove" @click="removeTag(tag)">×</button>
+                      </span>
+                    </div>
+                  </div>
                 </template>
                 <template v-else>
                   <span v-if="item.tags?.length">{{ item.tags.join('、') }}</span>
@@ -314,7 +469,46 @@ onMounted(fetchSubmissions)
               </td>
               <td>
                 <template v-if="editingId === item.id">
-                  <textarea v-model="editForm.follow_up" rows="2"></textarea>
+                  <div class="follow-up-edit">
+                    <div class="follow-up-input">
+                      <input
+                        v-model="followUpInput"
+                        type="text"
+                        placeholder="輸入需跟進內容並加入"
+                      />
+                      <button type="button" class="primary-button small" @click="addFollowUpItem">
+                        新增
+                      </button>
+                    </div>
+                    <div v-if="followUpItems.length > 0" class="follow-up-list">
+                      <div
+                        v-for="(entry, index) in followUpItems"
+                        :key="`${entry}-${index}`"
+                        class="follow-up-item"
+                      >
+                        <template v-if="editingFollowUpIndex === index">
+                          <input v-model="followUpEditValue" type="text" class="follow-up-edit-input" />
+                        </template>
+                        <span v-else>{{ entry }}</span>
+                        <div class="follow-up-actions">
+                          <button
+                            type="button"
+                            class="chip-edit"
+                            @click="
+                              editingFollowUpIndex === index
+                                ? confirmFollowUpEdit()
+                                : editFollowUpItem(entry, index)
+                            "
+                          >
+                            {{ editingFollowUpIndex === index ? '確認' : '✎' }}
+                          </button>
+                          <button type="button" class="chip-remove" @click="removeFollowUpItem(index)">
+                            ×
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </template>
                 <template v-else>
                   <ul v-if="item.follow_ups?.length" class="follow-up-list">
@@ -328,7 +522,48 @@ onMounted(fetchSubmissions)
               <td>{{ item.created_by_email }}</td>
               <td>{{ formatDateTimeDisplay(item.created_at) }}</td>
               <td>
-                <RelatedUsersTooltip :users="getRelatedUsers(item)" />
+                <template v-if="editingId === item.id">
+                  <div class="inline-select">
+                    <button class="select-field" type="button" @click="openList('user')">
+                      {{
+                        selectedRelatedUsers.length > 0
+                          ? selectedRelatedUsers
+                              .map((user) => `${user.username || ''} <${user.mail}>`)
+                              .join(', ')
+                          : '選擇關聯用戶'
+                      }}
+                    </button>
+                    <div v-if="activeList === 'user'" class="option-list">
+                      <input
+                        v-model="searchQuery.user"
+                        class="option-search"
+                        type="text"
+                        placeholder="搜尋用戶"
+                      />
+                      <button
+                        v-for="user in getFilteredOptions('user')"
+                        :key="user.mail"
+                        type="button"
+                        class="option-item user-option"
+                        @click="toggleRelatedUser(user)"
+                      >
+                        <span
+                          class="user-avatar"
+                          :style="{ backgroundColor: user.icon_bg || '#e2e8f0' }"
+                        >
+                          {{ user.icon || '🙂' }}
+                        </span>
+                        <span class="user-label">
+                          {{ user.username || 'user' }} &lt;{{ user.mail }}&gt;
+                        </span>
+                        <span v-if="isRelatedUserSelected(user)" class="user-selected">已選</span>
+                      </button>
+                    </div>
+                  </div>
+                </template>
+                <template v-else>
+                  <RelatedUsersTooltip :users="getRelatedUsers(item)" />
+                </template>
               </td>
               <td class="action-cell">
                 <template v-if="editingId === item.id">
@@ -487,6 +722,104 @@ onMounted(fetchSubmissions)
   font-family: inherit;
 }
 
+.inline-select {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.select-field {
+  width: 100%;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  border-radius: 12px;
+  padding: 0.45rem 0.6rem;
+  font-size: 0.85rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.option-list {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.5rem;
+  display: grid;
+  gap: 0.4rem;
+  background: #fff;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.option-search {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.85rem;
+}
+
+.option-item {
+  border: none;
+  background: #f8fafc;
+  border-radius: 10px;
+  padding: 0.35rem 0.6rem;
+  text-align: left;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: #e2e8f0;
+  color: #1f2937;
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.75rem;
+}
+
+.chip-remove,
+.chip-edit {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.75rem;
+  color: #475569;
+}
+
+.user-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.user-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+}
+
+.user-label {
+  flex: 1;
+  font-size: 0.85rem;
+  color: #0f172a;
+}
+
+.user-selected {
+  font-size: 0.75rem;
+  color: #16a34a;
+  font-weight: 600;
+}
+
 .task-table textarea {
   resize: vertical;
 }
@@ -495,6 +828,49 @@ onMounted(fetchSubmissions)
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
+}
+
+.follow-up-edit {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.follow-up-input {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.follow-up-input input {
+  flex: 1;
+}
+
+.primary-button.small {
+  padding: 0.45rem 0.8rem;
+  border-radius: 10px;
+  font-size: 0.8rem;
+}
+
+.follow-up-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.follow-up-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.follow-up-edit-input {
+  flex: 1;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.85rem;
 }
 
 @media (max-width: 960px) {

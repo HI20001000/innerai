@@ -175,8 +175,18 @@ const ensureTables = async (connection) => {
       submission_id INT NOT NULL,
       content TEXT NOT NULL,
       status_id INT,
+      status_updated_by VARCHAR(255),
+      status_updated_at DATETIME,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       INDEX idx_task_submission_followups_submission (submission_id)
+    )`,
+    `CREATE TABLE IF NOT EXISTS task_submission_followup_assignees (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      followup_id INT NOT NULL,
+      user_mail VARCHAR(255) NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_followup_assignees_followup (followup_id),
+      INDEX idx_followup_assignees_user (user_mail)
     )`,
     `CREATE TABLE IF NOT EXISTS follow_up_statuses (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -281,6 +291,38 @@ const ensureTables = async (connection) => {
     if (error?.code !== 'ER_DUP_FIELDNAME') {
       throw error
     }
+  }
+  try {
+    await connection.query(
+      'ALTER TABLE task_submission_followups ADD COLUMN status_updated_by VARCHAR(255) NULL'
+    )
+  } catch (error) {
+    if (error?.code !== 'ER_DUP_FIELDNAME') {
+      throw error
+    }
+  }
+  try {
+    await connection.query(
+      'ALTER TABLE task_submission_followups ADD COLUMN status_updated_at DATETIME NULL'
+    )
+  } catch (error) {
+    if (error?.code !== 'ER_DUP_FIELDNAME') {
+      throw error
+    }
+  }
+  try {
+    await connection.query(
+      `CREATE TABLE IF NOT EXISTS task_submission_followup_assignees (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        followup_id INT NOT NULL,
+        user_mail VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_followup_assignees_followup (followup_id),
+        INDEX idx_followup_assignees_user (user_mail)
+      )`
+    )
+  } catch (error) {
+    throw error
   }
   try {
     await connection.query(
@@ -533,11 +575,28 @@ const handlePostTaskSubmission = async (req, res) => {
     return
   }
   const followUps = Array.isArray(followUp)
-    ? followUp.map((item) => String(item).trim()).filter(Boolean)
+    ? followUp
+        .map((item) => {
+          if (typeof item === 'object' && item?.content) {
+            const content = String(item.content).trim()
+            if (!content) return null
+            return {
+              content,
+              assignees: Array.isArray(item.assignees)
+                ? item.assignees.map((mail) => String(mail).trim()).filter(Boolean)
+                : [],
+            }
+          }
+          if (isNonEmptyString(item)) {
+            return { content: item.trim(), assignees: [] }
+          }
+          return null
+        })
+        .filter(Boolean)
     : isNonEmptyString(followUp)
-      ? [followUp.trim()]
+      ? [{ content: followUp.trim(), assignees: [] }]
       : []
-  if (followUps.some((item) => item.length > 2000)) {
+  if (followUps.some((item) => item.content.length > 2000)) {
     sendJson(res, 400, { success: false, message: '需跟進內容長度過長' })
     return
   }
@@ -602,11 +661,28 @@ const handlePostTaskSubmission = async (req, res) => {
       } catch (error) {
         console.error(error)
       }
-      const followUpValues = followUps.map((item) => [result.insertId, item, defaultStatusId])
-      await connection.query(
-        'INSERT INTO task_submission_followups (submission_id, content, status_id) VALUES ?',
-        [followUpValues]
-      )
+      const allowedAssignees = new Set(relatedUserMails)
+      for (const item of followUps) {
+        const invalidAssignees = (item.assignees || []).filter(
+          (mail) => !allowedAssignees.has(mail)
+        )
+        if (invalidAssignees.length > 0) {
+          await connection.rollback()
+          sendJson(res, 400, { success: false, message: '跟進人必須為任務關聯用戶' })
+          return
+        }
+        const [followUpResult] = await connection.query(
+          'INSERT INTO task_submission_followups (submission_id, content, status_id) VALUES (?, ?, ?)',
+          [result.insertId, item.content, defaultStatusId]
+        )
+        if (item.assignees && item.assignees.length > 0) {
+          const assigneeValues = item.assignees.map((mail) => [followUpResult.insertId, mail])
+          await connection.query(
+            'INSERT INTO task_submission_followup_assignees (followup_id, user_mail) VALUES ?',
+            [assigneeValues]
+          )
+        }
+      }
     }
     await connection.commit()
     sendJson(res, 201, {
@@ -650,11 +726,34 @@ const handleGetTaskSubmissions = async (req, res) => {
     const [followRows] = await connection.query(
       `SELECT task_submission_followups.id, task_submission_followups.submission_id,
         task_submission_followups.content, task_submission_followups.status_id,
+        task_submission_followups.status_updated_by, task_submission_followups.status_updated_at,
         follow_up_statuses.name as status_name,
-        follow_up_statuses.bg_color as status_bg_color
+        follow_up_statuses.bg_color as status_bg_color,
+        users.username as status_updated_by_name,
+        users.icon as status_updated_by_icon,
+        users.icon_bg as status_updated_by_icon_bg
        FROM task_submission_followups
-       LEFT JOIN follow_up_statuses ON follow_up_statuses.id = task_submission_followups.status_id`
+       LEFT JOIN follow_up_statuses ON follow_up_statuses.id = task_submission_followups.status_id
+       LEFT JOIN users ON users.mail = task_submission_followups.status_updated_by`
     )
+    const [assigneeRows] = await connection.query(
+      `SELECT task_submission_followup_assignees.followup_id,
+        users.mail, users.username, users.icon, users.icon_bg
+       FROM task_submission_followup_assignees
+       LEFT JOIN users ON users.mail = task_submission_followup_assignees.user_mail`
+    )
+    const assigneesByFollowup = new Map()
+    for (const row of assigneeRows) {
+      if (!assigneesByFollowup.has(row.followup_id)) {
+        assigneesByFollowup.set(row.followup_id, [])
+      }
+      assigneesByFollowup.get(row.followup_id).push({
+        mail: row.mail,
+        username: row.username,
+        icon: row.icon,
+        icon_bg: row.icon_bg,
+      })
+    }
     const grouped = new Map()
     for (const row of rows) {
       if (!grouped.has(row.id)) {
@@ -704,6 +803,15 @@ const handleGetTaskSubmissions = async (req, res) => {
           status_id: row.status_id,
           status_name: row.status_name,
           status_bg_color: row.status_bg_color,
+          status_updated_by: row.status_updated_by,
+          status_updated_at:
+            row.status_updated_at instanceof Date
+              ? formatToTaipeiDateTime(row.status_updated_at)
+              : row.status_updated_at,
+          status_updated_by_name: row.status_updated_by_name,
+          status_updated_by_icon: row.status_updated_by_icon,
+          status_updated_by_icon_bg: row.status_updated_by_icon_bg,
+          assignees: assigneesByFollowup.get(row.id) || [],
         })
       }
     }
@@ -850,10 +958,16 @@ const handleUpdateTaskSubmissionFollowupStatus = async (req, res, id) => {
   const user = await getRequiredAuthUser(req, res)
   if (!user) return
   const body = await parseBody(req)
-  const statusId = body?.status_id ?? null
+  const hasStatusUpdate = Object.prototype.hasOwnProperty.call(body || {}, 'status_id')
+  const statusId = hasStatusUpdate ? body?.status_id ?? null : undefined
+  const assignees = Array.isArray(body?.assignees) ? body.assignees : null
+  const cleanedAssignees = assignees
+    ? assignees.filter((mail) => typeof mail === 'string' && mail.trim())
+    : null
+  let connection
   try {
-    const connection = await getConnection()
-    if (statusId !== null) {
+    connection = await getConnection()
+    if (hasStatusUpdate && statusId !== null) {
       const [rows] = await connection.query(
         'SELECT id FROM follow_up_statuses WHERE id = ?',
         [statusId]
@@ -863,16 +977,68 @@ const handleUpdateTaskSubmissionFollowupStatus = async (req, res, id) => {
         return
       }
     }
-    const [result] = await connection.query(
-      'UPDATE task_submission_followups SET status_id = ? WHERE id = ?',
-      [statusId, id]
-    )
-    if (result.affectedRows === 0) {
-      sendJson(res, 404, { success: false, message: '找不到跟進內容' })
-      return
+    if (assignees) {
+      const [followupRows] = await connection.query(
+        'SELECT submission_id FROM task_submission_followups WHERE id = ?',
+        [id]
+      )
+      if (followupRows.length === 0) {
+        sendJson(res, 404, { success: false, message: '找不到跟進內容' })
+        return
+      }
+      const submissionId = followupRows[0]?.submission_id
+      if (!submissionId) {
+        sendJson(res, 404, { success: false, message: '找不到任務資料' })
+        return
+      }
+      const [relatedRows] = await connection.query(
+        'SELECT user_mail FROM task_submission_users WHERE submission_id = ?',
+        [submissionId]
+      )
+      const allowedAssignees = new Set(relatedRows.map((row) => row.user_mail))
+      const invalidAssignees = (cleanedAssignees || []).filter(
+        (mail) => !allowedAssignees.has(mail.trim())
+      )
+      if (invalidAssignees.length > 0) {
+        sendJson(res, 400, { success: false, message: '跟進人必須為任務關聯用戶' })
+        return
+      }
     }
-    sendJson(res, 200, { success: true, message: '狀態已更新' })
+    await connection.beginTransaction()
+    if (hasStatusUpdate) {
+      const [result] = await connection.query(
+        'UPDATE task_submission_followups SET status_id = ?, status_updated_by = ?, status_updated_at = NOW() WHERE id = ?',
+        [statusId, user.mail, id]
+      )
+      if (result.affectedRows === 0) {
+        await connection.rollback()
+        sendJson(res, 404, { success: false, message: '找不到跟進內容' })
+        return
+      }
+    }
+    if (assignees) {
+      await connection.query(
+        'DELETE FROM task_submission_followup_assignees WHERE followup_id = ?',
+        [id]
+      )
+      if (cleanedAssignees && cleanedAssignees.length) {
+        const values = cleanedAssignees.map((mail) => [id, mail.trim()])
+        await connection.query(
+          'INSERT INTO task_submission_followup_assignees (followup_id, user_mail) VALUES ?',
+          [values]
+        )
+      }
+    }
+    await connection.commit()
+    sendJson(res, 200, { success: true, message: '跟進內容已更新' })
   } catch (error) {
+    try {
+      if (connection) {
+        await connection.rollback()
+      }
+    } catch (rollbackError) {
+      console.error(rollbackError)
+    }
     console.error(error)
     sendJson(res, 500, { success: false, message: '狀態更新失敗' })
   }
