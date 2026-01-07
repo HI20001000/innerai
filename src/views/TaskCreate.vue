@@ -1175,6 +1175,7 @@ onMounted(() => {
   background: #fff;
   text-align: left;
   cursor: pointer;
+  min-width: 160px;
 }
 
 .select-field::after {
@@ -1327,6 +1328,7 @@ onMounted(() => {
 .ghost-button.small {
   padding: 0.45rem 0.8rem;
   font-size: 0.85rem;
+  min-width: 110px;
 }
 
 .ghost-button.small:disabled {
@@ -1341,6 +1343,7 @@ onMounted(() => {
 .select-field.small {
   padding: 0.4rem 0.6rem;
   font-size: 0.8rem;
+  min-width: 150px;
 }
 
 .select-field.small:disabled {
