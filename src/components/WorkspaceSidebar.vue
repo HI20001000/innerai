@@ -1,16 +1,65 @@
 <template>
   <aside class="workspace-sidebar">
     <div class="sidebar-top">
-      <button class="home-button" type="button" aria-label="返回首頁" @click="onGoHome">
-        <span class="home-icon">⌂</span>
+      <button
+        class="sidebar-button"
+        :class="{ active: activePath === '/home' }"
+        type="button"
+        aria-label="返回首頁"
+        @click="onGoHome"
+      >
+        <span class="sidebar-glyph">⌂</span>
+        首頁
       </button>
-      <button class="sidebar-button" type="button" aria-label="新增任務" @click="onCreateTask">
-        <span class="sidebar-icon">＋</span>
+      <button
+        class="sidebar-button"
+        :class="{ active: activePath === '/tasks/new' }"
+        type="button"
+        aria-label="新增任務"
+        @click="onCreateTask"
+      >
+        <span class="sidebar-glyph">＋</span>
         新增任務
+      </button>
+      <button
+        class="sidebar-button"
+        :class="{ active: activePath === '/tasks/view' }"
+        type="button"
+        aria-label="檢視任務"
+        @click="onViewTasks"
+      >
+        <span class="sidebar-glyph">◎</span>
+        檢視任務
+      </button>
+      <button
+        class="sidebar-button"
+        :class="{ active: activePath === '/meetings/upload' }"
+        type="button"
+        aria-label="上傳會議記錄"
+        @click="onUploadMeeting"
+      >
+        <span class="sidebar-glyph">⬆</span>
+        會議記錄
+      </button>
+      <button
+        class="sidebar-button"
+        :class="{ active: activePath === '/meetings' }"
+        type="button"
+        aria-label="檢視會議記錄"
+        @click="onViewMeetings"
+      >
+        <span class="sidebar-glyph">📄</span>
+        記錄檢視
       </button>
     </div>
     <div class="sidebar-bottom">
-      <button class="profile-button" type="button" aria-label="個人設定" @click="goToProfile">
+      <button
+        class="profile-button"
+        :class="{ active: activePath === '/settings' }"
+        type="button"
+        aria-label="個人設定"
+        @click="goToProfile"
+      >
         <span
           class="profile-avatar"
           :style="{ backgroundColor: currentUser.icon_bg || '#e2e8f0' }"
@@ -25,8 +74,28 @@
 <script setup>
 import { onMounted, onUnmounted, ref } from 'vue'
 
-const { onCreateTask, onGoHome, onGoProfile } = defineProps({
+const {
+  onCreateTask,
+  onGoHome,
+  onGoProfile,
+  onViewTasks,
+  onUploadMeeting,
+  onViewMeetings,
+  activePath,
+} = defineProps({
   onCreateTask: {
+    type: Function,
+    default: () => {},
+  },
+  onViewTasks: {
+    type: Function,
+    default: () => {},
+  },
+  onUploadMeeting: {
+    type: Function,
+    default: () => {},
+  },
+  onViewMeetings: {
     type: Function,
     default: () => {},
   },
@@ -37,6 +106,10 @@ const { onCreateTask, onGoHome, onGoProfile } = defineProps({
   onGoProfile: {
     type: Function,
     default: () => {},
+  },
+  activePath: {
+    type: String,
+    default: '',
   },
 })
 
@@ -66,13 +139,19 @@ const handleStorage = (event) => {
   }
 }
 
+const handleUserUpdate = () => {
+  loadUser()
+}
+
 onMounted(() => {
   loadUser()
   window.addEventListener('storage', handleStorage)
+  window.addEventListener('innerai_user_updated', handleUserUpdate)
 })
 
 onUnmounted(() => {
   window.removeEventListener('storage', handleStorage)
+  window.removeEventListener('innerai_user_updated', handleUserUpdate)
 })
 </script>
 
@@ -103,22 +182,6 @@ onUnmounted(() => {
   align-items: center;
 }
 
-.home-button {
-  border: none;
-  background: rgba(255, 255, 255, 0.12);
-  color: #fff;
-  border-radius: 16px;
-  width: 56px;
-  height: 56px;
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-}
-
-.home-icon {
-  font-size: 1.1rem;
-}
-
 .sidebar-button {
   border: none;
   background: #2563eb;
@@ -137,9 +200,28 @@ onUnmounted(() => {
   box-shadow: 0 14px 26px rgba(37, 99, 235, 0.4);
 }
 
-.sidebar-icon {
-  font-size: 1.4rem;
+.sidebar-button.active {
+  background: #1d4ed8;
+  box-shadow: 0 16px 28px rgba(29, 78, 216, 0.5);
+}
+
+.sidebar-glyph {
+  width: 28px;
+  height: 28px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.2);
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.sidebar-button .sidebar-glyph {
   margin-bottom: 0.1rem;
+}
+
+.sidebar-button.secondary .sidebar-glyph {
+  background: rgba(255, 255, 255, 0.28);
 }
 
 .profile-button {
@@ -151,6 +233,15 @@ onUnmounted(() => {
   display: grid;
   place-items: center;
   cursor: pointer;
+}
+
+.profile-button.active {
+  background: #38bdf8;
+}
+
+.profile-button.active .profile-avatar {
+  background: rgba(15, 23, 42, 0.2);
+  color: #fff;
 }
 
 .profile-avatar {
@@ -187,13 +278,17 @@ onUnmounted(() => {
     padding: 0.8rem 1.2rem;
   }
 
-  .sidebar-icon {
-    margin: 0 0.4rem 0 0;
-  }
-
   .sidebar-button {
     display: inline-flex;
     gap: 0.4rem;
+  }
+
+  .sidebar-glyph {
+    margin: 0 0.4rem 0 0;
+  }
+
+  .sidebar-button .sidebar-glyph {
+    margin-bottom: 0;
   }
 }
 </style>
