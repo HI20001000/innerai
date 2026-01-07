@@ -35,6 +35,10 @@ const props = defineProps({
     type: String,
     default: () => getTaipeiTodayKey(),
   },
+  submissions: {
+    type: Array,
+    default: null,
+  },
 })
 
 const emit = defineEmits(['select-date'])
@@ -57,6 +61,11 @@ const fetchSubmissions = async () => {
     isLoading.value = false
   }
 }
+
+const hasExternalSubmissions = computed(() => Array.isArray(props.submissions))
+const submissionsSource = computed(() =>
+  hasExternalSubmissions.value ? props.submissions : submissions.value
+)
 
 const selectedMonth = ref(new Date())
 
@@ -111,10 +120,14 @@ const openMonthPicker = () => {
 
 const followUpStatusByDate = computed(() => {
   const mail = readUserMail()
-  return buildFollowUpStatusByDate(submissions.value, mail, toDateKey)
+  return buildFollowUpStatusByDate(submissionsSource.value || [], mail, toDateKey)
 })
 
-onMounted(fetchSubmissions)
+onMounted(() => {
+  if (!hasExternalSubmissions.value) {
+    fetchSubmissions()
+  }
+})
 </script>
 
 <template>
