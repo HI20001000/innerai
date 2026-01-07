@@ -575,11 +575,28 @@ const handlePostTaskSubmission = async (req, res) => {
     return
   }
   const followUps = Array.isArray(followUp)
-    ? followUp.map((item) => String(item).trim()).filter(Boolean)
+    ? followUp
+        .map((item) => {
+          if (typeof item === 'object' && item?.content) {
+            const content = String(item.content).trim()
+            if (!content) return null
+            return {
+              content,
+              assignees: Array.isArray(item.assignees)
+                ? item.assignees.map((mail) => String(mail).trim()).filter(Boolean)
+                : [],
+            }
+          }
+          if (isNonEmptyString(item)) {
+            return { content: item.trim(), assignees: [] }
+          }
+          return null
+        })
+        .filter(Boolean)
     : isNonEmptyString(followUp)
-      ? [followUp.trim()]
+      ? [{ content: followUp.trim(), assignees: [] }]
       : []
-  if (followUps.some((item) => item.length > 2000)) {
+  if (followUps.some((item) => item.content.length > 2000)) {
     sendJson(res, 400, { success: false, message: '需跟進內容長度過長' })
     return
   }
@@ -644,11 +661,28 @@ const handlePostTaskSubmission = async (req, res) => {
       } catch (error) {
         console.error(error)
       }
-      const followUpValues = followUps.map((item) => [result.insertId, item, defaultStatusId])
-      await connection.query(
-        'INSERT INTO task_submission_followups (submission_id, content, status_id) VALUES ?',
-        [followUpValues]
-      )
+      const allowedAssignees = new Set(relatedUserMails)
+      for (const item of followUps) {
+        const invalidAssignees = (item.assignees || []).filter(
+          (mail) => !allowedAssignees.has(mail)
+        )
+        if (invalidAssignees.length > 0) {
+          await connection.rollback()
+          sendJson(res, 400, { success: false, message: '跟進人必須為任務關聯用戶' })
+          return
+        }
+        const [followUpResult] = await connection.query(
+          'INSERT INTO task_submission_followups (submission_id, content, status_id) VALUES (?, ?, ?)',
+          [result.insertId, item.content, defaultStatusId]
+        )
+        if (item.assignees && item.assignees.length > 0) {
+          const assigneeValues = item.assignees.map((mail) => [followUpResult.insertId, mail])
+          await connection.query(
+            'INSERT INTO task_submission_followup_assignees (followup_id, user_mail) VALUES ?',
+            [assigneeValues]
+          )
+        }
+      }
     }
     await connection.commit()
     sendJson(res, 201, {
