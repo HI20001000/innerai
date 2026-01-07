@@ -1,9 +1,9 @@
-const PENDING_STATUS_NAME = '待處理'
+const COMPLETED_STATUS_NAME = '已完成'
 
 export const countPendingForFollowUps = (followUps = []) =>
   followUps.filter((followUp) => {
-    const statusName = String(followUp?.status_name || '')
-    return statusName === PENDING_STATUS_NAME
+    const statusName = String(followUp?.status_name || '').trim()
+    return statusName !== COMPLETED_STATUS_NAME
   }).length
 
 export const countPendingFollowUps = (items = []) =>
