@@ -299,6 +299,11 @@ const applyQuickAssign = (user) => {
   activeQuickAssignMenu.value = false
 }
 
+const getFollowUpAssigneeLabel = (item) => {
+  const count = item.assignees?.length || 0
+  return count > 0 ? `已選${count}人` : '設定跟進人'
+}
+
 const closeModal = () => {
   activeModal.value = null
   newOption.value = ''
