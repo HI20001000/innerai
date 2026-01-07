@@ -23,6 +23,7 @@ const followUpItems = ref([])
 const editingFollowUpIndex = ref(null)
 const followUpEditValue = ref('')
 const activeFollowUpAssigneeMenu = ref(null)
+const activeQuickAssignMenu = ref(false)
 const showRequiredHints = ref(false)
 const searchQuery = reactive({
   client: '',
@@ -301,8 +302,20 @@ const toggleFollowUpAssignee = (item, user) => {
   item.assignees = [...(item.assignees || []), user.mail]
 }
 
-const assignAllFollowUpAssignees = (item) => {
-  item.assignees = selectedRelatedUsers.value.map((user) => user.mail)
+const toggleQuickAssignMenu = () => {
+  activeQuickAssignMenu.value = !activeQuickAssignMenu.value
+  searchQuery.user = ''
+}
+
+const applyQuickAssign = (user) => {
+  if (!user?.mail) return
+  followUpItems.value = followUpItems.value.map((item) => ({
+    ...item,
+    assignees: item.assignees?.includes(user.mail)
+      ? item.assignees
+      : [...(item.assignees || []), user.mail],
+  }))
+  activeQuickAssignMenu.value = false
 }
 
 const getFollowUpAssigneeLabel = (item) => {
@@ -783,6 +796,41 @@ onMounted(() => {
           <label class="field wide">
             <span>需跟進內容</span>
             <div class="follow-up-input">
+              <div class="quick-assign-wrapper">
+                <button
+                  type="button"
+                  class="ghost-button small"
+                  :disabled="selectedRelatedUsers.length === 0 || followUpItems.length === 0"
+                  @click="toggleQuickAssignMenu"
+                >
+                  一鍵指派
+                </button>
+                <div v-if="activeQuickAssignMenu" class="option-list assignee-list">
+                  <input
+                    v-model="searchQuery.user"
+                    class="option-search"
+                    type="text"
+                    placeholder="搜尋用戶"
+                  />
+                  <button
+                    v-for="user in getFilteredRelatedUsers()"
+                    :key="user.mail"
+                    type="button"
+                    class="option-item user-option"
+                    @click="applyQuickAssign(user)"
+                  >
+                    <span
+                      class="user-avatar"
+                      :style="{ backgroundColor: user.icon_bg || '#e2e8f0' }"
+                    >
+                      {{ user.icon || '🙂' }}
+                    </span>
+                    <span class="user-label">
+                      {{ user.username || 'user' }} &lt;{{ user.mail }}&gt;
+                    </span>
+                  </button>
+                </div>
+              </div>
               <input
                 v-model="followUpInput"
                 type="text"
@@ -801,7 +849,7 @@ onMounted(() => {
                 <template v-if="editingFollowUpIndex === index">
                   <input v-model="followUpEditValue" type="text" class="follow-up-edit-input" />
                 </template>
-                <span v-else>{{ item.content }}</span>
+                <span v-else class="follow-up-content">{{ item.content }}</span>
                 <div class="follow-up-actions">
                   <div class="follow-up-assignee">
                     <button
@@ -868,6 +916,50 @@ onMounted(() => {
                   <button type="button" class="chip-remove" @click="removeFollowUpItem(index)">
                     ×
                   </button>
+                  <div class="follow-up-assignee">
+                    <button
+                      type="button"
+                      class="select-field small"
+                      :disabled="selectedRelatedUsers.length === 0"
+                      @click="toggleFollowUpAssigneeMenu(index)"
+                    >
+                      {{ getFollowUpAssigneeLabel(item) }}
+                    </button>
+                    <div
+                      v-if="activeFollowUpAssigneeMenu === index"
+                      class="option-list assignee-list"
+                    >
+                      <input
+                        v-model="searchQuery.user"
+                        class="option-search"
+                        type="text"
+                        placeholder="搜尋用戶"
+                      />
+                      <button
+                        v-for="user in getFilteredRelatedUsers()"
+                        :key="user.mail"
+                        type="button"
+                        class="option-item user-option"
+                        @click="toggleFollowUpAssignee(item, user)"
+                      >
+                        <span
+                          class="user-avatar"
+                          :style="{ backgroundColor: user.icon_bg || '#e2e8f0' }"
+                        >
+                          {{ user.icon || '🙂' }}
+                        </span>
+                        <span class="user-label">
+                          {{ user.username || 'user' }} &lt;{{ user.mail }}&gt;
+                        </span>
+                        <span
+                          v-if="isFollowUpAssigneeSelected(item, user)"
+                          class="user-selected"
+                        >
+                          已選
+                        </span>
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1212,23 +1304,38 @@ onMounted(() => {
   border-radius: 12px;
   padding: 0.4rem 0.6rem;
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
   gap: 0.6rem;
 }
 
 .follow-up-actions {
-  width: 100%;
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  margin-left: auto;
+}
+
+.follow-up-content {
+  flex: 1;
+  color: #0f172a;
+}
+
+.quick-assign-wrapper {
+  position: relative;
+}
+
+.ghost-button.small {
+  padding: 0.45rem 0.8rem;
+  font-size: 0.85rem;
+}
+
+.ghost-button.small:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .follow-up-assignee {
   position: relative;
-  margin-right: auto;
 }
 
 .select-field.small {
@@ -1243,12 +1350,6 @@ onMounted(() => {
 
 .assignee-list {
   max-height: 200px;
-}
-
-.quick-assign {
-  background: #eef2ff;
-  color: #4338ca;
-  font-weight: 600;
 }
 
 .option-status.exists {
