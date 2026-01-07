@@ -1002,6 +1002,18 @@ onMounted(() => {
   gap: 0.4rem;
 }
 
+.checkmark {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1px solid #cbd5f5;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  color: #4338ca;
+}
+
 .status-item.more {
   background: #eef2ff;
   color: #4338ca;
