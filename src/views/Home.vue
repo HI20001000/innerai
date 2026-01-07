@@ -103,7 +103,7 @@ const fetchStatuses = async () => {
   const auth = readAuthStorage()
   if (!auth) return
   try {
-    const response = await fetch(endpoint, {
+    const response = await fetch(`${apiBaseUrl}/api/follow-up-statuses`, {
       headers: { Authorization: `Bearer ${auth.token}` },
     })
     const data = await response.json()
