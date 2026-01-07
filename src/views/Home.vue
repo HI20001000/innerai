@@ -127,6 +127,21 @@ const fetchStatuses = async () => {
   }
 }
 
+const fetchUsers = async () => {
+  const auth = readAuthStorage()
+  if (!auth) return
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/users`, {
+      headers: { Authorization: `Bearer ${auth.token}` },
+    })
+    const data = await response.json()
+    if (!response.ok || !data?.success) return
+    allUsers.value = data.data || []
+  } catch (error) {
+    console.error(error)
+  }
+}
+
 const timelineItems = computed(() => {
   const mail = readUserMail()
   if (!mail) return []
@@ -406,6 +421,7 @@ onMounted(() => {
   loadUser()
   fetchSubmissions()
   fetchStatuses()
+  fetchUsers()
 })
 </script>
 
@@ -996,6 +1012,18 @@ onMounted(() => {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
+}
+
+.checkmark {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1px solid #cbd5f5;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  color: #4338ca;
 }
 
 .status-item.more {
