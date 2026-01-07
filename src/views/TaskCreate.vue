@@ -1292,6 +1292,10 @@ onMounted(() => {
   margin-left: auto;
 }
 
+.follow-up-assignee {
+  position: relative;
+}
+
 .follow-up-content {
   flex: 1;
   color: #0f172a;
