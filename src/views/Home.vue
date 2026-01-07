@@ -278,9 +278,11 @@ const toggleAssigneeMenu = (followUpId) => {
 const isAssigneeSelected = (followUp, mail) =>
   Array.isArray(followUp?.assignees) && followUp.assignees.some((user) => user.mail === mail)
 
-const toggleAssignee = async (followUp, mail) => {
+const toggleAssignee = async (followUp, user) => {
+  const mail = user?.mail
+  if (!mail) return
   const current = Array.isArray(followUp?.assignees) ? followUp.assignees : []
-  const mails = current.map((user) => user.mail)
+  const mails = current.map((assignee) => assignee.mail)
   const next = mails.includes(mail)
     ? mails.filter((item) => item !== mail)
     : [...mails, mail]
@@ -296,7 +298,11 @@ const filteredStatuses = computed(() => {
 const filteredUsers = computed(() => {
   const query = assigneeSearch.value.trim().toLowerCase()
   if (!query) return allUsers.value
-  return allUsers.value.filter((user) => String(user.username || '').toLowerCase().includes(query))
+  return allUsers.value.filter((user) => {
+    const name = String(user.username || '').toLowerCase()
+    const mail = String(user.mail || '').toLowerCase()
+    return name.includes(query) || mail.includes(query)
+  })
 })
 
 const openStatusModal = () => {
@@ -548,32 +554,46 @@ onMounted(() => {
                           </button>
                         </div>
                         </div>
-                        <div class="status-select">
+                        <div class="assignee-select">
                           <button
                             type="button"
-                            class="status-select-button"
+                            class="select-field"
                             @click="toggleAssigneeMenu(follow.id)"
                           >
-                            指派跟進人
+                            {{
+                              follow.assignees?.length
+                                ? follow.assignees
+                                    .map((user) => `${user.username || ''} <${user.mail}>`)
+                                    .join(', ')
+                                : '選擇關聯用戶'
+                            }}
                           </button>
-                          <div v-if="activeAssigneeMenu === follow.id" class="status-menu">
+                          <div v-if="activeAssigneeMenu === follow.id" class="option-list">
                             <input
                               v-model="assigneeSearch"
-                              class="status-search"
+                              class="option-search"
                               type="text"
-                              placeholder="搜尋成員"
+                              placeholder="搜尋用戶"
                             />
                             <button
                               v-for="user in filteredUsers"
                               :key="user.mail"
                               type="button"
-                              class="status-item"
-                              @click="toggleAssignee(follow, user.mail)"
+                              class="option-item user-option"
+                              @click="toggleAssignee(follow, user)"
                             >
-                              <span class="checkmark">
-                                {{ isAssigneeSelected(follow, user.mail) ? '✓' : '' }}
+                              <span
+                                class="user-avatar"
+                                :style="{ backgroundColor: user.icon_bg || '#e2e8f0' }"
+                              >
+                                {{ user.icon || '🙂' }}
                               </span>
-                              {{ user.username }}
+                              <span class="user-label">
+                                {{ user.username || 'user' }} &lt;{{ user.mail }}&gt;
+                              </span>
+                              <span v-if="isAssigneeSelected(follow, user.mail)" class="user-selected">
+                                已選
+                              </span>
                             </button>
                           </div>
                         </div>
@@ -588,7 +608,11 @@ onMounted(() => {
         </article>
 
         <article class="panel wide">
-          <MonthlyCalendar :selected-date="selectedDate" @select-date="handleSelectDate" />
+          <MonthlyCalendar
+            :selected-date="selectedDate"
+            :submissions="submissions"
+            @select-date="handleSelectDate"
+          />
         </article>
       </section>
     </main>
@@ -993,6 +1017,93 @@ onMounted(() => {
 .status-item.more {
   background: #eef2ff;
   color: #4338ca;
+  font-weight: 600;
+}
+
+.assignee-select {
+  position: relative;
+  min-width: 220px;
+  flex: 1;
+}
+
+.select-field {
+  width: 100%;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  border-radius: 12px;
+  padding: 0.45rem 0.7rem;
+  font-size: 0.85rem;
+  text-align: left;
+  cursor: pointer;
+  color: #0f172a;
+}
+
+.option-list {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  left: 0;
+  right: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+  padding: 0.4rem;
+  display: grid;
+  gap: 0.3rem;
+  max-height: 180px;
+  overflow: auto;
+  z-index: 10;
+  box-shadow: 0 18px 30px rgba(15, 23, 42, 0.12);
+}
+
+.option-search {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.45rem 0.6rem;
+  font-size: 0.85rem;
+  background: #fff;
+}
+
+.option-item {
+  border: none;
+  background: transparent;
+  text-align: left;
+  padding: 0.5rem 0.7rem;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 500;
+  color: #1f2937;
+}
+
+.option-item:hover {
+  background: #e2e8f0;
+}
+
+.user-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+}
+
+.user-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 0.75rem;
+  background: #e2e8f0;
+}
+
+.user-label {
+  font-size: 0.85rem;
+  color: #1f2937;
+}
+
+.user-selected {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: #16a34a;
   font-weight: 600;
 }
 
