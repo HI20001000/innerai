@@ -129,6 +129,14 @@ const formatTimeOnly = (value) => {
   return parts.length > 1 ? parts[1].slice(0, 5) : formatted
 }
 
+const timelineTitle = computed(() => {
+  const date = selectedDate.value
+  if (!date) return '時間線'
+  const [year, month, day] = date.split('-')
+  if (!year || !month || !day) return '時間線'
+  return `${year}年${month}月${day}日時間線`
+})
+
 const updateFollowUpStatus = async (followUp, status) => {
   const auth = readAuthStorage()
   if (!auth) return
@@ -291,7 +299,7 @@ onMounted(() => {
       <section class="content-grid">
         <article class="panel">
           <header class="panel-header">
-            <h2>今日時間線</h2>
+            <h2>{{ timelineTitle }}</h2>
             <p>依時間快速檢視選取日期需要跟進的項目。</p>
           </header>
           <div class="timeline">
@@ -354,47 +362,6 @@ onMounted(() => {
                   <p v-else class="timeline-note">尚無需跟進內容。</p>
                 </div>
               </div>
-            </div>
-          </div>
-        </article>
-
-        <article class="panel">
-          <header class="panel-header">
-            <h2>今日追蹤</h2>
-            <p>本日重點提醒，快速查看待辦狀態。</p>
-          </header>
-          <div class="progress-list">
-            <div class="progress-item">
-              <div>
-                <p class="progress-title">登入頁面 UI 完成度</p>
-                <p class="progress-meta">設計校正中</p>
-              </div>
-              <span class="progress-value">78%</span>
-            </div>
-            <div class="progress-bar">
-              <span style="width: 78%"></span>
-            </div>
-
-            <div class="progress-item">
-              <div>
-                <p class="progress-title">API 串接準備</p>
-                <p class="progress-meta">等候後端規格確認</p>
-              </div>
-              <span class="progress-value">52%</span>
-            </div>
-            <div class="progress-bar">
-              <span style="width: 52%"></span>
-            </div>
-
-            <div class="progress-item">
-              <div>
-                <p class="progress-title">測試腳本整理</p>
-                <p class="progress-meta">下班前完成</p>
-              </div>
-              <span class="progress-value">34%</span>
-            </div>
-            <div class="progress-bar">
-              <span style="width: 34%"></span>
             </div>
           </div>
         </article>
@@ -766,46 +733,6 @@ onMounted(() => {
   font-weight: 600;
 }
 
-.progress-list {
-  display: grid;
-  gap: 1.2rem;
-}
-
-.progress-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.progress-title {
-  margin: 0;
-  font-weight: 600;
-}
-
-.progress-meta {
-  margin: 0.2rem 0 0;
-  color: #94a3b8;
-  font-size: 0.85rem;
-}
-
-.progress-value {
-  font-weight: 600;
-  color: #1d4ed8;
-}
-
-.progress-bar {
-  height: 8px;
-  background: #e2e8f0;
-  border-radius: 999px;
-  overflow: hidden;
-}
-
-.progress-bar span {
-  display: block;
-  height: 100%;
-  background: linear-gradient(90deg, #1d4ed8, #6366f1);
-  border-radius: inherit;
-}
 
 
 @media (max-width: 960px) {

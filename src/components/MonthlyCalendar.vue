@@ -37,6 +37,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['select-date'])
+const monthPicker = ref(null)
 
 const fetchSubmissions = async () => {
   const auth = readAuthStorage()
@@ -91,8 +92,20 @@ const changeMonth = (offset) => {
   selectedMonth.value = new Date(base.getFullYear(), base.getMonth() + offset, 1)
 }
 
-const resetMonth = () => {
-  selectedMonth.value = new Date()
+const handleMonthChange = (event) => {
+  const value = event.target.value
+  if (!value) return
+  const [year, month] = value.split('-').map(Number)
+  if (!year || !month) return
+  selectedMonth.value = new Date(year, month - 1, 1)
+}
+
+const openMonthPicker = () => {
+  if (monthPicker.value?.showPicker) {
+    monthPicker.value.showPicker()
+    return
+  }
+  monthPicker.value?.click()
 }
 
 const todoCounts = computed(() => {
@@ -121,9 +134,19 @@ onMounted(fetchSubmissions)
       </div>
       <div class="calendar-controls">
         <button class="calendar-nav" type="button" @click="changeMonth(-1)">‹</button>
-        <button class="calendar-month" type="button" @click="resetMonth">
+        <button class="calendar-month" type="button" @click="openMonthPicker">
           {{ monthLabel }}
         </button>
+        <input
+          ref="monthPicker"
+          class="calendar-month-input"
+          type="month"
+          :value="`${selectedMonth.getFullYear()}-${String(selectedMonth.getMonth() + 1).padStart(
+            2,
+            '0'
+          )}`"
+          @change="handleMonthChange"
+        />
         <button class="calendar-nav" type="button" @click="changeMonth(1)">›</button>
       </div>
     </header>
@@ -207,6 +230,14 @@ onMounted(fetchSubmissions)
   padding: 0.35rem 0.9rem;
   border-radius: 999px;
   cursor: pointer;
+}
+
+.calendar-month-input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+  width: 1px;
+  height: 1px;
 }
 
 .calendar-grid {
