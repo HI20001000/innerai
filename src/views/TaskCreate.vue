@@ -20,6 +20,7 @@ const recordedAt = ref('')
 const selectedLocation = ref('')
 const followUpInput = ref('')
 const followUpItems = ref([])
+const editingFollowUpIndex = ref(null)
 const showRequiredHints = ref(false)
 const searchQuery = reactive({
   client: '',
@@ -212,12 +213,29 @@ const removeTag = (tag) => {
 const addFollowUpItem = () => {
   const value = followUpInput.value.trim()
   if (!value) return
+  if (editingFollowUpIndex.value !== null) {
+    followUpItems.value = followUpItems.value.map((item, index) =>
+      index === editingFollowUpIndex.value ? value : item
+    )
+    editingFollowUpIndex.value = null
+    followUpInput.value = ''
+    return
+  }
   followUpItems.value = [...followUpItems.value, value]
   followUpInput.value = ''
 }
 
-const removeFollowUpItem = (item) => {
-  followUpItems.value = followUpItems.value.filter((entry) => entry !== item)
+const removeFollowUpItem = (index) => {
+  followUpItems.value = followUpItems.value.filter((_, idx) => idx !== index)
+  if (editingFollowUpIndex.value === index) {
+    editingFollowUpIndex.value = null
+    followUpInput.value = ''
+  }
+}
+
+const editFollowUpItem = (item, index) => {
+  followUpInput.value = item
+  editingFollowUpIndex.value = index
 }
 
 const isRelatedUserSelected = (item) =>
@@ -687,11 +705,16 @@ onMounted(() => {
               </button>
             </div>
             <div v-if="followUpItems.length > 0" class="follow-up-list">
-              <div v-for="item in followUpItems" :key="item" class="follow-up-item">
+              <div v-for="(item, index) in followUpItems" :key="`${item}-${index}`" class="follow-up-item">
                 <span>{{ item }}</span>
-                <button type="button" class="chip-remove" @click="removeFollowUpItem(item)">
-                  ×
-                </button>
+                <div class="follow-up-actions">
+                  <button type="button" class="chip-edit" @click="editFollowUpItem(item, index)">
+                    ✎
+                  </button>
+                  <button type="button" class="chip-remove" @click="removeFollowUpItem(index)">
+                    ×
+                  </button>
+                </div>
               </div>
             </div>
           </label>
@@ -974,6 +997,20 @@ onMounted(() => {
   cursor: pointer;
   font-size: 0.9rem;
   color: inherit;
+}
+
+.chip-edit {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: inherit;
+}
+
+.follow-up-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
 .option-status {
