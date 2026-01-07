@@ -807,6 +807,269 @@ const handleUpdateFollowUpStatus = async (req, res, id) => {
   }
   try {
     const connection = await getConnection()
+    const [rows] = await connection.query(
+      `SELECT task_submissions.id, task_submissions.client_name, task_submissions.vendor_name,
+        task_submissions.product_name, task_submissions.scheduled_at,
+        task_submissions.location, task_submissions.recorded_at, task_submissions.created_by_email,
+        task_submissions.created_at,
+        users.mail as related_mail, users.icon as related_icon, users.icon_bg as related_icon_bg,
+        users.username as related_username
+       FROM task_submissions
+       LEFT JOIN task_submission_users ON task_submission_users.submission_id = task_submissions.id
+       LEFT JOIN users ON users.mail = task_submission_users.user_mail
+       ORDER BY task_submissions.created_at DESC`
+    )
+    const [tagRows] = await connection.query(
+      'SELECT submission_id, tag_name FROM task_submission_tags'
+    )
+    const [followRows] = await connection.query(
+      `SELECT task_submission_followups.id, task_submission_followups.submission_id,
+        task_submission_followups.content, task_submission_followups.status_id,
+        follow_up_statuses.name as status_name
+       FROM task_submission_followups
+       LEFT JOIN follow_up_statuses ON follow_up_statuses.id = task_submission_followups.status_id`
+    )
+    const grouped = new Map()
+    for (const row of rows) {
+      if (!grouped.has(row.id)) {
+        grouped.set(row.id, {
+          id: row.id,
+          client_name: row.client_name,
+          vendor_name: row.vendor_name,
+          product_name: row.product_name,
+          scheduled_at:
+            row.scheduled_at instanceof Date
+              ? formatToTaipeiDateTime(row.scheduled_at)
+              : row.scheduled_at,
+          recorded_at:
+            row.recorded_at instanceof Date
+              ? formatToTaipeiDateTime(row.recorded_at)
+              : row.recorded_at,
+          location: row.location,
+          created_by_email: row.created_by_email,
+          created_at:
+            row.created_at instanceof Date
+              ? formatToTaipeiDateTime(row.created_at)
+              : row.created_at,
+          related_users: [],
+          tags: [],
+          follow_ups: [],
+        })
+      }
+      if (row.related_mail) {
+        grouped.get(row.id).related_users.push({
+          mail: row.related_mail,
+          icon: row.related_icon,
+          icon_bg: row.related_icon_bg,
+          username: row.related_username,
+        })
+      }
+    }
+    for (const row of tagRows) {
+      if (grouped.has(row.submission_id)) {
+        grouped.get(row.submission_id).tags.push(row.tag_name)
+      }
+    }
+    for (const row of followRows) {
+      if (grouped.has(row.submission_id)) {
+        grouped.get(row.submission_id).follow_ups.push({
+          id: row.id,
+          content: row.content,
+          status_id: row.status_id,
+          status_name: row.status_name,
+        })
+      }
+    }
+    sendJson(res, 200, { success: true, data: Array.from(grouped.values()) })
+  } catch (error) {
+    console.error(error)
+    sendJson(res, 500, { success: false, message: '無法讀取任務資料' })
+  }
+}
+
+const handleGetUsers = async (req, res) => {
+  const user = await getRequiredAuthUser(req, res)
+  if (!user) return
+  try {
+    const connection = await getConnection()
+    const [rows] = await connection.query(
+      'SELECT mail, icon, icon_bg, username FROM users ORDER BY username ASC'
+    )
+    sendJson(res, 200, { success: true, data: rows })
+  } catch (error) {
+    console.error(error)
+    sendJson(res, 500, { success: false, message: '無法讀取使用者清單' })
+  }
+}
+
+const handleGetFollowUpStatuses = async (req, res) => {
+  const user = await getRequiredAuthUser(req, res)
+  if (!user) return
+  try {
+    const connection = await getConnection()
+    const [rows] = await connection.query(
+      'SELECT id, name FROM follow_up_statuses ORDER BY id ASC'
+    )
+    sendJson(res, 200, { success: true, data: rows })
+  } catch (error) {
+    console.error(error)
+    sendJson(res, 500, { success: false, message: '無法讀取跟進狀態' })
+  }
+}
+
+const handlePostFollowUpStatus = async (req, res) => {
+  const user = await getRequiredAuthUser(req, res)
+  if (!user) return
+  const body = await parseBody(req)
+  const name = body?.name?.trim()
+  if (!name) {
+    sendJson(res, 400, { success: false, message: '狀態名稱為必填' })
+    return
+  }
+  if (name.length > 255) {
+    sendJson(res, 400, { success: false, message: '狀態名稱過長' })
+    return
+  }
+  try {
+    const connection = await getConnection()
+    try {
+      const [result] = await connection.query(
+        'INSERT INTO follow_up_statuses (name) VALUES (?)',
+        [name]
+      )
+      sendJson(res, 201, { success: true, data: { id: result.insertId, name } })
+      return
+    } catch (error) {
+      if (error?.code !== 'ER_DUP_ENTRY') {
+        throw error
+      }
+    }
+    const [rows] = await connection.query('SELECT id, name FROM follow_up_statuses WHERE name = ?', [
+      name,
+    ])
+    const status = rows[0]
+    if (!status) {
+      sendJson(res, 500, { success: false, message: '無法建立狀態' })
+      return
+    }
+    sendJson(res, 200, { success: true, data: status })
+  } catch (error) {
+    console.error(error)
+    sendJson(res, 500, { success: false, message: '新增狀態失敗' })
+  }
+}
+
+const handleDeleteFollowUpStatus = async (req, res, id) => {
+  const user = await getRequiredAuthUser(req, res)
+  if (!user) return
+  try {
+    const connection = await getConnection()
+    const [result] = await connection.query('DELETE FROM follow_up_statuses WHERE id = ?', [id])
+    if (result.affectedRows === 0) {
+      sendJson(res, 404, { success: false, message: '找不到狀態' })
+      return
+    }
+    sendJson(res, 200, { success: true, message: '狀態已刪除' })
+  } catch (error) {
+    console.error(error)
+    sendJson(res, 500, { success: false, message: '刪除狀態失敗' })
+  }
+}
+
+const handleUpdateTaskSubmissionFollowupStatus = async (req, res, id) => {
+  const user = await getRequiredAuthUser(req, res)
+  if (!user) return
+  const body = await parseBody(req)
+  const statusId = body?.status_id ?? null
+  try {
+    const connection = await getConnection()
+    if (statusId !== null) {
+      const [rows] = await connection.query(
+        'SELECT id FROM follow_up_statuses WHERE id = ?',
+        [statusId]
+      )
+      if (rows.length === 0) {
+        sendJson(res, 400, { success: false, message: '狀態不存在' })
+        return
+      }
+    }
+    const [result] = await connection.query(
+      'UPDATE task_submission_followups SET status_id = ? WHERE id = ?',
+      [statusId, id]
+    )
+    if (result.affectedRows === 0) {
+      sendJson(res, 404, { success: false, message: '找不到跟進內容' })
+      return
+    }
+    sendJson(res, 200, { success: true, message: '狀態已更新' })
+  } catch (error) {
+    console.error(error)
+    sendJson(res, 500, { success: false, message: '狀態更新失敗' })
+  }
+}
+
+const handlePostMeetingRecords = async (req, res) => {
+  const user = await getRequiredAuthUser(req, res)
+  if (!user) return
+  const body = await parseBody(req)
+  if (!body) {
+    sendJson(res, 400, { success: false, message: '需要提供會議記錄資料' })
+    return
+  }
+  const { client, vendor, product, meeting_time: meetingTime, files } = body
+  if (!isNonEmptyString(client) || !isNonEmptyString(vendor) || !isNonEmptyString(product)) {
+    sendJson(res, 400, { success: false, message: '客戶、廠家、產品為必填' })
+    return
+  }
+  if (!isNonEmptyString(meetingTime) || Number.isNaN(Date.parse(meetingTime))) {
+    sendJson(res, 400, { success: false, message: '會議時間格式不正確' })
+    return
+  }
+  if (!Array.isArray(files) || files.length === 0) {
+    sendJson(res, 400, { success: false, message: '請上傳會議記錄檔案' })
+    return
+  }
+  const normalizedMeetingTime = normalizeScheduledAt(meetingTime)
+  let connection = null
+  try {
+    connection = await getConnection()
+    await connection.beginTransaction()
+    const [folderResult] = await connection.query(
+      `INSERT INTO meeting_folders
+        (client_name, vendor_name, product_name, meeting_time, created_by_email)
+       VALUES (?, ?, ?, ?, ?)`,
+      [client.trim(), vendor.trim(), product.trim(), normalizedMeetingTime, user.mail]
+    )
+    const folderId = folderResult.insertId
+    await connection.query(
+      'INSERT IGNORE INTO client_vendor_links (client_name, vendor_name) VALUES (?, ?)',
+      [client.trim(), vendor.trim()]
+    )
+    await connection.query(
+      'INSERT IGNORE INTO vendor_product_links (vendor_name, product_name) VALUES (?, ?)',
+      [vendor.trim(), product.trim()]
+    )
+    await connection.query(
+      'INSERT IGNORE INTO product_meeting_links (product_name, meeting_folder_id) VALUES (?, ?)',
+      [product.trim(), folderId]
+    )
+    const records = files.map((file) => {
+      const content = file?.contentBase64
+        ? Buffer.from(String(file.contentBase64), 'base64')
+        : null
+      const isText =
+        file?.type?.startsWith('text/') ||
+        String(file?.name || '').toLowerCase().endsWith('.txt')
+      const contentText = isText && content ? content.toString('utf8') : null
+      return [
+        folderId,
+        file?.name || 'unknown',
+        file?.path || null,
+        file?.type || null,
+        content,
+        contentText,
+      ]
+    })
     await connection.query(
       'UPDATE follow_up_statuses SET name = ?, bg_color = ? WHERE id = ?',
       [name, bgColor || '#e2e8f0', id]
@@ -865,6 +1128,13 @@ const handleUpdateTaskSubmissionFollowupStatus = async (req, res, id) => {
     }
     sendJson(res, 200, { success: true, message: '狀態已更新' })
   } catch (error) {
+    if (connection) {
+      try {
+        await connection.rollback()
+      } catch (rollbackError) {
+        console.error(rollbackError)
+      }
+    }
     console.error(error)
     sendJson(res, 500, { success: false, message: '狀態更新失敗' })
   }
