@@ -123,6 +123,8 @@ const followUpStatusByDate = computed(() => {
   return buildFollowUpStatusByDate(submissionsSource.value || [], mail, toDateKey)
 })
 
+const todayKey = getTaipeiTodayKey()
+
 onMounted(() => {
   if (!hasExternalSubmissions.value) {
     fetchSubmissions()
@@ -166,7 +168,11 @@ onMounted(() => {
         :key="cell.key || cell.dateKey"
         :class="[
           'calendar-cell',
-          { empty: cell.empty, selected: !cell.empty && cell.dateKey === props.selectedDate },
+          {
+            empty: cell.empty,
+            selected: !cell.empty && cell.dateKey === props.selectedDate,
+            past: !cell.empty && cell.dateKey < todayKey,
+          },
         ]"
         type="button"
         :disabled="cell.empty"
@@ -180,13 +186,17 @@ onMounted(() => {
               'calendar-badge',
               followUpStatusByDate[cell.dateKey].pending === 0
                 ? 'calendar-badge-complete'
-                : 'calendar-badge-pending',
+                : cell.dateKey < todayKey
+                  ? 'calendar-badge-overdue'
+                  : 'calendar-badge-pending',
             ]"
           >
             {{
               followUpStatusByDate[cell.dateKey].pending === 0
                 ? '已完成'
-                : `${followUpStatusByDate[cell.dateKey].pending} 待處理`
+                : cell.dateKey < todayKey
+                  ? `${followUpStatusByDate[cell.dateKey].pending} 未完成`
+                  : `${followUpStatusByDate[cell.dateKey].pending} 待處理`
             }}
           </span>
         </template>
@@ -283,6 +293,10 @@ onMounted(() => {
   cursor: pointer;
 }
 
+.calendar-cell.past {
+  background: #fff1f2;
+}
+
 .calendar-cell.empty {
   background: transparent;
   box-shadow: none;
@@ -311,6 +325,11 @@ onMounted(() => {
 .calendar-badge-pending {
   background: #fef3c7;
   color: #92400e;
+}
+
+.calendar-badge-overdue {
+  background: #fee2e2;
+  color: #b91c1c;
 }
 
 .calendar-badge-complete {
