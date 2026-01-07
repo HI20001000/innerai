@@ -714,9 +714,97 @@ const handleGetTaskSubmissions = async (req, res) => {
   }
 }
 
-const handleGetUsers = async (req, res) => {
+const handleGetUsersList = async (req, res) => {
   const user = await getRequiredAuthUser(req, res)
   if (!user) return
+  try {
+    const connection = await getConnection()
+    const [rows] = await connection.query(
+      'SELECT mail, icon, icon_bg, username FROM users ORDER BY username ASC'
+    )
+    sendJson(res, 200, { success: true, data: rows })
+  } catch (error) {
+    console.error(error)
+    sendJson(res, 500, { success: false, message: '無法讀取使用者清單' })
+  }
+}
+
+const handleGetFollowUpStatuses = async (req, res) => {
+  const user = await getRequiredAuthUser(req, res)
+  if (!user) return
+  try {
+    const connection = await getConnection()
+    const [rows] = await connection.query(
+      'SELECT id, name, bg_color FROM follow_up_statuses ORDER BY id ASC'
+    )
+    sendJson(res, 200, { success: true, data: rows })
+  } catch (error) {
+    console.error(error)
+    sendJson(res, 500, { success: false, message: '無法讀取跟進狀態' })
+  }
+}
+
+const handlePostFollowUpStatus = async (req, res) => {
+  const user = await getRequiredAuthUser(req, res)
+  if (!user) return
+  const body = await parseBody(req)
+  const name = body?.name?.trim()
+  const bgColor = body?.bg_color?.trim()
+  if (!name) {
+    sendJson(res, 400, { success: false, message: '狀態名稱為必填' })
+    return
+  }
+  if (name.length > 255) {
+    sendJson(res, 400, { success: false, message: '狀態名稱過長' })
+    return
+  }
+  try {
+    const connection = await getConnection()
+    try {
+      const [result] = await connection.query(
+        'INSERT INTO follow_up_statuses (name, bg_color) VALUES (?, ?)',
+        [name, bgColor || '#e2e8f0']
+      )
+      sendJson(res, 201, {
+        success: true,
+        data: { id: result.insertId, name, bg_color: bgColor || '#e2e8f0' },
+      })
+      return
+    } catch (error) {
+      if (error?.code !== 'ER_DUP_ENTRY') {
+        throw error
+      }
+    }
+    const [rows] = await connection.query(
+      'SELECT id, name, bg_color FROM follow_up_statuses WHERE name = ?',
+      [name]
+    )
+    const status = rows[0]
+    if (!status) {
+      sendJson(res, 500, { success: false, message: '無法建立狀態' })
+      return
+    }
+    sendJson(res, 200, { success: true, data: status })
+  } catch (error) {
+    console.error(error)
+    sendJson(res, 500, { success: false, message: '新增狀態失敗' })
+  }
+}
+
+const handleUpdateFollowUpStatus = async (req, res, id) => {
+  const user = await getRequiredAuthUser(req, res)
+  if (!user) return
+  const body = await parseBody(req)
+  const name = body?.name?.trim()
+  const bgColor = body?.bg_color?.trim()
+  if (!name) {
+    sendJson(res, 400, { success: false, message: '狀態名稱為必填' })
+    return
+  }
+  if (name.length > 255) {
+    sendJson(res, 400, { success: false, message: '狀態名稱過長' })
+    return
+  }
   try {
     const connection = await getConnection()
     const [rows] = await connection.query(
@@ -1042,35 +1130,6 @@ const handlePostMeetingRecords = async (req, res) => {
     )
     const folderId = folderResult.insertId
     await connection.query(
-      'INSERT IGNORE INTO client_vendor_links (client_name, vendor_name) VALUES (?, ?)',
-      [client.trim(), vendor.trim()]
-    )
-    await connection.query(
-      'INSERT IGNORE INTO vendor_product_links (vendor_name, product_name) VALUES (?, ?)',
-      [vendor.trim(), product.trim()]
-    )
-    await connection.query(
-      'INSERT IGNORE INTO product_meeting_links (product_name, meeting_folder_id) VALUES (?, ?)',
-      [product.trim(), folderId]
-    )
-    const records = files.map((file) => {
-      const content = file?.contentBase64
-        ? Buffer.from(String(file.contentBase64), 'base64')
-        : null
-      const isText =
-        file?.type?.startsWith('text/') ||
-        String(file?.name || '').toLowerCase().endsWith('.txt')
-      const contentText = isText && content ? content.toString('utf8') : null
-      return [
-        folderId,
-        file?.name || 'unknown',
-        file?.path || null,
-        file?.type || null,
-        content,
-        contentText,
-      ]
-    })
-    await connection.query(
       'UPDATE follow_up_statuses SET name = ?, bg_color = ? WHERE id = ?',
       [name, bgColor || '#e2e8f0', id]
     )
@@ -1128,13 +1187,6 @@ const handleUpdateTaskSubmissionFollowupStatus = async (req, res, id) => {
     }
     sendJson(res, 200, { success: true, message: '狀態已更新' })
   } catch (error) {
-    if (connection) {
-      try {
-        await connection.rollback()
-      } catch (rollbackError) {
-        console.error(rollbackError)
-      }
-    }
     console.error(error)
     sendJson(res, 500, { success: false, message: '狀態更新失敗' })
   }
@@ -1828,7 +1880,7 @@ const start = async () => {
       }
     }
     if (url.pathname === '/api/users' && req.method === 'GET') {
-      await handleGetUsers(req, res)
+      await handleGetUsersList(req, res)
       return
     }
     if (url.pathname === '/api/follow-up-statuses') {
