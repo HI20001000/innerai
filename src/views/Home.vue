@@ -11,6 +11,12 @@ const apiBaseUrl = 'http://localhost:3001'
 const submissions = ref([])
 const followUpStatuses = ref([])
 const selectedDate = ref(getTaipeiTodayKey())
+const activeStatusMenu = ref(null)
+const statusSearch = ref('')
+const statusModalOpen = ref(false)
+const statusInput = ref('')
+const statusMessage = ref('')
+const statusMessageType = ref('')
 const isTimelineLoading = ref(false)
 
 const goToNewTask = () => {
@@ -123,32 +129,10 @@ const formatTimeOnly = (value) => {
   return parts.length > 1 ? parts[1].slice(0, 5) : formatted
 }
 
-const ensureStatusId = async (name) => {
-  const trimmed = name.trim()
-  if (!trimmed) return null
-  const existing = followUpStatuses.value.find((status) => status.name === trimmed)
-  if (existing) return existing.id
-  const auth = readAuthStorage()
-  if (!auth) return null
-  const response = await fetch(`${apiBaseUrl}/api/follow-up-statuses`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${auth.token}`,
-    },
-    body: JSON.stringify({ name: trimmed }),
-  })
-  const data = await response.json()
-  if (!response.ok || !data?.success) return null
-  followUpStatuses.value = [...followUpStatuses.value, data.data]
-  return data.data.id
-}
-
-const updateFollowUpStatus = async (followUp, value) => {
+const updateFollowUpStatus = async (followUp, status) => {
   const auth = readAuthStorage()
   if (!auth) return
-  const trimmed = value.trim()
-  const statusId = trimmed ? await ensureStatusId(trimmed) : null
+  const statusId = status?.id ?? null
   const response = await fetch(`${apiBaseUrl}/api/task-submission-followups/${followUp.id}`, {
     method: 'PUT',
     headers: {
@@ -160,11 +144,93 @@ const updateFollowUpStatus = async (followUp, value) => {
   const data = await response.json()
   if (!response.ok || !data?.success) return
   followUp.status_id = statusId
-  followUp.status_name = trimmed || ''
+  followUp.status_name = status?.name || ''
 }
 
 const handleSelectDate = (dateKey) => {
   selectedDate.value = dateKey
+}
+
+const toggleStatusMenu = (followUpId) => {
+  activeStatusMenu.value = activeStatusMenu.value === followUpId ? null : followUpId
+  statusSearch.value = ''
+}
+
+const filteredStatuses = computed(() => {
+  const query = statusSearch.value.trim().toLowerCase()
+  if (!query) return followUpStatuses.value
+  return followUpStatuses.value.filter((status) => status.name.toLowerCase().includes(query))
+})
+
+const openStatusModal = () => {
+  statusModalOpen.value = true
+  statusInput.value = ''
+  statusMessage.value = ''
+  statusMessageType.value = ''
+}
+
+const closeStatusModal = () => {
+  statusModalOpen.value = false
+  statusInput.value = ''
+  statusMessage.value = ''
+  statusMessageType.value = ''
+}
+
+const addStatus = async () => {
+  const name = statusInput.value.trim()
+  if (!name) return
+  const auth = readAuthStorage()
+  if (!auth) return
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/follow-up-statuses`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${auth.token}`,
+      },
+      body: JSON.stringify({ name }),
+    })
+    const data = await response.json()
+    if (!response.ok || !data?.success) {
+      statusMessage.value = data?.message || '新增失敗'
+      statusMessageType.value = 'error'
+      return
+    }
+    followUpStatuses.value = [...followUpStatuses.value, data.data]
+    statusMessage.value = `"${data.data.name}" 新增成功`
+    statusMessageType.value = 'success'
+    statusInput.value = ''
+  } catch (error) {
+    console.error(error)
+    statusMessage.value = '新增失敗'
+    statusMessageType.value = 'error'
+  }
+}
+
+const deleteStatus = async (status) => {
+  const auth = readAuthStorage()
+  if (!auth) return
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/follow-up-statuses/${status.id}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${auth.token}`,
+      },
+    })
+    const data = await response.json()
+    if (!response.ok || !data?.success) {
+      statusMessage.value = data?.message || '刪除失敗'
+      statusMessageType.value = 'error'
+      return
+    }
+    followUpStatuses.value = followUpStatuses.value.filter((item) => item.id !== status.id)
+    statusMessage.value = `"${status.name}" 已刪除`
+    statusMessageType.value = 'success'
+  } catch (error) {
+    console.error(error)
+    statusMessage.value = '刪除失敗'
+    statusMessageType.value = 'error'
+  }
 }
 
 onMounted(() => {
@@ -241,17 +307,49 @@ onMounted(() => {
                   <div v-if="item.follow_ups?.length" class="follow-up-list">
                     <div v-for="follow in item.follow_ups" :key="follow.id" class="follow-up-row">
                       <span class="follow-up-text">{{ follow.content }}</span>
-                      <input
-                        class="follow-up-status"
-                        :list="`status-options-${item.id}`"
-                        :value="follow.status_name || ''"
-                        placeholder="選擇或輸入狀態"
-                        @change="updateFollowUpStatus(follow, $event.target.value)"
-                      />
+                      <div class="status-select">
+                        <button
+                          type="button"
+                          class="status-select-button"
+                          @click="toggleStatusMenu(follow.id)"
+                        >
+                          {{ follow.status_name || '選擇狀態' }}
+                        </button>
+                        <div
+                          v-if="activeStatusMenu === follow.id"
+                          class="status-menu"
+                        >
+                          <input
+                            v-model="statusSearch"
+                            class="status-search"
+                            type="text"
+                            placeholder="搜尋狀態"
+                          />
+                          <button
+                            v-for="status in filteredStatuses"
+                            :key="status.id"
+                            type="button"
+                            class="status-item"
+                            @click="
+                              updateFollowUpStatus(follow, status);
+                              activeStatusMenu = null
+                            "
+                          >
+                            {{ status.name }}
+                          </button>
+                          <button
+                            type="button"
+                            class="status-item more"
+                            @click="
+                              activeStatusMenu = null;
+                              openStatusModal()
+                            "
+                          >
+                            更多
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                    <datalist :id="`status-options-${item.id}`">
-                      <option v-for="status in followUpStatuses" :key="status.id" :value="status.name" />
-                    </datalist>
                   </div>
                   <p v-else class="timeline-note">尚無需跟進內容。</p>
                 </div>
@@ -306,6 +404,29 @@ onMounted(() => {
         </article>
       </section>
     </main>
+
+    <div v-if="statusModalOpen" class="modal-overlay" @click.self="closeStatusModal">
+      <div class="modal-card">
+        <h2>編輯跟進狀態</h2>
+        <p>新增或刪除可用的狀態選項。</p>
+        <div class="modal-list">
+          <div v-for="status in followUpStatuses" :key="status.id" class="modal-list-item">
+            <span>{{ status.name }}</span>
+            <button type="button" class="danger-text" @click="deleteStatus(status)">刪除</button>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <input v-model="statusInput" type="text" placeholder="新增狀態名稱" />
+          <button type="button" class="primary-button" @click="addStatus">新增</button>
+        </div>
+        <p v-if="statusMessage" :class="['modal-message', statusMessageType]">
+          {{ statusMessage }}
+        </p>
+        <div class="modal-actions">
+          <button type="button" class="ghost-button" @click="closeStatusModal">關閉</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -505,19 +626,144 @@ onMounted(() => {
   font-size: 0.9rem;
 }
 
-.follow-up-status {
-  min-width: 140px;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  padding: 0.35rem 0.6rem;
-  font-size: 0.85rem;
-  background: #fff;
-}
-
 .timeline-note {
   margin: 0.5rem 0 0;
   color: #94a3b8;
   font-size: 0.85rem;
+}
+
+.status-select {
+  position: relative;
+  min-width: 160px;
+}
+
+.status-select-button {
+  width: 100%;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  border-radius: 10px;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.85rem;
+  text-align: left;
+  cursor: pointer;
+  color: #0f172a;
+}
+
+.status-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 10;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
+  padding: 0.6rem;
+  width: 200px;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.status-search {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.85rem;
+}
+
+.status-item {
+  border: none;
+  background: #f8fafc;
+  border-radius: 10px;
+  padding: 0.35rem 0.6rem;
+  text-align: left;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: #0f172a;
+}
+
+.status-item.more {
+  background: #eef2ff;
+  color: #4338ca;
+  font-weight: 600;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.4);
+  display: grid;
+  place-items: center;
+  padding: 2rem;
+  z-index: 20;
+}
+
+.modal-card {
+  background: #fff;
+  border-radius: 18px;
+  padding: 1.6rem;
+  width: min(520px, 90vw);
+  display: grid;
+  gap: 1rem;
+}
+
+.modal-card h2 {
+  margin: 0;
+  font-size: 1.3rem;
+}
+
+.modal-card p {
+  margin: 0;
+  color: #64748b;
+}
+
+.modal-list {
+  display: grid;
+  gap: 0.6rem;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.modal-list-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0.6rem;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.modal-actions input {
+  flex: 1;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.45rem 0.6rem;
+}
+
+.modal-message {
+  font-size: 0.9rem;
+}
+
+.modal-message.success {
+  color: #16a34a;
+}
+
+.modal-message.error {
+  color: #dc2626;
+}
+
+.danger-text {
+  border: none;
+  background: transparent;
+  color: #dc2626;
+  cursor: pointer;
+  font-weight: 600;
 }
 
 .progress-list {

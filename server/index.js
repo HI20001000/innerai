@@ -752,6 +752,23 @@ const handlePostFollowUpStatus = async (req, res) => {
   }
 }
 
+const handleDeleteFollowUpStatus = async (req, res, id) => {
+  const user = await getRequiredAuthUser(req, res)
+  if (!user) return
+  try {
+    const connection = await getConnection()
+    const [result] = await connection.query('DELETE FROM follow_up_statuses WHERE id = ?', [id])
+    if (result.affectedRows === 0) {
+      sendJson(res, 404, { success: false, message: '找不到狀態' })
+      return
+    }
+    sendJson(res, 200, { success: true, message: '狀態已刪除' })
+  } catch (error) {
+    console.error(error)
+    sendJson(res, 500, { success: false, message: '刪除狀態失敗' })
+  }
+}
+
 const handleUpdateTaskSubmissionFollowupStatus = async (req, res, id) => {
   const user = await getRequiredAuthUser(req, res)
   if (!user) return
@@ -1472,6 +1489,17 @@ const start = async () => {
       }
       if (req.method === 'POST') {
         await handlePostFollowUpStatus(req, res)
+        return
+      }
+    }
+    if (url.pathname.startsWith('/api/follow-up-statuses/')) {
+      const id = Number(url.pathname.split('/').pop())
+      if (!Number.isFinite(id)) {
+        sendJson(res, 400, { success: false, message: '狀態 ID 無效' })
+        return
+      }
+      if (req.method === 'DELETE') {
+        await handleDeleteFollowUpStatus(req, res, id)
         return
       }
     }
