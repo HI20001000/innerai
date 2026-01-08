@@ -93,8 +93,10 @@ const followUpItems = computed(() =>
       id: `${submission.id}-${followUp.id}`,
       title: followUp.content,
       status: followUp.status_name || '進行中',
+      statusBgColor: followUp.status_bg_color || '',
       scheduledAt: submission.scheduled_at,
       owner: selectedUser.value?.username || selectedUser.value?.mail || '未指派',
+      assignees: Array.isArray(followUp.assignees) ? followUp.assignees : [],
       label: `${submission.client_name}_${submission.vendor_name}_${submission.product_name}`,
     }))
   })
@@ -117,6 +119,34 @@ const inProgressCount = computed(
 const completedCount = computed(
   () => followUpItems.value.filter((task) => task.status === COMPLETED_STATUS).length
 )
+
+const todaysBadge = computed(() => {
+  if (tasksForDate.value.length === 0) {
+    return { text: '無任務', className: 'panel-badge-empty' }
+  }
+  return { text: `${tasksForDate.value.length} 筆`, className: 'panel-badge-pending' }
+})
+
+const getAssigneeNames = (task) => {
+  const names = (task.assignees || [])
+    .map((assignee) => assignee.username || assignee.mail)
+    .filter(Boolean)
+  if (names.length === 0) return '未指派'
+  return names.join('、')
+}
+
+const getStatusChipStyle = (task) => {
+  if (task.statusBgColor) {
+    return { backgroundColor: task.statusBgColor, color: '#0f172a' }
+  }
+  if (task.status === COMPLETED_STATUS) {
+    return { backgroundColor: '#dcfce7', color: '#166534' }
+  }
+  if (task.status === INCOMPLETE_STATUS) {
+    return { backgroundColor: '#fee2e2', color: '#b91c1c' }
+  }
+  return { backgroundColor: '#fef3c7', color: '#92400e' }
+}
 
 const calendarSubmissions = computed(() => {
   if (!selectedUser.value) return []
@@ -262,7 +292,9 @@ onMounted(async () => {
           <header class="panel-header">
             <div class="panel-title-row">
               <h2>今日任務</h2>
-              <span class="panel-badge">{{ tasksForDate.length }} 筆</span>
+              <span class="panel-badge" :class="todaysBadge.className">
+                {{ todaysBadge.text }}
+              </span>
             </div>
             <p>檢視 {{ selectedDate }} 需要跟進的安排。</p>
           </header>
@@ -278,8 +310,10 @@ onMounted(async () => {
                   <p class="task-meta">{{ task.label }}</p>
                 </div>
                 <div class="task-status">
-                  <span class="status-chip">{{ task.status }}</span>
-                  <span class="progress-label">負責人：{{ task.owner }}</span>
+                  <span class="status-chip" :style="getStatusChipStyle(task)">
+                    {{ task.status }}
+                  </span>
+                  <span class="progress-label">跟進人：{{ getAssigneeNames(task) }}</span>
                 </div>
               </article>
             </div>
@@ -538,6 +572,16 @@ onMounted(async () => {
   font-weight: 600;
   background: #e0f2fe;
   color: #0369a1;
+}
+
+.panel-badge-pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.panel-badge-empty {
+  background: #f1f5f9;
+  color: #94a3b8;
 }
 
 .panel-header h2 {
