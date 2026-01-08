@@ -39,6 +39,10 @@ const props = defineProps({
     type: Array,
     default: null,
   },
+  userMail: {
+    type: String,
+    default: '',
+  },
 })
 
 const emit = defineEmits(['select-date'])
@@ -119,7 +123,7 @@ const openMonthPicker = () => {
 }
 
 const followUpStatusByDate = computed(() => {
-  const mail = readUserMail()
+  const mail = props.userMail || readUserMail()
   return buildFollowUpStatusByDate(submissionsSource.value || [], mail, toDateKey)
 })
 
