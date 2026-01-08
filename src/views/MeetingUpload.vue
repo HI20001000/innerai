@@ -587,6 +587,23 @@ onMounted(() => {
   gap: 1rem;
 }
 
+.modal-card h2 {
+  margin: 0;
+  font-size: 1.4rem;
+}
+
+.modal-card p {
+  margin: 0;
+  color: #64748b;
+}
+
+.modal-card input {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+  font-size: 0.95rem;
+}
+
 .modal-list {
   display: grid;
   gap: 0.5rem;
@@ -617,6 +634,16 @@ onMounted(() => {
   display: flex;
   justify-content: flex-end;
   gap: 1rem;
+}
+
+.ghost-button {
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  padding: 0.6rem 1rem;
+  border-radius: 999px;
+  font-weight: 600;
+  cursor: pointer;
+  color: #475569;
 }
 
 .modal-message {
