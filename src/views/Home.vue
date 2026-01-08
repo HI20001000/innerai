@@ -127,21 +127,6 @@ const fetchStatuses = async () => {
   }
 }
 
-const fetchUsers = async () => {
-  const auth = readAuthStorage()
-  if (!auth) return
-  try {
-    const response = await fetch(`${apiBaseUrl}/api/users`, {
-      headers: { Authorization: `Bearer ${auth.token}` },
-    })
-    const data = await response.json()
-    if (!response.ok || !data?.success) return
-    allUsers.value = data.data || []
-  } catch (error) {
-    console.error(error)
-  }
-}
-
 const timelineItems = computed(() => {
   const mail = readUserMail()
   if (!mail) return []
@@ -427,7 +412,6 @@ onMounted(() => {
   loadUser()
   fetchSubmissions()
   fetchStatuses()
-  fetchUsers()
 })
 </script>
 
