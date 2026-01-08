@@ -1,12 +1,13 @@
 <script setup>
-import { computed, getCurrentInstance, ref } from 'vue'
+import { computed, getCurrentInstance, onMounted, ref } from 'vue'
 import WorkspaceSidebar from '../components/WorkspaceSidebar.vue'
 import MonthlyCalendar from '../components/MonthlyCalendar.vue'
-import { formatDateTimeDisplay, getTaipeiTodayKey } from '../scripts/time.js'
+import { formatDateTimeDisplay, getTaipeiTodayKey, toDateKey } from '../scripts/time.js'
 
 const router = getCurrentInstance().appContext.config.globalProperties.$router
 const activePath = computed(() => router?.currentRoute?.value?.path || '')
 const todayKey = getTaipeiTodayKey()
+const apiBaseUrl = 'http://localhost:3001'
 
 const goToNewTask = () => router?.push('/tasks/new')
 const goToTaskList = () => router?.push('/tasks/view')
@@ -16,138 +17,126 @@ const goToHome = () => router?.push('/home')
 const goToProfile = () => router?.push('/settings')
 const goToUserDashboard = () => router?.push('/users/dashboard')
 
-const users = ref([
-  {
-    id: 'u-001',
-    name: '王小明',
-    role: '業務經理',
-    department: '北區銷售',
-    mail: 'ming.wang@example.com',
-  },
-  {
-    id: 'u-002',
-    name: '陳思怡',
-    role: '業務專員',
-    department: '中區銷售',
-    mail: 'siyi.chen@example.com',
-  },
-  {
-    id: 'u-003',
-    name: '李建宏',
-    role: '客戶成功',
-    department: '南區客戶關係',
-    mail: 'jianhong.li@example.com',
-  },
-])
-
-const selectedUserId = ref(users.value[0]?.id || '')
+const users = ref([])
+const submissions = ref([])
+const selectedUserMail = ref('')
 const selectedDate = ref(todayKey)
-const statusFilter = ref('all')
-const searchQuery = ref('')
+const isLoading = ref(false)
+const errorMessage = ref('')
 
-const allTasks = ref([
-  {
-    id: 't-101',
-    userId: 'u-001',
-    title: '拜訪宏碁 - 需求確認',
-    scheduled_at: `${todayKey} 09:30`,
-    status: '待處理',
-    progress: 40,
-    owner: '王小明',
-  },
-  {
-    id: 't-102',
-    userId: 'u-001',
-    title: '整理合約條款',
-    scheduled_at: `${todayKey} 14:00`,
-    status: '進行中',
-    progress: 70,
-    owner: '王小明',
-  },
-  {
-    id: 't-103',
-    userId: 'u-001',
-    title: '回覆採購問題',
-    scheduled_at: '2025-01-10 11:00',
-    status: '已完成',
-    progress: 100,
-    owner: '王小明',
-  },
-  {
-    id: 't-201',
-    userId: 'u-002',
-    title: '產品 Demo 準備',
-    scheduled_at: `${todayKey} 10:30`,
-    status: '待處理',
-    progress: 20,
-    owner: '陳思怡',
-  },
-  {
-    id: 't-202',
-    userId: 'u-002',
-    title: '回訪老客戶',
-    scheduled_at: '2025-01-08 15:00',
-    status: '未完成',
-    progress: 35,
-    owner: '陳思怡',
-  },
-  {
-    id: 't-301',
-    userId: 'u-003',
-    title: '整理客戶培訓素材',
-    scheduled_at: `${todayKey} 16:00`,
-    status: '進行中',
-    progress: 55,
-    owner: '李建宏',
-  },
-])
+const COMPLETED_STATUS = '已完成'
+const INCOMPLETE_STATUS = '未完成'
+
+const readAuthStorage = () => {
+  const raw = window.localStorage.getItem('innerai_auth')
+  if (!raw) return null
+  try {
+    const data = JSON.parse(raw)
+    if (!data?.token || !data?.expiresAt) return null
+    return data
+  } catch {
+    return null
+  }
+}
+
+const fetchUsers = async () => {
+  const auth = readAuthStorage()
+  if (!auth) return
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/users`, {
+      headers: { Authorization: `Bearer ${auth.token}` },
+    })
+    const data = await response.json()
+    if (!response.ok || !data?.success) return
+    users.value = data.data || []
+    if (!selectedUserMail.value && users.value.length > 0) {
+      selectedUserMail.value = users.value[0].mail
+    }
+  } catch (error) {
+    console.error(error)
+  }
+}
+
+const fetchSubmissions = async () => {
+  const auth = readAuthStorage()
+  if (!auth) return
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/task-submissions`, {
+      headers: { Authorization: `Bearer ${auth.token}` },
+    })
+    const data = await response.json()
+    if (!response.ok || !data?.success) return
+    submissions.value = data.data || []
+  } catch (error) {
+    console.error(error)
+  }
+}
 
 const selectedUser = computed(
-  () => users.value.find((user) => user.id === selectedUserId.value) || users.value[0]
+  () => users.value.find((user) => user.mail === selectedUserMail.value) || users.value[0]
 )
 
-const filteredTasks = computed(() => {
-  const query = searchQuery.value.trim().toLowerCase()
-  return allTasks.value.filter((task) => {
-    if (task.userId !== selectedUser.value?.id) return false
-    if (statusFilter.value !== 'all' && task.status !== statusFilter.value) return false
-    if (!query) return true
-    return task.title.toLowerCase().includes(query) || task.owner.toLowerCase().includes(query)
+const userSubmissions = computed(() => {
+  const mail = selectedUser.value?.mail
+  if (!mail) return []
+  return submissions.value.filter((submission) =>
+    (submission.related_users || []).some((user) => user.mail === mail)
+  )
+})
+
+const followUpItems = computed(() =>
+  userSubmissions.value.flatMap((submission) => {
+    const followUps = Array.isArray(submission.follow_ups) ? submission.follow_ups : []
+    return followUps.map((followUp) => ({
+      id: `${submission.id}-${followUp.id}`,
+      title: followUp.content,
+      status: followUp.status_name || '進行中',
+      scheduledAt: submission.scheduled_at,
+      owner: selectedUser.value?.username || selectedUser.value?.mail || '未指派',
+      label: `${submission.client_name}_${submission.vendor_name}_${submission.product_name}`,
+    }))
   })
-})
-
-const tasksForDate = computed(() => {
-  return filteredTasks.value.filter((task) => task.scheduled_at.startsWith(selectedDate.value))
-})
-
-const totalCount = computed(() => filteredTasks.value.length)
-const pendingCount = computed(
-  () => filteredTasks.value.filter((task) => task.status !== '已完成').length
 )
-const overdueCount = computed(() =>
-  filteredTasks.value.filter(
-    (task) => task.status !== '已完成' && task.scheduled_at.slice(0, 10) < todayKey
-  ).length
+
+const tasksForDate = computed(() =>
+  followUpItems.value.filter((task) => toDateKey(task.scheduledAt) === selectedDate.value)
 )
-const completionRate = computed(() => {
-  if (totalCount.value === 0) return 0
-  const completed = filteredTasks.value.filter((task) => task.status === '已完成').length
-  return Math.round((completed / totalCount.value) * 100)
-})
+
+const totalCount = computed(() => followUpItems.value.length)
+const incompleteCount = computed(
+  () => followUpItems.value.filter((task) => task.status === INCOMPLETE_STATUS).length
+)
+const inProgressCount = computed(
+  () =>
+    followUpItems.value.filter(
+      (task) => task.status !== COMPLETED_STATUS && task.status !== INCOMPLETE_STATUS
+    ).length
+)
+const completedCount = computed(
+  () => followUpItems.value.filter((task) => task.status === COMPLETED_STATUS).length
+)
 
 const calendarSubmissions = computed(() => {
   if (!selectedUser.value) return []
-  return filteredTasks.value.map((task) => ({
-    id: task.id,
-    scheduled_at: task.scheduled_at,
-    related_users: [{ mail: selectedUser.value.mail }],
-    follow_ups: [{ status_name: task.status }],
-  }))
+  return userSubmissions.value
 })
 
 const handleSelectDate = (dateKey) => {
   selectedDate.value = dateKey
 }
+
+onMounted(async () => {
+  isLoading.value = true
+  errorMessage.value = ''
+  try {
+    await Promise.all([fetchUsers(), fetchSubmissions()])
+  } catch (error) {
+    console.error(error)
+    errorMessage.value = '無法載入用戶工作安排'
+  } finally {
+    isLoading.value = false
+  }
+})
 </script>
 
 <template>
@@ -175,31 +164,17 @@ const handleSelectDate = (dateKey) => {
       <section class="dashboard-controls">
         <label class="control">
           <span>選擇用戶</span>
-          <select v-model="selectedUserId">
-            <option v-for="user in users" :key="user.id" :value="user.id">
-              {{ user.name }}｜{{ user.department }}
+          <select v-model="selectedUserMail">
+            <option v-for="user in users" :key="user.mail" :value="user.mail">
+              {{ user.username || user.mail }}
             </option>
           </select>
-        </label>
-        <label class="control">
-          <span>狀態篩選</span>
-          <select v-model="statusFilter">
-            <option value="all">全部</option>
-            <option value="待處理">待處理</option>
-            <option value="進行中">進行中</option>
-            <option value="未完成">未完成</option>
-            <option value="已完成">已完成</option>
-          </select>
-        </label>
-        <label class="control wide">
-          <span>搜尋任務</span>
-          <input v-model="searchQuery" type="text" placeholder="搜尋任務或負責人" />
         </label>
         <div class="user-profile">
           <div class="user-avatar">👤</div>
           <div>
-            <p class="user-name">{{ selectedUser?.name }}</p>
-            <p class="user-meta">{{ selectedUser?.role }}｜{{ selectedUser?.department }}</p>
+            <p class="user-name">{{ selectedUser?.username || '未選擇用戶' }}</p>
+            <p class="user-meta">{{ selectedUser?.mail || '尚未載入使用者資訊' }}</p>
           </div>
         </div>
       </section>
@@ -208,22 +183,22 @@ const handleSelectDate = (dateKey) => {
         <article class="summary-card">
           <p class="card-label">任務總數</p>
           <p class="card-value">{{ totalCount }}</p>
-          <p class="card-meta">目前篩選條件下的任務總量</p>
+          <p class="card-meta">目前選定用戶的工作量</p>
         </article>
         <article class="summary-card">
-          <p class="card-label">待處理</p>
-          <p class="card-value">{{ pendingCount }}</p>
-          <p class="card-meta">尚未完成的任務</p>
+          <p class="card-label">未完成</p>
+          <p class="card-value">{{ incompleteCount }}</p>
+          <p class="card-meta">標記為未完成的跟進</p>
         </article>
         <article class="summary-card">
-          <p class="card-label">逾期未完成</p>
-          <p class="card-value">{{ overdueCount }}</p>
-          <p class="card-meta">日期早於今日且未完成</p>
+          <p class="card-label">進行中</p>
+          <p class="card-value">{{ inProgressCount }}</p>
+          <p class="card-meta">未完成與已完成以外狀態</p>
         </article>
         <article class="summary-card">
-          <p class="card-label">完成率</p>
-          <p class="card-value">{{ completionRate }}%</p>
-          <p class="card-meta">以目前篩選範圍計算</p>
+          <p class="card-label">已完成</p>
+          <p class="card-value">{{ completedCount }}</p>
+          <p class="card-meta">已完成的跟進數量</p>
         </article>
       </section>
 
@@ -237,20 +212,19 @@ const handleSelectDate = (dateKey) => {
             <p>檢視 {{ selectedDate }} 需要跟進的安排。</p>
           </header>
           <div class="task-list">
-            <p v-if="tasksForDate.length === 0" class="empty-state">此日期沒有任務。</p>
+            <p v-if="isLoading" class="empty-state">載入中...</p>
+            <p v-else-if="errorMessage" class="empty-state">{{ errorMessage }}</p>
+            <p v-else-if="tasksForDate.length === 0" class="empty-state">此日期沒有任務。</p>
             <div v-else class="task-cards">
               <article v-for="task in tasksForDate" :key="task.id" class="task-card">
                 <div>
-                  <p class="task-time">{{ formatDateTimeDisplay(task.scheduled_at) }}</p>
+                  <p class="task-time">{{ formatDateTimeDisplay(task.scheduledAt) }}</p>
                   <h3 class="task-title">{{ task.title }}</h3>
-                  <p class="task-meta">負責人：{{ task.owner }}</p>
+                  <p class="task-meta">{{ task.label }}</p>
                 </div>
                 <div class="task-status">
                   <span class="status-chip">{{ task.status }}</span>
-                  <div class="progress">
-                    <div class="progress-bar" :style="{ width: `${task.progress}%` }"></div>
-                  </div>
-                  <span class="progress-label">{{ task.progress }}%</span>
+                  <span class="progress-label">負責人：{{ task.owner }}</span>
                 </div>
               </article>
             </div>
@@ -312,7 +286,7 @@ const handleSelectDate = (dateKey) => {
 
 .dashboard-controls {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 1.3fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
   gap: 1.2rem;
   background: #fff;
   padding: 1.4rem;
@@ -335,10 +309,6 @@ const handleSelectDate = (dateKey) => {
   padding: 0.7rem 0.9rem;
   font-size: 0.95rem;
   background: #fff;
-}
-
-.control.wide {
-  grid-column: span 2;
 }
 
 .user-profile {
