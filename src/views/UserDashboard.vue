@@ -21,6 +21,8 @@ const users = ref([])
 const submissions = ref([])
 const selectedUserMail = ref('')
 const selectedDate = ref(todayKey)
+const activeUserMenu = ref(false)
+const userSearchQuery = ref('')
 const isLoading = ref(false)
 const errorMessage = ref('')
 
@@ -121,6 +123,30 @@ const calendarSubmissions = computed(() => {
   return userSubmissions.value
 })
 
+const getFilteredUsers = () => {
+  const query = userSearchQuery.value.trim().toLowerCase()
+  if (!query) return users.value
+  return users.value.filter((user) => {
+    const name = String(user.username || '').toLowerCase()
+    const mail = String(user.mail || '').toLowerCase()
+    return name.includes(query) || mail.includes(query)
+  })
+}
+
+const toggleUserMenu = () => {
+  activeUserMenu.value = !activeUserMenu.value
+  if (activeUserMenu.value) {
+    userSearchQuery.value = ''
+  }
+}
+
+const selectUser = (user) => {
+  if (!user?.mail) return
+  selectedUserMail.value = user.mail
+  activeUserMenu.value = false
+  userSearchQuery.value = ''
+}
+
 const handleSelectDate = (dateKey) => {
   selectedDate.value = dateKey
 }
@@ -162,16 +188,45 @@ onMounted(async () => {
       </header>
 
       <section class="dashboard-controls">
-        <label class="control">
+        <div class="control select-field-wrapper">
           <span>選擇用戶</span>
-          <select v-model="selectedUserMail">
-            <option v-for="user in users" :key="user.mail" :value="user.mail">
-              {{ user.username || user.mail }}
-            </option>
-          </select>
-        </label>
+          <button class="select-field" type="button" @click="toggleUserMenu">
+            {{ selectedUser?.username || selectedUser?.mail || '選擇用戶' }}
+          </button>
+          <div v-if="activeUserMenu" class="option-list assignee-list">
+            <input
+              v-model="userSearchQuery"
+              class="option-search"
+              type="text"
+              placeholder="搜尋用戶"
+            />
+            <button
+              v-for="user in getFilteredUsers()"
+              :key="user.mail"
+              type="button"
+              class="option-item user-option"
+              @click="selectUser(user)"
+            >
+              <span
+                class="user-avatar"
+                :style="{ backgroundColor: user.icon_bg || '#e2e8f0' }"
+              >
+                {{ user.icon || '🙂' }}
+              </span>
+              <span class="user-label">
+                {{ user.username || 'user' }} &lt;{{ user.mail }}&gt;
+              </span>
+              <span v-if="selectedUserMail === user.mail" class="user-selected">已選</span>
+            </button>
+          </div>
+        </div>
         <div class="user-profile">
-          <div class="user-avatar">👤</div>
+          <div
+            class="user-avatar"
+            :style="{ backgroundColor: selectedUser?.icon_bg || '#e2e8f0' }"
+          >
+            {{ selectedUser?.icon || '👤' }}
+          </div>
           <div>
             <p class="user-name">{{ selectedUser?.username || '未選擇用戶' }}</p>
             <p class="user-meta">{{ selectedUser?.mail || '尚未載入使用者資訊' }}</p>
@@ -294,6 +349,10 @@ onMounted(async () => {
   box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
 }
 
+.select-field-wrapper {
+  position: relative;
+}
+
 .control {
   display: grid;
   gap: 0.4rem;
@@ -302,13 +361,87 @@ onMounted(async () => {
   color: #475569;
 }
 
-.control select,
-.control input {
+.select-field {
   border: 1px solid #e2e8f0;
   border-radius: 12px;
   padding: 0.7rem 0.9rem;
   font-size: 0.95rem;
   background: #fff;
+  text-align: left;
+  cursor: pointer;
+}
+
+.select-field::after {
+  content: '▾';
+  float: right;
+  color: #94a3b8;
+}
+
+.option-list {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  left: 0;
+  right: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+  padding: 0.4rem;
+  display: grid;
+  gap: 0.3rem;
+  max-height: 200px;
+  overflow: auto;
+  z-index: 5;
+  box-shadow: 0 18px 30px rgba(15, 23, 42, 0.12);
+}
+
+.option-search {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.45rem 0.6rem;
+  font-size: 0.85rem;
+  background: #fff;
+}
+
+.option-item {
+  border: none;
+  background: transparent;
+  text-align: left;
+  padding: 0.5rem 0.7rem;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 500;
+  color: #1f2937;
+}
+
+.option-item:hover {
+  background: #e2e8f0;
+}
+
+.user-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.user-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+}
+
+.user-label {
+  flex: 1;
+  font-size: 0.85rem;
+}
+
+.user-selected {
+  font-size: 0.75rem;
+  color: #2563eb;
+  font-weight: 600;
 }
 
 .user-profile {
@@ -320,7 +453,7 @@ onMounted(async () => {
   padding: 0.8rem 1rem;
 }
 
-.user-avatar {
+.user-profile .user-avatar {
   width: 44px;
   height: 44px;
   border-radius: 50%;
@@ -502,10 +635,6 @@ onMounted(async () => {
 @media (max-width: 900px) {
   .dashboard-controls {
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  .control.wide {
-    grid-column: auto;
   }
 
   .dashboard-content {
