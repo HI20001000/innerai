@@ -39,6 +39,10 @@ const props = defineProps({
     type: Array,
     default: null,
   },
+  userMail: {
+    type: String,
+    default: '',
+  },
 })
 
 const emit = defineEmits(['select-date'])
@@ -119,9 +123,11 @@ const openMonthPicker = () => {
 }
 
 const followUpStatusByDate = computed(() => {
-  const mail = readUserMail()
+  const mail = props.userMail || readUserMail()
   return buildFollowUpStatusByDate(submissionsSource.value || [], mail, toDateKey)
 })
+
+const todayKey = getTaipeiTodayKey()
 
 onMounted(() => {
   if (!hasExternalSubmissions.value) {
@@ -166,7 +172,11 @@ onMounted(() => {
         :key="cell.key || cell.dateKey"
         :class="[
           'calendar-cell',
-          { empty: cell.empty, selected: !cell.empty && cell.dateKey === props.selectedDate },
+          {
+            empty: cell.empty,
+            selected: !cell.empty && cell.dateKey === props.selectedDate,
+            today: !cell.empty && cell.dateKey === todayKey,
+          },
         ]"
         type="button"
         :disabled="cell.empty"
@@ -180,13 +190,17 @@ onMounted(() => {
               'calendar-badge',
               followUpStatusByDate[cell.dateKey].pending === 0
                 ? 'calendar-badge-complete'
-                : 'calendar-badge-pending',
+                : cell.dateKey < todayKey
+                  ? 'calendar-badge-overdue'
+                  : 'calendar-badge-pending',
             ]"
           >
             {{
               followUpStatusByDate[cell.dateKey].pending === 0
                 ? '已完成'
-                : `${followUpStatusByDate[cell.dateKey].pending} 待處理`
+                : cell.dateKey < todayKey
+                  ? `${followUpStatusByDate[cell.dateKey].pending} 未完成`
+                  : `${followUpStatusByDate[cell.dateKey].pending} 待處理`
             }}
           </span>
         </template>
@@ -294,6 +308,10 @@ onMounted(() => {
   background: #eef2ff;
 }
 
+.calendar-cell.today {
+  background: #dcfce7;
+}
+
 .calendar-date {
   font-weight: 600;
   color: #0f172a;
@@ -311,6 +329,11 @@ onMounted(() => {
 .calendar-badge-pending {
   background: #fef3c7;
   color: #92400e;
+}
+
+.calendar-badge-overdue {
+  background: #fee2e2;
+  color: #b91c1c;
 }
 
 .calendar-badge-complete {
