@@ -37,6 +37,8 @@ const isLoading = ref(false)
 const showResult = ref(false)
 const resultTitle = ref('')
 const resultMessage = ref('')
+const isUploading = ref(false)
+const uploadInput = ref(null)
 
 const goToNewTask = () => router?.push('/tasks/new')
 const goToTaskList = () => router?.push('/tasks/view')
@@ -44,6 +46,7 @@ const goToMeetingUpload = () => router?.push('/meetings/upload')
 const goToMeetingRecords = () => router?.push('/meetings')
 const goToHome = () => router?.push('/home')
 const goToProfile = () => router?.push('/settings')
+const goToUserDashboard = () => router?.push('/users/dashboard')
 
 const readAuthStorage = () => {
   const raw = window.localStorage.getItem('innerai_auth')
@@ -66,8 +69,8 @@ const parseJsonSafe = async (response) => {
 }
 
 const formatContent = (record) => {
-  if (!record?.content_text) return '目前僅支援文字檔案預覽（txt）。'
-  return record.content_text
+  if (record?.content_text) return record.content_text
+  return '目前僅支援文字與 Word（.txt／.docx）預覽。'
 }
 
 const filteredClients = computed(() => {
@@ -116,12 +119,10 @@ const selectVendor = (vendorName) => {
 
 const selectProduct = (productName) => {
   activeProduct.value = productName
-  if (!activeVendor.value) {
-    const vendor = getVendors().find((item) =>
-      item.products.some((product) => product.name === productName)
-    )
-    if (vendor) activeVendor.value = vendor.name
-  }
+  const vendor = getVendors().find((item) =>
+    item.products.some((product) => product.name === productName)
+  )
+  if (vendor) activeVendor.value = vendor.name
   activeMeeting.value = null
   activeRecord.value = null
   activeRecordMeta.value = null
@@ -146,6 +147,22 @@ const resetSelections = () => {
   activeList.value = null
 }
 
+const fileToBase64 = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = reader.result
+      if (typeof result !== 'string') {
+        resolve('')
+        return
+      }
+      const base64 = result.split(',')[1] || ''
+      resolve(base64)
+    }
+    reader.onerror = () => reject(new Error('Failed to read file'))
+    reader.readAsDataURL(file)
+  })
+
 const useSelectedMeeting = () => {
   if (!props.onSelectRecords || !activeMeeting.value) return
   props.onSelectRecords(activeMeeting.value.records || [])
@@ -157,6 +174,135 @@ const openList = (type) => {
     return
   }
   activeList.value = type
+}
+
+const triggerUpload = () => {
+  if (!activeMeeting.value || isUploading.value) return
+  uploadInput.value?.click()
+}
+
+const handleUploadChange = async (event) => {
+  const files = Array.from(event.target.files || [])
+  event.target.value = ''
+  if (!files.length || !activeMeeting.value) return
+  const auth = readAuthStorage()
+  if (!auth) {
+    resultTitle.value = '上傳失敗'
+    resultMessage.value = '請先登入'
+    showResult.value = true
+    return
+  }
+  isUploading.value = true
+  try {
+    const filesPayload = await Promise.all(
+      files.map(async (file) => ({
+        name: file.name,
+        path: file.webkitRelativePath || file.name,
+        type: file.type,
+        contentBase64: await fileToBase64(file),
+      }))
+    )
+    const response = await fetch(`${apiBaseUrl}/api/meeting-records/${activeMeeting.value.id}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${auth.token}`,
+      },
+      body: JSON.stringify({ files: filesPayload }),
+    })
+    const data = await response.json()
+    if (!response.ok || !data?.success) {
+      resultTitle.value = '上傳失敗'
+      resultMessage.value = data?.message || '會議記錄上傳失敗'
+      showResult.value = true
+      return
+    }
+    resultTitle.value = '上傳成功'
+    resultMessage.value = data?.message || '會議記錄已更新'
+    showResult.value = true
+    const baseId = Date.now()
+    const appendedRecords = filesPayload.map((file, index) => ({
+      id: `${baseId}-${index}-${file.name}`,
+      file_name: file.name,
+      file_path: file.path || file.name,
+      mime_type: file.type,
+      content_text: null,
+    }))
+    activeMeeting.value.records = [...(activeMeeting.value.records || []), ...appendedRecords]
+  } catch (error) {
+    console.error(error)
+    resultTitle.value = '上傳失敗'
+    resultMessage.value = '會議記錄上傳失敗'
+    showResult.value = true
+  } finally {
+    isUploading.value = false
+  }
+}
+
+const deleteMeetingRecord = async (record) => {
+  if (!record) return
+  const auth = readAuthStorage()
+  if (!auth) return
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/meeting-records/${record.id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${auth.token}` },
+    })
+    const data = await response.json()
+    if (!response.ok || !data?.success) {
+      resultTitle.value = '刪除失敗'
+      resultMessage.value = data?.message || '會議記錄刪除失敗'
+      showResult.value = true
+      return
+    }
+    if (activeMeeting.value) {
+      activeMeeting.value.records = (activeMeeting.value.records || []).filter(
+        (item) => item.id !== record.id
+      )
+    }
+    if (activeRecord.value?.id === record.id) {
+      activeRecord.value = null
+      activeRecordMeta.value = null
+    }
+  } catch (error) {
+    console.error(error)
+    resultTitle.value = '刪除失敗'
+    resultMessage.value = '會議記錄刪除失敗'
+    showResult.value = true
+  }
+}
+
+const deleteMeetingFolder = async () => {
+  if (!activeMeeting.value) return
+  const auth = readAuthStorage()
+  if (!auth) return
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/meeting-folders/${activeMeeting.value.id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${auth.token}` },
+    })
+    const data = await response.json()
+    if (!response.ok || !data?.success) {
+      resultTitle.value = '刪除失敗'
+      resultMessage.value = data?.message || '會議資料夾刪除失敗'
+      showResult.value = true
+      return
+    }
+    const removedId = activeMeeting.value.id
+    const vendor = getVendors().find((item) => item.name === activeVendor.value)
+    const product = vendor?.products.find((item) => item.name === activeProduct.value)
+    if (product) {
+      product.meetings = (product.meetings || []).filter((meeting) => meeting.id !== removedId)
+    }
+    activeMeeting.value = null
+    activeRecord.value = null
+    activeRecordMeta.value = null
+  } catch (error) {
+    console.error(error)
+    resultTitle.value = '刪除失敗'
+    resultMessage.value = '會議資料夾刪除失敗'
+    showResult.value = true
+  }
 }
 
 const filteredVendors = computed(() => {
@@ -192,11 +338,16 @@ const fetchMeetingRecords = async () => {
       showResult.value = true
       return
     }
-    records.value = data.data || []
-    activeClient.value = records.value[0]?.name || ''
-    activeVendor.value = ''
-    activeProduct.value = ''
-    activeMeeting.value = null
+    const nextRecords = data.data || []
+    records.value = nextRecords
+    if (!activeClient.value || !nextRecords.some((client) => client.name === activeClient.value)) {
+      activeClient.value = nextRecords[0]?.name || ''
+      activeVendor.value = ''
+      activeProduct.value = ''
+      activeMeeting.value = null
+      activeRecord.value = null
+      activeRecordMeta.value = null
+    }
   } catch (error) {
     console.error(error)
     resultTitle.value = '讀取失敗'
@@ -218,6 +369,7 @@ onMounted(fetchMeetingRecords)
       :on-view-tasks="goToTaskList"
       :on-upload-meeting="goToMeetingUpload"
       :on-view-meetings="goToMeetingRecords"
+      :on-view-user-dashboard="goToUserDashboard"
       :on-go-home="goToHome"
       :on-go-profile="goToProfile"
       :active-path="activePath"
@@ -242,9 +394,14 @@ onMounted(fetchMeetingRecords)
               <div class="panel-title">
                 <h2>客戶</h2>
               </div>
-              <button class="ghost-button" type="button" @click="resetSelections">
-                重置
-              </button>
+              <div>
+                <button class="ghost-mini" type="button" @click="goToMeetingUpload">
+                  編輯
+                </button>
+                <button class="ghost-mini" type="button" @click="resetSelections">
+                  取消
+                </button>
+              </div>
             </div>
             <button class="select-field" type="button" @click="openList('client')">
               {{ activeClient || '選擇客戶' }}
@@ -334,11 +491,30 @@ onMounted(fetchMeetingRecords)
                 :class="{ active: activeMeeting?.id === meeting.id }"
                 @click="selectMeeting(meeting)"
               >
-                <strong>{{ formatDateTimeDisplay(meeting.meeting_time) }}</strong>
-                <span class="meeting-meta">
-                  建立者：{{ meeting.created_by_email }}｜{{ formatDateTimeDisplay(meeting.created_at) }}
-                </span>
-                <span class="meeting-count">{{ meeting.records.length }} 份記錄</span>
+                <div class="meeting-card-main">
+                  <strong>{{ formatDateTimeDisplay(meeting.meeting_time) }}</strong>
+                  <span class="meeting-meta">
+                    建立者：{{ meeting.created_by_email }}｜{{ formatDateTimeDisplay(meeting.created_at) }}
+                  </span>
+                  <span class="meeting-count">{{ meeting.records.length }} 份記錄</span>
+                </div>
+                <div class="meeting-actions">
+                  <button
+                    type="button"
+                    class="meeting-action"
+                    :disabled="isUploading"
+                    @click.stop="activeMeeting = meeting; activeRecord = null; activeRecordMeta = null; triggerUpload()"
+                  >
+                    ＋
+                  </button>
+                  <button
+                    type="button"
+                    class="meeting-action"
+                    @click.stop="activeMeeting = meeting; activeRecord = null; activeRecordMeta = null; deleteMeetingFolder()"
+                  >
+                    −
+                  </button>
+                </div>
               </button>
             </div>
           </div>
@@ -348,18 +524,25 @@ onMounted(fetchMeetingRecords)
               <h2>會議記錄</h2>
             </div>
             <div class="record-list">
-              <button
+              <div
                 v-for="record in activeMeeting?.records || []"
                 :key="record.id"
-                type="button"
-                class="record-button"
-                @click="activeRecord = record; activeRecordMeta = activeMeeting"
+                class="record-item"
               >
-                <div class="record-title">
-                  <strong>{{ record.file_name }}</strong>
-                  <span class="record-path">{{ record.file_path }}</span>
-                </div>
-              </button>
+                <button
+                  type="button"
+                  class="record-button"
+                  @click="activeRecord = record; activeRecordMeta = activeMeeting"
+                >
+                  <div class="record-title">
+                    <strong>{{ record.file_name }}</strong>
+                    <span class="record-path">{{ record.file_path }}</span>
+                  </div>
+                </button>
+                <button type="button" class="record-action" @click.stop="deleteMeetingRecord(record)">
+                  −
+                </button>
+              </div>
             </div>
           </div>
           <div v-if="props.embedded" class="panel-section">
@@ -400,6 +583,13 @@ onMounted(fetchMeetingRecords)
       :title="resultTitle"
       :message="resultMessage"
       @close="showResult = false"
+    />
+    <input
+      ref="uploadInput"
+      class="sr-only"
+      type="file"
+      multiple
+      @change="handleUploadChange"
     />
   </div>
 </template>
@@ -494,6 +684,17 @@ onMounted(fetchMeetingRecords)
   color: #475569;
 }
 
+.ghost-mini {
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  padding: 0.2rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+}
+
 .primary-button {
   border: none;
   background: #111827;
@@ -567,15 +768,35 @@ onMounted(fetchMeetingRecords)
   gap: 1rem;
 }
 
+.record-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
 .record-button {
+  flex: 1;
   border: 1px solid #e2e8f0;
   border-radius: 16px;
   padding: 0.8rem;
   background: #f8fafc;
   text-align: left;
   cursor: pointer;
-  display: grid;
-  gap: 0.4rem;
+  display: block;
+}
+
+.record-action {
+  border: none;
+  background: #fee2e2;
+  color: #b91c1c;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .record-button:hover {
@@ -585,6 +806,17 @@ onMounted(fetchMeetingRecords)
 .record-title {
   display: grid;
   gap: 0.2rem;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
 }
 
 .record-meta {
@@ -623,9 +855,44 @@ onMounted(fetchMeetingRecords)
   text-align: left;
   cursor: pointer;
   display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.meeting-card-main {
+  display: grid;
   gap: 0.35rem;
 }
 
+.meeting-actions {
+  display: inline-flex;
+  gap: 0.4rem;
+}
+
+.meeting-action {
+  border: none;
+  background: rgba(15, 23, 42, 0.08);
+  color: inherit;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.meeting-action:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.meeting-card.active .meeting-action {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
 .meeting-card.active {
   border-color: #111827;
   background: #111827;

@@ -3,6 +3,7 @@ import http from 'node:http'
 import mysql from 'mysql2/promise'
 import crypto from 'node:crypto'
 import { URL } from 'node:url'
+import mammoth from 'mammoth'
 
 const loadEnvFile = async (path) => {
   const content = await fs.readFile(path, 'utf8')
@@ -1089,23 +1090,7 @@ const handlePostMeetingRecords = async (req, res) => {
       'INSERT IGNORE INTO product_meeting_links (product_name, meeting_folder_id) VALUES (?, ?)',
       [product.trim(), folderId]
     )
-    const records = files.map((file) => {
-      const content = file?.contentBase64
-        ? Buffer.from(String(file.contentBase64), 'base64')
-        : null
-      const isText =
-        file?.type?.startsWith('text/') ||
-        String(file?.name || '').toLowerCase().endsWith('.txt')
-      const contentText = isText && content ? content.toString('utf8') : null
-      return [
-        folderId,
-        file?.name || 'unknown',
-        file?.path || null,
-        file?.type || null,
-        content,
-        contentText,
-      ]
-    })
+    const records = await Promise.all(files.map((file) => buildMeetingRecordRow(file, folderId)))
     await connection.query(
       'INSERT INTO meeting_records (folder_id, file_name, file_path, mime_type, file_content, content_text) VALUES ?',
       [records]
@@ -1122,6 +1107,123 @@ const handlePostMeetingRecords = async (req, res) => {
     }
     console.error(error)
     sendJson(res, 500, { success: false, message: '會議記錄上傳失敗' })
+  }
+}
+
+async function buildMeetingRecordRow(file, folderId) {
+  const content = file?.contentBase64 ? Buffer.from(String(file.contentBase64), 'base64') : null
+  const filename = String(file?.name || '').toLowerCase()
+  const isText = file?.type?.startsWith('text/') || filename.endsWith('.txt')
+  const isDocx =
+    file?.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+    filename.endsWith('.docx')
+  let contentText = null
+  if (isText && content) {
+    contentText = content.toString('utf8')
+  }
+  if (!contentText && isDocx && content) {
+    try {
+      const result = await mammoth.extractRawText({ buffer: content })
+      contentText = result?.value ? result.value.trim() : null
+    } catch (error) {
+      console.error(error)
+      contentText = null
+    }
+  }
+  return [
+    folderId,
+    file?.name || 'unknown',
+    file?.path || null,
+    file?.type || null,
+    content,
+    contentText,
+  ]
+}
+
+const handleAppendMeetingRecords = async (req, res, folderId) => {
+  const user = await getRequiredAuthUser(req, res)
+  if (!user) return
+  const body = await parseBody(req)
+  if (!body) {
+    sendJson(res, 400, { success: false, message: '需要提供會議記錄資料' })
+    return
+  }
+  const { files } = body
+  if (!Array.isArray(files) || files.length === 0) {
+    sendJson(res, 400, { success: false, message: '請上傳會議記錄檔案' })
+    return
+  }
+  try {
+    const connection = await getConnection()
+    const [folders] = await connection.query('SELECT id FROM meeting_folders WHERE id = ?', [
+      folderId,
+    ])
+    if (folders.length === 0) {
+      sendJson(res, 404, { success: false, message: '找不到會議資料夾' })
+      return
+    }
+    const records = await Promise.all(files.map((file) => buildMeetingRecordRow(file, folderId)))
+    await connection.query(
+      'INSERT INTO meeting_records (folder_id, file_name, file_path, mime_type, file_content, content_text) VALUES ?',
+      [records]
+    )
+    sendJson(res, 201, { success: true, message: '會議記錄已更新' })
+  } catch (error) {
+    console.error(error)
+    sendJson(res, 500, { success: false, message: '會議記錄更新失敗' })
+  }
+}
+
+const handleDeleteMeetingRecord = async (req, res, recordId) => {
+  const user = await getRequiredAuthUser(req, res)
+  if (!user) return
+  try {
+    const connection = await getConnection()
+    const [result] = await connection.query('DELETE FROM meeting_records WHERE id = ?', [
+      recordId,
+    ])
+    if (result.affectedRows === 0) {
+      sendJson(res, 404, { success: false, message: '找不到會議記錄' })
+      return
+    }
+    sendJson(res, 200, { success: true, message: '會議記錄已刪除' })
+  } catch (error) {
+    console.error(error)
+    sendJson(res, 500, { success: false, message: '會議記錄刪除失敗' })
+  }
+}
+
+const handleDeleteMeetingFolder = async (req, res, folderId) => {
+  const user = await getRequiredAuthUser(req, res)
+  if (!user) return
+  let connection = null
+  try {
+    connection = await getConnection()
+    await connection.beginTransaction()
+    await connection.query('DELETE FROM meeting_records WHERE folder_id = ?', [folderId])
+    await connection.query('DELETE FROM product_meeting_links WHERE meeting_folder_id = ?', [
+      folderId,
+    ])
+    const [result] = await connection.query('DELETE FROM meeting_folders WHERE id = ?', [
+      folderId,
+    ])
+    if (result.affectedRows === 0) {
+      await connection.rollback()
+      sendJson(res, 404, { success: false, message: '找不到會議資料夾' })
+      return
+    }
+    await connection.commit()
+    sendJson(res, 200, { success: true, message: '會議資料夾已刪除' })
+  } catch (error) {
+    if (connection) {
+      try {
+        await connection.rollback()
+      } catch (rollbackError) {
+        console.error(rollbackError)
+      }
+    }
+    console.error(error)
+    sendJson(res, 500, { success: false, message: '會議資料夾刪除失敗' })
   }
 }
 
@@ -1143,7 +1245,7 @@ const handleGetMeetingRecords = async (req, res) => {
       'SELECT id, meeting_time, created_by_email, created_at FROM meeting_folders'
     )
     const [records] = await connection.query(
-      `SELECT id, folder_id, file_name, file_path, mime_type, content_text
+      `SELECT id, folder_id, file_name, file_path, mime_type, content_text, file_content
        FROM meeting_records
        ORDER BY id ASC`
     )
@@ -1166,12 +1268,28 @@ const handleGetMeetingRecords = async (req, res) => {
     for (const record of records) {
       const folder = foldersById.get(record.folder_id)
       if (folder) {
+        let contentText = record.content_text
+        if (!contentText && record.file_content) {
+          const filename = String(record.file_name || '').toLowerCase()
+          const isDocx =
+            record.mime_type ===
+              'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+            filename.endsWith('.docx')
+          if (isDocx) {
+            try {
+              const result = await mammoth.extractRawText({ buffer: record.file_content })
+              contentText = result?.value ? result.value.trim() : null
+            } catch (error) {
+              console.error(error)
+            }
+          }
+        }
         folder.records.push({
           id: record.id,
           file_name: record.file_name,
           file_path: record.file_path,
           mime_type: record.mime_type,
-          content_text: record.content_text,
+          content_text: contentText,
         })
       }
     }
@@ -1778,6 +1896,32 @@ const start = async () => {
     if (url.pathname === '/api/meeting-records' && req.method === 'GET') {
       await handleGetMeetingRecords(req, res)
       return
+    }
+    if (url.pathname.startsWith('/api/meeting-records/')) {
+      const id = Number(url.pathname.split('/').pop())
+      if (!Number.isFinite(id)) {
+        sendJson(res, 400, { success: false, message: '會議記錄 ID 無效' })
+        return
+      }
+      if (req.method === 'POST') {
+        await handleAppendMeetingRecords(req, res, id)
+        return
+      }
+      if (req.method === 'DELETE') {
+        await handleDeleteMeetingRecord(req, res, id)
+        return
+      }
+    }
+    if (url.pathname.startsWith('/api/meeting-folders/')) {
+      const id = Number(url.pathname.split('/').pop())
+      if (!Number.isFinite(id)) {
+        sendJson(res, 400, { success: false, message: '會議資料夾 ID 無效' })
+        return
+      }
+      if (req.method === 'DELETE') {
+        await handleDeleteMeetingFolder(req, res, id)
+        return
+      }
     }
     if (url.pathname === '/api/dify/auto-fill' && req.method === 'POST') {
       await handlePostDifyAutoFill(req, res)
