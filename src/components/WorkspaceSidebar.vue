@@ -51,6 +51,16 @@
         <span class="sidebar-glyph">📄</span>
         記錄檢視
       </button>
+      <button
+        class="sidebar-button"
+        :class="{ active: activePath === '/users/dashboard' }"
+        type="button"
+        aria-label="用戶工作安排"
+        @click="onViewUserDashboard"
+      >
+        <span class="sidebar-glyph">👤</span>
+        用戶安排
+      </button>
     </div>
     <div class="sidebar-bottom">
       <button
@@ -81,6 +91,7 @@ const {
   onViewTasks,
   onUploadMeeting,
   onViewMeetings,
+  onViewUserDashboard,
   activePath,
 } = defineProps({
   onCreateTask: {
@@ -96,6 +107,10 @@ const {
     default: () => {},
   },
   onViewMeetings: {
+    type: Function,
+    default: () => {},
+  },
+  onViewUserDashboard: {
     type: Function,
     default: () => {},
   },
