@@ -37,6 +37,8 @@ const isLoading = ref(false)
 const showResult = ref(false)
 const resultTitle = ref('')
 const resultMessage = ref('')
+const isUploading = ref(false)
+const uploadInput = ref(null)
 
 const goToNewTask = () => router?.push('/tasks/new')
 const goToTaskList = () => router?.push('/tasks/view')
@@ -145,6 +147,34 @@ const resetSelections = () => {
   activeList.value = null
 }
 
+const fileToBase64 = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = reader.result
+      if (typeof result !== 'string') {
+        resolve('')
+        return
+      }
+      const base64 = result.split(',')[1] || ''
+      resolve(base64)
+    }
+    reader.onerror = () => reject(new Error('Failed to read file'))
+    reader.readAsDataURL(file)
+  })
+
+const syncActiveSelection = () => {
+  if (!activeMeeting.value) return
+  const meeting = getMeetings().find((item) => item.id === activeMeeting.value.id)
+  if (meeting) {
+    activeMeeting.value = meeting
+    if (activeRecord.value) {
+      activeRecord.value = meeting.records.find((record) => record.id === activeRecord.value.id) || null
+      activeRecordMeta.value = activeRecord.value ? meeting : null
+    }
+  }
+}
+
 const useSelectedMeeting = () => {
   if (!props.onSelectRecords || !activeMeeting.value) return
   props.onSelectRecords(activeMeeting.value.records || [])
@@ -156,6 +186,120 @@ const openList = (type) => {
     return
   }
   activeList.value = type
+}
+
+const triggerUpload = () => {
+  if (!activeMeeting.value || isUploading.value) return
+  uploadInput.value?.click()
+}
+
+const handleUploadChange = async (event) => {
+  const files = Array.from(event.target.files || [])
+  event.target.value = ''
+  if (!files.length || !activeMeeting.value) return
+  const auth = readAuthStorage()
+  if (!auth) {
+    resultTitle.value = '上傳失敗'
+    resultMessage.value = '請先登入'
+    showResult.value = true
+    return
+  }
+  isUploading.value = true
+  try {
+    const filesPayload = await Promise.all(
+      files.map(async (file) => ({
+        name: file.name,
+        path: file.webkitRelativePath || file.name,
+        type: file.type,
+        contentBase64: await fileToBase64(file),
+      }))
+    )
+    const response = await fetch(`${apiBaseUrl}/api/meeting-records/${activeMeeting.value.id}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${auth.token}`,
+      },
+      body: JSON.stringify({ files: filesPayload }),
+    })
+    const data = await response.json()
+    if (!response.ok || !data?.success) {
+      resultTitle.value = '上傳失敗'
+      resultMessage.value = data?.message || '會議記錄上傳失敗'
+      showResult.value = true
+      return
+    }
+    resultTitle.value = '上傳成功'
+    resultMessage.value = data?.message || '會議記錄已更新'
+    showResult.value = true
+    await fetchMeetingRecords()
+    syncActiveSelection()
+  } catch (error) {
+    console.error(error)
+    resultTitle.value = '上傳失敗'
+    resultMessage.value = '會議記錄上傳失敗'
+    showResult.value = true
+  } finally {
+    isUploading.value = false
+  }
+}
+
+const deleteMeetingRecord = async (record) => {
+  if (!record) return
+  const confirmed = window.confirm(`確定要刪除「${record.file_name}」嗎？`)
+  if (!confirmed) return
+  const auth = readAuthStorage()
+  if (!auth) return
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/meeting-records/${record.id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${auth.token}` },
+    })
+    const data = await response.json()
+    if (!response.ok || !data?.success) {
+      resultTitle.value = '刪除失敗'
+      resultMessage.value = data?.message || '會議記錄刪除失敗'
+      showResult.value = true
+      return
+    }
+    await fetchMeetingRecords()
+    syncActiveSelection()
+  } catch (error) {
+    console.error(error)
+    resultTitle.value = '刪除失敗'
+    resultMessage.value = '會議記錄刪除失敗'
+    showResult.value = true
+  }
+}
+
+const deleteMeetingFolder = async () => {
+  if (!activeMeeting.value) return
+  const confirmed = window.confirm('確定要刪除整份會議文件夾嗎？此操作無法復原。')
+  if (!confirmed) return
+  const auth = readAuthStorage()
+  if (!auth) return
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/meeting-folders/${activeMeeting.value.id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${auth.token}` },
+    })
+    const data = await response.json()
+    if (!response.ok || !data?.success) {
+      resultTitle.value = '刪除失敗'
+      resultMessage.value = data?.message || '會議資料夾刪除失敗'
+      showResult.value = true
+      return
+    }
+    activeMeeting.value = null
+    activeRecord.value = null
+    activeRecordMeta.value = null
+    await fetchMeetingRecords()
+  } catch (error) {
+    console.error(error)
+    resultTitle.value = '刪除失敗'
+    resultMessage.value = '會議資料夾刪除失敗'
+    showResult.value = true
+  }
 }
 
 const filteredVendors = computed(() => {
@@ -191,11 +335,17 @@ const fetchMeetingRecords = async () => {
       showResult.value = true
       return
     }
-    records.value = data.data || []
-    activeClient.value = records.value[0]?.name || ''
-    activeVendor.value = ''
-    activeProduct.value = ''
-    activeMeeting.value = null
+    const nextRecords = data.data || []
+    records.value = nextRecords
+    if (!activeClient.value || !nextRecords.some((client) => client.name === activeClient.value)) {
+      activeClient.value = nextRecords[0]?.name || ''
+      activeVendor.value = ''
+      activeProduct.value = ''
+      activeMeeting.value = null
+      activeRecord.value = null
+      activeRecordMeta.value = null
+    }
+    syncActiveSelection()
   } catch (error) {
     console.error(error)
     resultTitle.value = '讀取失敗'
@@ -351,20 +501,49 @@ onMounted(fetchMeetingRecords)
           <div class="panel-section">
             <div class="panel-header">
               <h2>會議記錄</h2>
+              <div class="panel-actions">
+                <button
+                  class="ghost-mini"
+                  type="button"
+                  :disabled="!activeMeeting || isUploading"
+                  @click="triggerUpload"
+                >
+                  {{ isUploading ? '上傳中...' : '新增記錄' }}
+                </button>
+                <button
+                  class="ghost-mini danger"
+                  type="button"
+                  :disabled="!activeMeeting"
+                  @click="deleteMeetingFolder"
+                >
+                  刪除會議
+                </button>
+              </div>
             </div>
             <div class="record-list">
-              <button
+              <div
                 v-for="record in activeMeeting?.records || []"
                 :key="record.id"
-                type="button"
-                class="record-button"
-                @click="activeRecord = record; activeRecordMeta = activeMeeting"
+                class="record-item"
               >
-                <div class="record-title">
-                  <strong>{{ record.file_name }}</strong>
-                  <span class="record-path">{{ record.file_path }}</span>
-                </div>
-              </button>
+                <button
+                  type="button"
+                  class="record-button"
+                  @click="activeRecord = record; activeRecordMeta = activeMeeting"
+                >
+                  <div class="record-title">
+                    <strong>{{ record.file_name }}</strong>
+                    <span class="record-path">{{ record.file_path }}</span>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  class="danger-text"
+                  @click.stop="deleteMeetingRecord(record)"
+                >
+                  刪除
+                </button>
+              </div>
             </div>
           </div>
           <div v-if="props.embedded" class="panel-section">
@@ -405,6 +584,13 @@ onMounted(fetchMeetingRecords)
       :title="resultTitle"
       :message="resultMessage"
       @close="showResult = false"
+    />
+    <input
+      ref="uploadInput"
+      class="sr-only"
+      type="file"
+      multiple
+      @change="handleUploadChange"
     />
   </div>
 </template>
@@ -589,15 +775,21 @@ onMounted(fetchMeetingRecords)
   gap: 1rem;
 }
 
+.record-item {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
 .record-button {
+  flex: 1;
   border: 1px solid #e2e8f0;
   border-radius: 16px;
   padding: 0.8rem;
   background: #f8fafc;
   text-align: left;
   cursor: pointer;
-  display: grid;
-  gap: 0.4rem;
+  display: block;
 }
 
 .record-button:hover {
@@ -607,6 +799,37 @@ onMounted(fetchMeetingRecords)
 .record-title {
   display: grid;
   gap: 0.2rem;
+}
+
+.panel-actions .ghost-mini:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.ghost-mini.danger {
+  color: #b91c1c;
+  border-color: rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.12);
+}
+
+.danger-text {
+  border: none;
+  background: transparent;
+  color: #b91c1c;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
 }
 
 .record-meta {
