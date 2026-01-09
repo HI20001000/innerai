@@ -553,16 +553,25 @@ onMounted(fetchMeetingRecords)
                     </span>
                     <span class="meeting-count">{{ meeting.records.length }} 份記錄</span>
                   </div>
+                  <div class="meeting-actions">
+                    <button
+                      type="button"
+                      class="meeting-action"
+                      :disabled="isUploading"
+                      @click.stop="activeMeeting = meeting; activeRecord = null; activeRecordMeta = null; triggerUpload()"
+                    >
+                      ＋
+                    </button>
+                    <button
+                      type="button"
+                      class="meeting-action"
+                      @click.stop="activeMeeting = meeting; activeRecord = null; activeRecordMeta = null; deleteMeetingFolder()"
+                    >
+                      −
+                    </button>
+                  </div>
                 </button>
                 <div class="meeting-actions">
-                  <button
-                    type="button"
-                    class="meeting-action"
-                    :disabled="isUploading"
-                    @click.stop="activeMeeting = meeting; activeRecord = null; activeRecordMeta = null; triggerUpload()"
-                  >
-                    ＋
-                  </button>
                   <button
                     type="button"
                     class="meeting-action"
@@ -570,13 +579,6 @@ onMounted(fetchMeetingRecords)
                     @click.stop="activeMeeting = meeting; activeRecord = null; activeRecordMeta = null; generateMeetingReport(meeting)"
                   >
                     🤖
-                  </button>
-                  <button
-                    type="button"
-                    class="meeting-action"
-                    @click.stop="activeMeeting = meeting; activeRecord = null; activeRecordMeta = null; deleteMeetingFolder()"
-                  >
-                    −
                   </button>
                   <button
                     type="button"
@@ -588,24 +590,6 @@ onMounted(fetchMeetingRecords)
                   </button>
                 </div>
               </div>
-            </div>
-            <div class="meeting-report-actions">
-              <button
-                type="button"
-                class="meeting-action wide"
-                :disabled="!activeMeeting || isReportGenerating"
-                @click="activeMeeting && generateMeetingReport(activeMeeting)"
-              >
-                🤖 整合
-              </button>
-              <button
-                type="button"
-                class="meeting-action wide"
-                :disabled="!activeMeeting?.report?.content_text"
-                @click="activeMeeting && openMeetingReport(activeMeeting)"
-              >
-                檢視
-              </button>
             </div>
           </div>
 
