@@ -168,6 +168,14 @@ const calendarSubmissions = computed(() => {
   return userSubmissions.value
 })
 
+const timelineTitle = computed(() => {
+  const date = selectedDate.value
+  if (!date) return '時間線'
+  const [year, month, day] = date.split('-')
+  if (!year || !month || !day) return '時間線'
+  return `${year}年${month}月${day}日時間線`
+})
+
 const getFilteredUsers = () => {
   const query = userSearchQuery.value.trim().toLowerCase()
   if (!query) return users.value
@@ -306,7 +314,7 @@ onMounted(async () => {
         <article class="panel">
           <header class="panel-header">
             <div class="panel-title-row">
-              <h2>今日任務</h2>
+              <h2>{{ timelineTitle }}</h2>
               <span class="panel-badge" :class="todaysBadge.className">
                 {{ todaysBadge.text }}
               </span>
@@ -644,7 +652,7 @@ onMounted(async () => {
   display: grid;
   grid-template-columns: 80px minmax(0, 1fr);
   gap: 1rem;
-  align-items: center;
+  align-items: start;
 }
 
 .time {
