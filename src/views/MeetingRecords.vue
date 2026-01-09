@@ -163,18 +163,6 @@ const fileToBase64 = (file) =>
     reader.readAsDataURL(file)
   })
 
-const syncActiveSelection = () => {
-  if (!activeMeeting.value) return
-  const meeting = getMeetings().find((item) => item.id === activeMeeting.value.id)
-  if (meeting) {
-    activeMeeting.value = meeting
-    if (activeRecord.value) {
-      activeRecord.value = meeting.records.find((record) => record.id === activeRecord.value.id) || null
-      activeRecordMeta.value = activeRecord.value ? meeting : null
-    }
-  }
-}
-
 const useSelectedMeeting = () => {
   if (!props.onSelectRecords || !activeMeeting.value) return
   props.onSelectRecords(activeMeeting.value.records || [])
@@ -232,8 +220,15 @@ const handleUploadChange = async (event) => {
     resultTitle.value = '上傳成功'
     resultMessage.value = data?.message || '會議記錄已更新'
     showResult.value = true
-    await fetchMeetingRecords()
-    syncActiveSelection()
+    const baseId = Date.now()
+    const appendedRecords = filesPayload.map((file, index) => ({
+      id: `${baseId}-${index}-${file.name}`,
+      file_name: file.name,
+      file_path: file.path || file.name,
+      mime_type: file.type,
+      content_text: null,
+    }))
+    activeMeeting.value.records = [...(activeMeeting.value.records || []), ...appendedRecords]
   } catch (error) {
     console.error(error)
     resultTitle.value = '上傳失敗'
@@ -260,8 +255,15 @@ const deleteMeetingRecord = async (record) => {
       showResult.value = true
       return
     }
-    await fetchMeetingRecords()
-    syncActiveSelection()
+    if (activeMeeting.value) {
+      activeMeeting.value.records = (activeMeeting.value.records || []).filter(
+        (item) => item.id !== record.id
+      )
+    }
+    if (activeRecord.value?.id === record.id) {
+      activeRecord.value = null
+      activeRecordMeta.value = null
+    }
   } catch (error) {
     console.error(error)
     resultTitle.value = '刪除失敗'
@@ -286,10 +288,15 @@ const deleteMeetingFolder = async () => {
       showResult.value = true
       return
     }
+    const removedId = activeMeeting.value.id
+    const vendor = getVendors().find((item) => item.name === activeVendor.value)
+    const product = vendor?.products.find((item) => item.name === activeProduct.value)
+    if (product) {
+      product.meetings = (product.meetings || []).filter((meeting) => meeting.id !== removedId)
+    }
     activeMeeting.value = null
     activeRecord.value = null
     activeRecordMeta.value = null
-    await fetchMeetingRecords()
   } catch (error) {
     console.error(error)
     resultTitle.value = '刪除失敗'
@@ -341,7 +348,6 @@ const fetchMeetingRecords = async () => {
       activeRecord.value = null
       activeRecordMeta.value = null
     }
-    syncActiveSelection()
   } catch (error) {
     console.error(error)
     resultTitle.value = '讀取失敗'
