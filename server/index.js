@@ -3,6 +3,7 @@ import http from 'node:http'
 import mysql from 'mysql2/promise'
 import crypto from 'node:crypto'
 import { URL } from 'node:url'
+import mammoth from 'mammoth'
 
 const loadEnvFile = async (path) => {
   const content = await fs.readFile(path, 'utf8')
@@ -1089,23 +1090,40 @@ const handlePostMeetingRecords = async (req, res) => {
       'INSERT IGNORE INTO product_meeting_links (product_name, meeting_folder_id) VALUES (?, ?)',
       [product.trim(), folderId]
     )
-    const records = files.map((file) => {
-      const content = file?.contentBase64
-        ? Buffer.from(String(file.contentBase64), 'base64')
-        : null
-      const isText =
-        file?.type?.startsWith('text/') ||
-        String(file?.name || '').toLowerCase().endsWith('.txt')
-      const contentText = isText && content ? content.toString('utf8') : null
-      return [
-        folderId,
-        file?.name || 'unknown',
-        file?.path || null,
-        file?.type || null,
-        content,
-        contentText,
-      ]
-    })
+    const records = await Promise.all(
+      files.map(async (file) => {
+        const content = file?.contentBase64
+          ? Buffer.from(String(file.contentBase64), 'base64')
+          : null
+        const filename = String(file?.name || '').toLowerCase()
+        const isText = file?.type?.startsWith('text/') || filename.endsWith('.txt')
+        const isDocx =
+          file?.type ===
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+          filename.endsWith('.docx')
+        let contentText = null
+        if (isText && content) {
+          contentText = content.toString('utf8')
+        }
+        if (!contentText && isDocx && content) {
+          try {
+            const result = await mammoth.extractRawText({ buffer: content })
+            contentText = result?.value ? result.value.trim() : null
+          } catch (error) {
+            console.error(error)
+            contentText = null
+          }
+        }
+        return [
+          folderId,
+          file?.name || 'unknown',
+          file?.path || null,
+          file?.type || null,
+          content,
+          contentText,
+        ]
+      })
+    )
     await connection.query(
       'INSERT INTO meeting_records (folder_id, file_name, file_path, mime_type, file_content, content_text) VALUES ?',
       [records]
@@ -1143,7 +1161,7 @@ const handleGetMeetingRecords = async (req, res) => {
       'SELECT id, meeting_time, created_by_email, created_at FROM meeting_folders'
     )
     const [records] = await connection.query(
-      `SELECT id, folder_id, file_name, file_path, mime_type, content_text
+      `SELECT id, folder_id, file_name, file_path, mime_type, content_text, file_content
        FROM meeting_records
        ORDER BY id ASC`
     )
@@ -1166,12 +1184,28 @@ const handleGetMeetingRecords = async (req, res) => {
     for (const record of records) {
       const folder = foldersById.get(record.folder_id)
       if (folder) {
+        let contentText = record.content_text
+        if (!contentText && record.file_content) {
+          const filename = String(record.file_name || '').toLowerCase()
+          const isDocx =
+            record.mime_type ===
+              'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+            filename.endsWith('.docx')
+          if (isDocx) {
+            try {
+              const result = await mammoth.extractRawText({ buffer: record.file_content })
+              contentText = result?.value ? result.value.trim() : null
+            } catch (error) {
+              console.error(error)
+            }
+          }
+        }
         folder.records.push({
           id: record.id,
           file_name: record.file_name,
           file_path: record.file_path,
           mime_type: record.mime_type,
-          content_text: record.content_text,
+          content_text: contentText,
         })
       }
     }
