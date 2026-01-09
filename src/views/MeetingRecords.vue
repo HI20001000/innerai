@@ -45,7 +45,6 @@ const uploadInput = ref(null)
 
 const goToNewTask = () => router?.push('/tasks/new')
 const goToTaskList = () => router?.push('/tasks/view')
-const goToMeetingUpload = () => router?.push('/meetings/upload')
 const goToMeetingRecords = () => router?.push('/meetings')
 const goToHome = () => router?.push('/home')
 const goToProfile = () => router?.push('/settings')
@@ -588,7 +587,7 @@ onMounted(fetchMeetingRecords)
 
           <div class="panel-section">
             <div class="panel-header">
-              <h2>會議記錄</h2>
+              <h2>會議記錄</h2>              
             </div>
             <div class="record-list">
               <div
@@ -755,6 +754,12 @@ onMounted(fetchMeetingRecords)
   display: inline-flex;
   align-items: center;
   gap: 0.6rem;
+}
+
+.panel-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .panel-header h2 {
