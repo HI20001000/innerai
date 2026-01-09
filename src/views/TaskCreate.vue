@@ -327,20 +327,6 @@ const toggleFollowUpAssignee = (item, user) => {
   })
 }
 
-const assignAllFollowUpAssignees = (item) => {
-  const relatedMails = selectedRelatedUsers.value.map((user) => user.mail).filter(Boolean)
-  const uniqueMails = Array.from(new Set(relatedMails))
-  followUpItems.value = followUpItems.value.map((followUpItem) =>
-    followUpItem === item
-      ? {
-          ...followUpItem,
-          assignees: uniqueMails,
-        }
-      : followUpItem
-  )
-  activeFollowUpAssigneeMenu.value = null
-}
-
 const getFollowUpAssigneeLabel = (item) => {
   const count = item.assignees?.length || 0
   return count > 0 ? `已選${count}人` : '設定跟進人'
@@ -601,17 +587,19 @@ const closeMenusOnOutsideClick = (event) => {
     activeFollowUpAssigneeMenu.value = null
     return
   }
-  if (
-    target.closest('.select-field-wrapper') ||
-    target.closest('.option-list') ||
-    target.closest('.quick-assign-wrapper') ||
-    target.closest('.follow-up-assignee')
-  ) {
-    return
+  const withinSelectField = target.closest('.select-field-wrapper')
+  const withinQuickAssign = target.closest('.quick-assign-wrapper')
+  const withinAssignee = target.closest('.follow-up-assignee')
+
+  if (!withinSelectField) {
+    activeList.value = null
   }
-  activeList.value = null
-  activeQuickAssignMenu.value = false
-  activeFollowUpAssigneeMenu.value = null
+  if (!withinQuickAssign) {
+    activeQuickAssignMenu.value = false
+  }
+  if (!withinAssignee) {
+    activeFollowUpAssigneeMenu.value = null
+  }
 }
 
 onMounted(() => {
@@ -904,13 +892,6 @@ onBeforeUnmount(() => {
                       type="text"
                       placeholder="搜尋用戶"
                     />
-                    <button
-                      type="button"
-                      class="option-item quick-assign"
-                      @click="assignAllFollowUpAssignees(item)"
-                    >
-                      一鍵指派所有關聯用戶
-                    </button>
                     <button
                       v-for="user in getFilteredRelatedUsers()"
                       :key="user.mail"
