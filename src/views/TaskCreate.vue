@@ -63,6 +63,10 @@ const goToMeetingRecords = () => {
   router?.push('/meetings')
 }
 
+const goToUserDashboard = () => {
+  router?.push('/users/dashboard')
+}
+
 const goToHome = () => {
   router?.push('/home')
 }
@@ -304,6 +308,38 @@ const applyQuickAssign = (user) => {
       : [...(item.assignees || []), user.mail],
   }))
   activeQuickAssignMenu.value = false
+}
+
+const isFollowUpAssigneeSelected = (item, user) =>
+  (item.assignees || []).includes(user.mail)
+
+const toggleFollowUpAssignee = (item, user) => {
+  if (!user?.mail) return
+  followUpItems.value = followUpItems.value.map((followUpItem) => {
+    if (followUpItem !== item) return followUpItem
+    const assignees = followUpItem.assignees || []
+    const nextAssignees = assignees.includes(user.mail)
+      ? assignees.filter((mail) => mail !== user.mail)
+      : [...assignees, user.mail]
+    return {
+      ...followUpItem,
+      assignees: nextAssignees,
+    }
+  })
+}
+
+const assignAllFollowUpAssignees = (item) => {
+  const relatedMails = selectedRelatedUsers.value.map((user) => user.mail).filter(Boolean)
+  const uniqueMails = Array.from(new Set(relatedMails))
+  followUpItems.value = followUpItems.value.map((followUpItem) =>
+    followUpItem === item
+      ? {
+          ...followUpItem,
+          assignees: uniqueMails,
+        }
+      : followUpItem
+  )
+  activeFollowUpAssigneeMenu.value = null
 }
 
 const getFollowUpAssigneeLabel = (item) => {
@@ -573,6 +609,7 @@ onMounted(() => {
       :on-view-tasks="goToTaskList"
       :on-upload-meeting="goToMeetingUpload"
       :on-view-meetings="goToMeetingRecords"
+      :on-view-user-dashboard="goToUserDashboard"
       :on-go-home="goToHome"
       :on-go-profile="goToProfile"
       :active-path="activePath"
@@ -904,50 +941,6 @@ onMounted(() => {
                   <button type="button" class="chip-remove" @click="removeFollowUpItem(index)">
                     ×
                   </button>
-                  <div v-if="editingFollowUpIndex === index" class="follow-up-assignee">
-                    <button
-                      type="button"
-                      class="select-field small"
-                      :disabled="selectedRelatedUsers.length === 0"
-                      @click="toggleFollowUpAssigneeMenu(index)"
-                    >
-                      {{ getFollowUpAssigneeLabel(item) }}
-                    </button>
-                    <div
-                      v-if="activeFollowUpAssigneeMenu === index"
-                      class="option-list assignee-list"
-                    >
-                      <input
-                        v-model="searchQuery.user"
-                        class="option-search"
-                        type="text"
-                        placeholder="搜尋用戶"
-                      />
-                      <button
-                        v-for="user in getFilteredRelatedUsers()"
-                        :key="user.mail"
-                        type="button"
-                        class="option-item user-option"
-                        @click="toggleFollowUpAssignee(item, user)"
-                      >
-                        <span
-                          class="user-avatar"
-                          :style="{ backgroundColor: user.icon_bg || '#e2e8f0' }"
-                        >
-                          {{ user.icon || '🙂' }}
-                        </span>
-                        <span class="user-label">
-                          {{ user.username || 'user' }} &lt;{{ user.mail }}&gt;
-                        </span>
-                        <span
-                          v-if="isFollowUpAssigneeSelected(item, user)"
-                          class="user-selected"
-                        >
-                          已選
-                        </span>
-                      </button>
-                    </div>
-                  </div>
                 </div>
               </div>
             </div>
@@ -1302,6 +1295,10 @@ onMounted(() => {
   align-items: center;
   gap: 0.4rem;
   margin-left: auto;
+}
+
+.follow-up-assignee {
+  position: relative;
 }
 
 .follow-up-content {

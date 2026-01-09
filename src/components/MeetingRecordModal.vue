@@ -27,7 +27,7 @@ const handleSelect = (records) => {
     <div class="modal-card">
       <header class="modal-header">
         <h2>選擇會議記錄</h2>
-        <button class="ghost-button" type="button" @click="props.onClose">關閉</button>
+        <button class="ghost-mini" type="button" @click="props.onClose">取消</button>
       </header>
       <MeetingRecords :embedded="true" :on-select-records="handleSelect" />
     </div>
@@ -61,13 +61,22 @@ const handleSelect = (records) => {
   justify-content: space-between;
 }
 
-.ghost-button {
+.ghost-mini {
   border: 1px solid #e2e8f0;
   background: #fff;
-  padding: 0.35rem 0.8rem;
+  padding: 0.2rem 0.7rem;
   border-radius: 999px;
   font-weight: 600;
+  font-size: 0.75rem;
   cursor: pointer;
   color: #475569;
+}
+
+:deep(.option-search) {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.45rem 0.6rem;
+  font-size: 0.85rem;
+  background: #fff;
 }
 </style>
