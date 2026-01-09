@@ -102,8 +102,10 @@ const followUpItems = computed(() =>
   })
 )
 
-const tasksForDate = computed(() =>
-  followUpItems.value.filter((task) => toDateKey(task.scheduledAt) === selectedDate.value)
+const timelineItems = computed(() =>
+  userSubmissions.value
+    .filter((submission) => toDateKey(submission.scheduled_at) === selectedDate.value)
+    .sort((a, b) => String(a.scheduled_at || '').localeCompare(String(b.scheduled_at || '')))
 )
 
 const totalCount = computed(() => followUpItems.value.length)
@@ -121,10 +123,14 @@ const completedCount = computed(
 )
 
 const todaysBadge = computed(() => {
-  if (tasksForDate.value.length === 0) {
+  const total = timelineItems.value.reduce(
+    (sum, submission) => sum + (submission.follow_ups?.length || 0),
+    0
+  )
+  if (total === 0) {
     return { text: '無任務', className: 'panel-badge-empty' }
   }
-  return { text: `${tasksForDate.value.length} 筆`, className: 'panel-badge-pending' }
+  return { text: `${total} 筆`, className: 'panel-badge-pending' }
 })
 
 const getAssigneeNames = (task) => {
@@ -136,16 +142,25 @@ const getAssigneeNames = (task) => {
 }
 
 const getStatusChipStyle = (task) => {
-  if (task.statusBgColor) {
-    return { backgroundColor: task.statusBgColor, color: '#0f172a' }
+  const statusName = task.status || task.status_name || ''
+  const statusColor = task.statusBgColor || task.status_bg_color || ''
+  if (statusColor) {
+    return { backgroundColor: statusColor, color: '#0f172a' }
   }
-  if (task.status === COMPLETED_STATUS) {
+  if (statusName === COMPLETED_STATUS) {
     return { backgroundColor: '#dcfce7', color: '#166534' }
   }
-  if (task.status === INCOMPLETE_STATUS) {
+  if (statusName === INCOMPLETE_STATUS) {
     return { backgroundColor: '#fee2e2', color: '#b91c1c' }
   }
   return { backgroundColor: '#fef3c7', color: '#92400e' }
+}
+
+const formatTimeOnly = (value) => {
+  const formatted = formatDateTimeDisplay(value)
+  if (!formatted) return ''
+  const parts = formatted.split(' ')
+  return parts.length > 1 ? parts[1].slice(0, 5) : formatted
 }
 
 const calendarSubmissions = computed(() => {
@@ -298,24 +313,45 @@ onMounted(async () => {
             </div>
             <p>檢視 {{ selectedDate }} 需要跟進的安排。</p>
           </header>
-          <div class="task-list">
-            <p v-if="isLoading" class="empty-state">載入中...</p>
-            <p v-else-if="errorMessage" class="empty-state">{{ errorMessage }}</p>
-            <p v-else-if="tasksForDate.length === 0" class="empty-state">此日期沒有任務。</p>
-            <div v-else class="task-cards">
-              <article v-for="task in tasksForDate" :key="task.id" class="task-card">
-                <div>
-                  <p class="task-time">{{ formatDateTimeDisplay(task.scheduledAt) }}</p>
-                  <h3 class="task-title">{{ task.title }}</h3>
-                  <p class="task-meta">{{ task.label }}</p>
+          <div class="timeline">
+            <p v-if="isLoading" class="timeline-empty">載入中...</p>
+            <p v-else-if="errorMessage" class="timeline-empty">{{ errorMessage }}</p>
+            <p v-else-if="timelineItems.length === 0" class="timeline-empty">
+              此日期沒有需要跟進的任務。
+            </p>
+            <div v-else class="timeline-list">
+              <div v-for="item in timelineItems" :key="item.id" class="time-row">
+                <span class="time">{{ formatTimeOnly(item.scheduled_at) || '--:--' }}</span>
+                <div class="time-card">
+                  <h3 class="time-card-title">
+                    {{ item.client_name }}_{{ item.vendor_name }}_{{ item.product_name }}
+                  </h3>
+                  <div v-if="item.follow_ups?.length" class="follow-up-list">
+                    <div
+                      v-for="(follow, index) in item.follow_ups"
+                      :key="follow.id"
+                      class="follow-up-row"
+                    >
+                      <span class="follow-up-index">{{ index + 1 }}.</span>
+                      <div class="follow-up-main">
+                        <span class="follow-up-text">{{ follow.content }}</span>
+                        <div class="follow-up-meta">
+                          <div class="follow-up-meta-item">
+                            <span class="meta-label">跟進人</span>
+                            <span class="meta-value">{{ getAssigneeNames(follow) }}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="follow-up-actions">
+                        <span class="status-chip" :style="getStatusChipStyle(follow)">
+                          {{ follow.status_name || '進行中' }}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <p v-else class="timeline-note">無任務</p>
                 </div>
-                <div class="task-status">
-                  <span class="status-chip" :style="getStatusChipStyle(task)">
-                    {{ task.status }}
-                  </span>
-                  <span class="progress-label">跟進人：{{ getAssigneeNames(task) }}</span>
-                </div>
-              </article>
+              </div>
             </div>
           </div>
         </article>
@@ -592,6 +628,111 @@ onMounted(async () => {
 .panel-header p {
   margin: 0.4rem 0 0;
   color: #64748b;
+}
+
+.timeline {
+  display: grid;
+  gap: 1.2rem;
+}
+
+.timeline-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.time-row {
+  display: grid;
+  grid-template-columns: 80px minmax(0, 1fr);
+  gap: 1rem;
+  align-items: center;
+}
+
+.time {
+  font-weight: 600;
+  color: #475569;
+}
+
+.time-card {
+  padding: 1rem 1.2rem;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.time-card-title {
+  margin: 0 0 0.3rem;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.timeline-empty {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
+.follow-up-list {
+  margin-top: 0.6rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.follow-up-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.6rem;
+  align-items: start;
+}
+
+.follow-up-main {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.follow-up-text {
+  color: #0f172a;
+  font-size: 0.9rem;
+}
+
+.follow-up-index {
+  font-weight: 600;
+  color: #64748b;
+}
+
+.follow-up-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+
+.follow-up-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.meta-label {
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+.meta-value {
+  color: #475569;
+}
+
+.follow-up-actions {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.timeline-note {
+  margin: 0.5rem 0 0;
+  color: #cbd5e1;
+  font-size: 0.85rem;
 }
 
 .task-list {
