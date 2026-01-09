@@ -1,8 +1,9 @@
 <script setup>
-import { computed, getCurrentInstance, onMounted, reactive, ref } from 'vue'
+import { computed, getCurrentInstance, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import WorkspaceSidebar from '../components/WorkspaceSidebar.vue'
 import ResultModal from '../components/ResultModal.vue'
 import DifyAutoFillPanel from '../components/DifyAutoFillPanel.vue'
+import ScrollPanel from '../components/element/ScrollPanel.vue'
 
 const clients = ref([])
 const vendors = ref([])
@@ -16,8 +17,6 @@ const selectedTags = ref([])
 const selectedRelatedUsers = ref([])
 const activeList = ref(null)
 const selectedTime = ref('')
-const recordedAt = ref('')
-const selectedLocation = ref('')
 const followUpInput = ref('')
 const followUpItems = ref([])
 const editingFollowUpIndex = ref(null)
@@ -433,8 +432,6 @@ const saveDraft = () => {
     selectedTags: selectedTags.value,
     selectedRelatedUsers: selectedRelatedUsers.value,
     selectedTime: selectedTime.value,
-    recordedAt: recordedAt.value,
-    selectedLocation: selectedLocation.value,
     followUpItems: followUpItems.value,
   }
   window.localStorage.setItem(draftKey, JSON.stringify(payload))
@@ -470,8 +467,6 @@ const submitTask = async () => {
     tag: selectedTags.value,
     related_user_mail: selectedRelatedUsers.value.map((user) => user.mail),
     scheduled_at: selectedTime.value,
-    recorded_at: recordedAt.value,
-    location: selectedLocation.value,
     follow_up: followUpItems.value.map((item) => ({
       content: item.content,
       assignees: item.assignees || [],
@@ -542,7 +537,6 @@ const applyAutoFill = (payload) => {
     const tags = Array.isArray(payload.tag) ? payload.tag : [payload.tag]
     selectedTags.value = tags.filter(Boolean)
   }
-  if (payload.recorded_at) recordedAt.value = payload.recorded_at
   if (payload.scheduled_at) selectedTime.value = payload.scheduled_at
   if (payload.follow_up) {
     const followUps = Array.isArray(payload.follow_up) ? payload.follow_up : [payload.follow_up]
@@ -574,8 +568,6 @@ const loadDraft = () => {
     selectedTags.value = payload.selectedTags ?? []
     selectedRelatedUsers.value = payload.selectedRelatedUsers ?? []
     selectedTime.value = payload.selectedTime ?? ''
-    recordedAt.value = payload.recordedAt ?? ''
-    selectedLocation.value = payload.selectedLocation ?? ''
     followUpItems.value = Array.isArray(payload.followUpItems)
       ? payload.followUpItems.map((item) => {
           if (typeof item === 'string') {
@@ -599,6 +591,35 @@ onMounted(() => {
   loadDraft()
   loadAllOptions().catch((error) => console.error(error))
   fetchUsers().catch((error) => console.error(error))
+})
+
+const closeMenusOnOutsideClick = (event) => {
+  const target = event.target
+  if (!(target instanceof Element)) {
+    activeList.value = null
+    activeQuickAssignMenu.value = false
+    activeFollowUpAssigneeMenu.value = null
+    return
+  }
+  if (
+    target.closest('.select-field-wrapper') ||
+    target.closest('.option-list') ||
+    target.closest('.quick-assign-wrapper') ||
+    target.closest('.follow-up-assignee')
+  ) {
+    return
+  }
+  activeList.value = null
+  activeQuickAssignMenu.value = false
+  activeFollowUpAssigneeMenu.value = null
+}
+
+onMounted(() => {
+  document.addEventListener('click', closeMenusOnOutsideClick)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', closeMenusOnOutsideClick)
 })
 </script>
 
@@ -629,74 +650,75 @@ onMounted(() => {
     </header>
 
     <section class="task-layout">
-      <form class="task-form" @submit.prevent="submitTask">
-        <div class="field-grid">
-          <div class="field select-field-wrapper">
-            <div class="field-header">
-              <span>客戶</span>
-              <button class="ghost-mini" type="button" @click="openModal('client')">編輯</button>
-            </div>
-            <button class="select-field" type="button" @click="openList('client')">
-              {{ selectedClient || '選擇客戶' }}
-            </button>
-            <p v-if="showRequiredHints && !selectedClient" class="required-hint">必填</p>
-            <p
-              v-if="selectedClient && optionStatus('client', selectedClient)"
-              :class="['option-status', optionStatusClass('client', selectedClient)]"
-            >
-              {{ optionStatus('client', selectedClient) }}
-            </p>
-            <div v-if="activeList === 'client'" class="option-list">
-              <input
-                v-model="searchQuery.client"
-                class="option-search"
-                type="text"
-                placeholder="搜尋客戶"
-              />
-              <button
-                v-for="item in getFilteredOptions('client')"
-                :key="item"
-                type="button"
-                class="option-item"
-                @click="selectOption('client', item)"
-              >
-                {{ item }}
+      <ScrollPanel class="task-form-scroll" height="calc(100vh - 260px)">
+        <form class="task-form" @submit.prevent="submitTask">
+          <div class="field-grid">
+            <div class="field select-field-wrapper">
+              <div class="field-header">
+                <span>客戶</span>
+                <button class="ghost-mini" type="button" @click="openModal('client')">編輯</button>
+              </div>
+              <button class="select-field" type="button" @click="openList('client')">
+                {{ selectedClient || '選擇客戶' }}
               </button>
-            </div>
-          </div>
-          <div class="field select-field-wrapper">
-            <div class="field-header">
-              <span>廠家</span>
-              <button class="ghost-mini" type="button" @click="openModal('vendor')">編輯</button>
-            </div>
-            <button class="select-field" type="button" @click="openList('vendor')">
-              {{ selectedVendor || '選擇廠家' }}
-            </button>
-            <p v-if="showRequiredHints && !selectedVendor" class="required-hint">必填</p>
-            <p
-              v-if="selectedVendor && optionStatus('vendor', selectedVendor)"
-              :class="['option-status', optionStatusClass('vendor', selectedVendor)]"
-            >
-              {{ optionStatus('vendor', selectedVendor) }}
-            </p>
-            <div v-if="activeList === 'vendor'" class="option-list">
-              <input
-                v-model="searchQuery.vendor"
-                class="option-search"
-                type="text"
-                placeholder="搜尋廠家"
-              />
-              <button
-                v-for="item in getFilteredOptions('vendor')"
-                :key="item"
-                type="button"
-                class="option-item"
-                @click="selectOption('vendor', item)"
+              <p v-if="showRequiredHints && !selectedClient" class="required-hint">必填</p>
+              <p
+                v-if="selectedClient && optionStatus('client', selectedClient)"
+                :class="['option-status', optionStatusClass('client', selectedClient)]"
               >
-                {{ item }}
-              </button>
+                {{ optionStatus('client', selectedClient) }}
+              </p>
+              <div v-if="activeList === 'client'" class="option-list">
+                <input
+                  v-model="searchQuery.client"
+                  class="option-search"
+                  type="text"
+                  placeholder="搜尋客戶"
+                />
+                <button
+                  v-for="item in getFilteredOptions('client')"
+                  :key="item"
+                  type="button"
+                  class="option-item"
+                  @click="selectOption('client', item)"
+                >
+                  {{ item }}
+                </button>
+              </div>
             </div>
-          </div>
+            <div class="field select-field-wrapper">
+              <div class="field-header">
+                <span>廠家</span>
+                <button class="ghost-mini" type="button" @click="openModal('vendor')">編輯</button>
+              </div>
+              <button class="select-field" type="button" @click="openList('vendor')">
+                {{ selectedVendor || '選擇廠家' }}
+              </button>
+              <p v-if="showRequiredHints && !selectedVendor" class="required-hint">必填</p>
+              <p
+                v-if="selectedVendor && optionStatus('vendor', selectedVendor)"
+                :class="['option-status', optionStatusClass('vendor', selectedVendor)]"
+              >
+                {{ optionStatus('vendor', selectedVendor) }}
+              </p>
+              <div v-if="activeList === 'vendor'" class="option-list">
+                <input
+                  v-model="searchQuery.vendor"
+                  class="option-search"
+                  type="text"
+                  placeholder="搜尋廠家"
+                />
+                <button
+                  v-for="item in getFilteredOptions('vendor')"
+                  :key="item"
+                  type="button"
+                  class="option-item"
+                  @click="selectOption('vendor', item)"
+                >
+                  {{ item }}
+                </button>
+              </div>
+            </div>
           <div class="field select-field-wrapper">
             <div class="field-header">
               <span>廠家產品</span>
@@ -809,14 +831,6 @@ onMounted(() => {
           <label class="field">
             <span>時間</span>
             <input v-model="selectedTime" type="datetime-local" />
-          </label>
-          <label class="field">
-            <span>記錄時間</span>
-            <input v-model="recordedAt" type="datetime-local" />
-          </label>
-          <label class="field">
-            <span>地點</span>
-            <input v-model="selectedLocation" type="text" placeholder="輸入會議/拜訪地點" />
           </label>
           <label class="field wide">
             <span>需跟進內容</span>
@@ -947,7 +961,8 @@ onMounted(() => {
           </label>
         </div>
 
-      </form>
+        </form>
+      </ScrollPanel>
 
       <aside class="task-summary">
         <div class="summary-card">
