@@ -1,5 +1,6 @@
 <script setup>
-import { computed, getCurrentInstance, onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import WorkspaceSidebar from '../components/WorkspaceSidebar.vue'
 import ResultModal from '../components/ResultModal.vue'
 import ScrollPanel from '../components/element/ScrollPanel.vue'
@@ -18,7 +19,7 @@ const props = defineProps({
 })
 
 const apiBaseUrl = 'http://localhost:3001'
-const router = getCurrentInstance().appContext.config.globalProperties.$router
+const router = useRouter()
 const activePath = computed(() => router?.currentRoute?.value?.path || '')
 
 const records = ref([])
