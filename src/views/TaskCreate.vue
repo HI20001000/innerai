@@ -1,8 +1,9 @@
 <script setup>
-import { computed, getCurrentInstance, onMounted, reactive, ref } from 'vue'
+import { computed, getCurrentInstance, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import WorkspaceSidebar from '../components/WorkspaceSidebar.vue'
 import ResultModal from '../components/ResultModal.vue'
 import DifyAutoFillPanel from '../components/DifyAutoFillPanel.vue'
+import ScrollPanel from '../components/element/ScrollPanel.vue'
 
 const clients = ref([])
 const vendors = ref([])
@@ -591,6 +592,35 @@ onMounted(() => {
   loadAllOptions().catch((error) => console.error(error))
   fetchUsers().catch((error) => console.error(error))
 })
+
+const closeMenusOnOutsideClick = (event) => {
+  const target = event.target
+  if (!(target instanceof Element)) {
+    activeList.value = null
+    activeQuickAssignMenu.value = false
+    activeFollowUpAssigneeMenu.value = null
+    return
+  }
+  if (
+    target.closest('.select-field-wrapper') ||
+    target.closest('.option-list') ||
+    target.closest('.quick-assign-wrapper') ||
+    target.closest('.follow-up-assignee')
+  ) {
+    return
+  }
+  activeList.value = null
+  activeQuickAssignMenu.value = false
+  activeFollowUpAssigneeMenu.value = null
+}
+
+onMounted(() => {
+  document.addEventListener('click', closeMenusOnOutsideClick)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', closeMenusOnOutsideClick)
+})
 </script>
 
 <template>
@@ -620,74 +650,75 @@ onMounted(() => {
     </header>
 
     <section class="task-layout">
-      <form class="task-form" @submit.prevent="submitTask">
-        <div class="field-grid">
-          <div class="field select-field-wrapper">
-            <div class="field-header">
-              <span>客戶</span>
-              <button class="ghost-mini" type="button" @click="openModal('client')">編輯</button>
-            </div>
-            <button class="select-field" type="button" @click="openList('client')">
-              {{ selectedClient || '選擇客戶' }}
-            </button>
-            <p v-if="showRequiredHints && !selectedClient" class="required-hint">必填</p>
-            <p
-              v-if="selectedClient && optionStatus('client', selectedClient)"
-              :class="['option-status', optionStatusClass('client', selectedClient)]"
-            >
-              {{ optionStatus('client', selectedClient) }}
-            </p>
-            <div v-if="activeList === 'client'" class="option-list">
-              <input
-                v-model="searchQuery.client"
-                class="option-search"
-                type="text"
-                placeholder="搜尋客戶"
-              />
-              <button
-                v-for="item in getFilteredOptions('client')"
-                :key="item"
-                type="button"
-                class="option-item"
-                @click="selectOption('client', item)"
-              >
-                {{ item }}
+      <ScrollPanel class="task-form-scroll" height="calc(100vh - 260px)">
+        <form class="task-form" @submit.prevent="submitTask">
+          <div class="field-grid">
+            <div class="field select-field-wrapper">
+              <div class="field-header">
+                <span>客戶</span>
+                <button class="ghost-mini" type="button" @click="openModal('client')">編輯</button>
+              </div>
+              <button class="select-field" type="button" @click="openList('client')">
+                {{ selectedClient || '選擇客戶' }}
               </button>
-            </div>
-          </div>
-          <div class="field select-field-wrapper">
-            <div class="field-header">
-              <span>廠家</span>
-              <button class="ghost-mini" type="button" @click="openModal('vendor')">編輯</button>
-            </div>
-            <button class="select-field" type="button" @click="openList('vendor')">
-              {{ selectedVendor || '選擇廠家' }}
-            </button>
-            <p v-if="showRequiredHints && !selectedVendor" class="required-hint">必填</p>
-            <p
-              v-if="selectedVendor && optionStatus('vendor', selectedVendor)"
-              :class="['option-status', optionStatusClass('vendor', selectedVendor)]"
-            >
-              {{ optionStatus('vendor', selectedVendor) }}
-            </p>
-            <div v-if="activeList === 'vendor'" class="option-list">
-              <input
-                v-model="searchQuery.vendor"
-                class="option-search"
-                type="text"
-                placeholder="搜尋廠家"
-              />
-              <button
-                v-for="item in getFilteredOptions('vendor')"
-                :key="item"
-                type="button"
-                class="option-item"
-                @click="selectOption('vendor', item)"
+              <p v-if="showRequiredHints && !selectedClient" class="required-hint">必填</p>
+              <p
+                v-if="selectedClient && optionStatus('client', selectedClient)"
+                :class="['option-status', optionStatusClass('client', selectedClient)]"
               >
-                {{ item }}
-              </button>
+                {{ optionStatus('client', selectedClient) }}
+              </p>
+              <div v-if="activeList === 'client'" class="option-list">
+                <input
+                  v-model="searchQuery.client"
+                  class="option-search"
+                  type="text"
+                  placeholder="搜尋客戶"
+                />
+                <button
+                  v-for="item in getFilteredOptions('client')"
+                  :key="item"
+                  type="button"
+                  class="option-item"
+                  @click="selectOption('client', item)"
+                >
+                  {{ item }}
+                </button>
+              </div>
             </div>
-          </div>
+            <div class="field select-field-wrapper">
+              <div class="field-header">
+                <span>廠家</span>
+                <button class="ghost-mini" type="button" @click="openModal('vendor')">編輯</button>
+              </div>
+              <button class="select-field" type="button" @click="openList('vendor')">
+                {{ selectedVendor || '選擇廠家' }}
+              </button>
+              <p v-if="showRequiredHints && !selectedVendor" class="required-hint">必填</p>
+              <p
+                v-if="selectedVendor && optionStatus('vendor', selectedVendor)"
+                :class="['option-status', optionStatusClass('vendor', selectedVendor)]"
+              >
+                {{ optionStatus('vendor', selectedVendor) }}
+              </p>
+              <div v-if="activeList === 'vendor'" class="option-list">
+                <input
+                  v-model="searchQuery.vendor"
+                  class="option-search"
+                  type="text"
+                  placeholder="搜尋廠家"
+                />
+                <button
+                  v-for="item in getFilteredOptions('vendor')"
+                  :key="item"
+                  type="button"
+                  class="option-item"
+                  @click="selectOption('vendor', item)"
+                >
+                  {{ item }}
+                </button>
+              </div>
+            </div>
           <div class="field select-field-wrapper">
             <div class="field-header">
               <span>廠家產品</span>
@@ -930,7 +961,8 @@ onMounted(() => {
           </label>
         </div>
 
-      </form>
+        </form>
+      </ScrollPanel>
 
       <aside class="task-summary">
         <div class="summary-card">
