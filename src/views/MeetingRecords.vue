@@ -968,7 +968,10 @@ onMounted(fetchMeetingRecords)
   background: #f8fafc;
   text-align: left;
   cursor: pointer;
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
 }
 
 .meeting-card-main {
