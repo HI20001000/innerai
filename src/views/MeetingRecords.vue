@@ -1,6 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, getCurrentInstance, onMounted, ref } from 'vue'
 import WorkspaceSidebar from '../components/WorkspaceSidebar.vue'
 import ResultModal from '../components/ResultModal.vue'
 import ScrollPanel from '../components/element/ScrollPanel.vue'
@@ -19,7 +18,7 @@ const props = defineProps({
 })
 
 const apiBaseUrl = 'http://localhost:3001'
-const router = useRouter()
+const router = getCurrentInstance()?.appContext?.config?.globalProperties?.$router ?? null
 const activePath = computed(() => router?.currentRoute?.value?.path || '')
 
 const records = ref([])
@@ -42,10 +41,12 @@ const showResult = ref(false)
 const resultTitle = ref('')
 const resultMessage = ref('')
 const isUploading = ref(false)
+const isReportGenerating = ref(false)
 const uploadInput = ref(null)
 
 const goToNewTask = () => router?.push('/tasks/new')
 const goToTaskList = () => router?.push('/tasks/view')
+const goToMeetingUpload = () => router?.push('/meetings/upload')
 const goToMeetingRecords = () => router?.push('/meetings')
 const goToHome = () => router?.push('/home')
 const goToProfile = () => router?.push('/settings')
@@ -316,6 +317,7 @@ const generateMeetingReport = async (meeting) => {
   if (!meeting) return
   const auth = readAuthStorage()
   if (!auth) return
+  isReportGenerating.value = true
   try {
     const response = await fetch(`${apiBaseUrl}/api/meeting-reports/${meeting.id}`, {
       method: 'POST',
@@ -339,6 +341,8 @@ const generateMeetingReport = async (meeting) => {
     resultTitle.value = '整合失敗'
     resultMessage.value = '會議記錄整合失敗'
     showResult.value = true
+  } finally {
+    isReportGenerating.value = false
   }
 }
 
@@ -535,54 +539,59 @@ onMounted(fetchMeetingRecords)
               <span class="count">共 {{ getMeetings().length }} 筆</span>
             </div>
             <div class="meeting-list-grid">
-              <button
-                v-for="meeting in getMeetings()"
-                :key="meeting.id"
-                type="button"
-                class="meeting-card"
-                :class="{ active: activeMeeting?.id === meeting.id }"
-                @click="selectMeeting(meeting)"
-              >
-                <div class="meeting-card-main">
-                  <strong>{{ formatDateTimeDisplay(meeting.meeting_time) }}</strong>
-                  <span class="meeting-meta">
-                    建立者：{{ meeting.created_by_email }}｜{{ formatDateTimeDisplay(meeting.created_at) }}
-                  </span>
-                  <span class="meeting-count">{{ meeting.records.length }} 份記錄</span>
-                </div>
+              <div v-for="meeting in getMeetings()" :key="meeting.id" class="meeting-row">
+                <button
+                  type="button"
+                  class="meeting-card"
+                  :class="{ active: activeMeeting?.id === meeting.id }"
+                  @click="selectMeeting(meeting)"
+                >
+                  <div class="meeting-card-main">
+                    <strong>{{ formatDateTimeDisplay(meeting.meeting_time) }}</strong>
+                    <span class="meeting-meta">
+                      <span>
+                        建立者：{{ meeting.created_by_email }}｜{{ formatDateTimeDisplay(meeting.created_at) }}
+                      </span>
+                      <span class="meeting-count">{{ meeting.records.length }} 份記錄</span>
+                    </span>
+                  </div>
+                  <div class="meeting-actions">
+                    <button
+                      type="button"
+                      class="meeting-action"
+                      :disabled="isUploading"
+                      @click.stop="activeMeeting = meeting; activeRecord = null; activeRecordMeta = null; triggerUpload()"
+                    >
+                      ＋
+                    </button>
+                    <button
+                      type="button"
+                      class="meeting-action"
+                      @click.stop="activeMeeting = meeting; activeRecord = null; activeRecordMeta = null; deleteMeetingFolder()"
+                    >
+                      −
+                    </button>
+                  </div>
+                </button>
                 <div class="meeting-actions">
                   <button
                     type="button"
                     class="meeting-action"
-                    :disabled="isUploading"
-                    @click.stop="activeMeeting = meeting; activeRecord = null; activeRecordMeta = null; triggerUpload()"
-                  >
-                    ＋
-                  </button>
-                  <button
-                    type="button"
-                    class="meeting-action"
-                    @click.stop="generateMeetingReport(meeting)"
+                    :disabled="isReportGenerating"
+                    @click.stop="activeMeeting = meeting; activeRecord = null; activeRecordMeta = null; generateMeetingReport(meeting)"
                   >
                     🤖
                   </button>
                   <button
                     type="button"
-                    class="meeting-action"
-                    @click.stop="activeMeeting = meeting; activeRecord = null; activeRecordMeta = null; deleteMeetingFolder()"
-                  >
-                    −
-                  </button>
-                  <button
-                    type="button"
                     class="meeting-action wide"
                     :disabled="!meeting.report?.content_text"
-                    @click.stop="openMeetingReport(meeting)"
+                    @click.stop="activeMeeting = meeting; openMeetingReport(meeting)"
                   >
                     檢視
                   </button>
                 </div>
-              </button>
+              </div>
             </div>
           </div>
 
@@ -657,7 +666,11 @@ onMounted(fetchMeetingRecords)
                 activeReportMeta.created_by_email
               }}
             </p>
-            <pre class="record-content">
+            <div v-if="isReportGenerating" class="loading-state">
+              <span class="loading-spinner" aria-hidden="true"></span>
+              整合會議記錄中...
+            </div>
+            <pre v-else class="record-content">
 {{ activeReport ? activeReport.content_text : activeRecord ? formatContent(activeRecord) : '請先選擇會議記錄。' }}
             </pre>
           </div>
@@ -941,6 +954,13 @@ onMounted(fetchMeetingRecords)
   gap: 0.8rem;
 }
 
+.meeting-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.6rem;
+  align-items: center;
+}
+
 .meeting-card {
   border: 1px solid #e2e8f0;
   border-radius: 16px;
@@ -948,10 +968,7 @@ onMounted(fetchMeetingRecords)
   background: #f8fafc;
   text-align: left;
   cursor: pointer;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.35rem;
-  align-items: center;
+  display: block;
 }
 
 .meeting-card-main {
@@ -991,6 +1008,28 @@ onMounted(fetchMeetingRecords)
   cursor: not-allowed;
 }
 
+.loading-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(15, 23, 42, 0.2);
+  border-top-color: rgba(15, 23, 42, 0.7);
+  border-radius: 999px;
+  animation: spin 0.9s linear infinite;
+  display: inline-block;
+}
+
+.loading-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .meeting-card.active .meeting-action {
   background: rgba(255, 255, 255, 0.2);
   color: #fff;
@@ -1009,6 +1048,10 @@ onMounted(fetchMeetingRecords)
 .meeting-meta {
   font-size: 0.8rem;
   color: #64748b;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
 }
 
 .meeting-count {
