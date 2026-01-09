@@ -132,7 +132,6 @@ const ensureTables = async (connection) => {
       product_name VARCHAR(255),
       tag_name VARCHAR(255),
       scheduled_at DATETIME,
-      location VARCHAR(255),
       follow_up TEXT,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
@@ -143,9 +142,7 @@ const ensureTables = async (connection) => {
       product_name VARCHAR(255) NOT NULL,
       tag_name VARCHAR(255) NOT NULL,
       scheduled_at DATETIME,
-      location VARCHAR(255),
       follow_up TEXT,
-      recorded_at DATETIME,
       created_by_email VARCHAR(255) NOT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       INDEX idx_task_submissions_created_at (created_at)
@@ -275,13 +272,6 @@ const ensureTables = async (connection) => {
     }
   }
   try {
-    await connection.query('ALTER TABLE task_submissions MODIFY location VARCHAR(255) NULL')
-  } catch (error) {
-    if (error?.code !== 'ER_INVALID_USE_OF_NULL' && error?.code !== 'ER_BAD_FIELD_ERROR') {
-      throw error
-    }
-  }
-  try {
     await connection.query('ALTER TABLE meeting_records ADD COLUMN content_text LONGTEXT')
   } catch (error) {
     if (error?.code !== 'ER_DUP_FIELDNAME') {
@@ -347,13 +337,6 @@ const ensureTables = async (connection) => {
     )
   } catch (error) {
     throw error
-  }
-  try {
-    await connection.query('ALTER TABLE task_submissions ADD COLUMN recorded_at DATETIME')
-  } catch (error) {
-    if (error?.code !== 'ER_DUP_FIELDNAME') {
-      throw error
-    }
   }
   try {
     await connection.query("ALTER TABLE meeting_folders ADD COLUMN client_name VARCHAR(255) NOT NULL")
@@ -552,8 +535,6 @@ const handlePostTaskSubmission = async (req, res) => {
     tag,
     related_user_mail: relatedUserMail,
     scheduled_at: scheduledAt,
-    recorded_at: recordedAt,
-    location,
     follow_up: followUp,
   } = body
   if (!isNonEmptyString(client) || !isNonEmptyString(vendor) || !isNonEmptyString(product)) {
@@ -580,8 +561,7 @@ const handlePostTaskSubmission = async (req, res) => {
     client.length > 255 ||
     vendor.length > 255 ||
     product.length > 255 ||
-    tags.some((tagName) => tagName.length > 255) ||
-    (location && location.length > 255)
+    tags.some((tagName) => tagName.length > 255)
   ) {
     sendJson(res, 400, { success: false, message: '欄位長度超過限制' })
     return
@@ -616,12 +596,7 @@ const handlePostTaskSubmission = async (req, res) => {
     sendJson(res, 400, { success: false, message: '時間格式不正確' })
     return
   }
-  if (recordedAt && Number.isNaN(Date.parse(recordedAt))) {
-    sendJson(res, 400, { success: false, message: '記錄時間格式不正確' })
-    return
-  }
   const normalizedScheduledAt = scheduledAt ? normalizeScheduledAt(scheduledAt) : null
-  const normalizedRecordedAt = recordedAt ? normalizeScheduledAt(recordedAt) : null
   const user = await getRequiredAuthUser(req, res)
   if (!user) {
     return
@@ -640,15 +615,13 @@ const handlePostTaskSubmission = async (req, res) => {
     }
     const [result] = await connection.query(
       `INSERT INTO task_submissions
-        (client_name, vendor_name, product_name, scheduled_at, location, recorded_at, created_by_email)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        (client_name, vendor_name, product_name, scheduled_at, created_by_email)
+       VALUES (?, ?, ?, ?, ?)`,
       [
         client.trim(),
         vendor.trim(),
         product.trim(),
         normalizedScheduledAt,
-        location ? location.trim() : null,
-        normalizedRecordedAt,
         user.mail,
       ]
     )
@@ -723,7 +696,7 @@ const handleGetTaskSubmissions = async (req, res) => {
     const [rows] = await connection.query(
       `SELECT task_submissions.id, task_submissions.client_name, task_submissions.vendor_name,
         task_submissions.product_name, task_submissions.scheduled_at,
-        task_submissions.location, task_submissions.recorded_at, task_submissions.created_by_email,
+        task_submissions.created_by_email,
         task_submissions.created_at,
         users.mail as related_mail, users.icon as related_icon, users.icon_bg as related_icon_bg,
         users.username as related_username
@@ -778,11 +751,6 @@ const handleGetTaskSubmissions = async (req, res) => {
             row.scheduled_at instanceof Date
               ? formatToTaipeiDateTime(row.scheduled_at)
               : row.scheduled_at,
-          recorded_at:
-            row.recorded_at instanceof Date
-              ? formatToTaipeiDateTime(row.recorded_at)
-              : row.recorded_at,
-          location: row.location,
           created_by_email: row.created_by_email,
           created_at:
             row.created_at instanceof Date
@@ -1457,8 +1425,6 @@ const handleUpdateTaskSubmission = async (req, res, id) => {
     tag,
     related_user_mail: relatedUserMail,
     scheduled_at: scheduledAt,
-    recorded_at: recordedAt,
-    location,
     follow_up: followUp,
   } = body
   if (!isNonEmptyString(client) || !isNonEmptyString(vendor) || !isNonEmptyString(product)) {
@@ -1485,8 +1451,7 @@ const handleUpdateTaskSubmission = async (req, res, id) => {
     client.length > 255 ||
     vendor.length > 255 ||
     product.length > 255 ||
-    tags.some((tagName) => tagName.length > 255) ||
-    (location && location.length > 255)
+    tags.some((tagName) => tagName.length > 255)
   ) {
     sendJson(res, 400, { success: false, message: '欄位長度超過限制' })
     return
@@ -1504,12 +1469,7 @@ const handleUpdateTaskSubmission = async (req, res, id) => {
     sendJson(res, 400, { success: false, message: '時間格式不正確' })
     return
   }
-  if (recordedAt && Number.isNaN(Date.parse(recordedAt))) {
-    sendJson(res, 400, { success: false, message: '記錄時間格式不正確' })
-    return
-  }
   const normalizedScheduledAt = scheduledAt ? normalizeScheduledAt(scheduledAt) : null
-  const normalizedRecordedAt = recordedAt ? normalizeScheduledAt(recordedAt) : null
   try {
     const connection = await getConnection()
     const [users] = await connection.query('SELECT mail FROM users WHERE mail IN (?)', [
@@ -1522,15 +1482,13 @@ const handleUpdateTaskSubmission = async (req, res, id) => {
     const [result] = await connection.query(
       `UPDATE task_submissions
        SET client_name = ?, vendor_name = ?, product_name = ?,
-           scheduled_at = ?, location = ?, recorded_at = ?
+           scheduled_at = ?
        WHERE id = ?`,
       [
         client.trim(),
         vendor.trim(),
         product.trim(),
         normalizedScheduledAt,
-        location ? location.trim() : null,
-        normalizedRecordedAt,
         id,
       ]
     )

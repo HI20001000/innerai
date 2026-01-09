@@ -16,8 +16,6 @@ const selectedTags = ref([])
 const selectedRelatedUsers = ref([])
 const activeList = ref(null)
 const selectedTime = ref('')
-const recordedAt = ref('')
-const selectedLocation = ref('')
 const followUpInput = ref('')
 const followUpItems = ref([])
 const editingFollowUpIndex = ref(null)
@@ -433,8 +431,6 @@ const saveDraft = () => {
     selectedTags: selectedTags.value,
     selectedRelatedUsers: selectedRelatedUsers.value,
     selectedTime: selectedTime.value,
-    recordedAt: recordedAt.value,
-    selectedLocation: selectedLocation.value,
     followUpItems: followUpItems.value,
   }
   window.localStorage.setItem(draftKey, JSON.stringify(payload))
@@ -470,8 +466,6 @@ const submitTask = async () => {
     tag: selectedTags.value,
     related_user_mail: selectedRelatedUsers.value.map((user) => user.mail),
     scheduled_at: selectedTime.value,
-    recorded_at: recordedAt.value,
-    location: selectedLocation.value,
     follow_up: followUpItems.value.map((item) => ({
       content: item.content,
       assignees: item.assignees || [],
@@ -542,7 +536,6 @@ const applyAutoFill = (payload) => {
     const tags = Array.isArray(payload.tag) ? payload.tag : [payload.tag]
     selectedTags.value = tags.filter(Boolean)
   }
-  if (payload.recorded_at) recordedAt.value = payload.recorded_at
   if (payload.scheduled_at) selectedTime.value = payload.scheduled_at
   if (payload.follow_up) {
     const followUps = Array.isArray(payload.follow_up) ? payload.follow_up : [payload.follow_up]
@@ -574,8 +567,6 @@ const loadDraft = () => {
     selectedTags.value = payload.selectedTags ?? []
     selectedRelatedUsers.value = payload.selectedRelatedUsers ?? []
     selectedTime.value = payload.selectedTime ?? ''
-    recordedAt.value = payload.recordedAt ?? ''
-    selectedLocation.value = payload.selectedLocation ?? ''
     followUpItems.value = Array.isArray(payload.followUpItems)
       ? payload.followUpItems.map((item) => {
           if (typeof item === 'string') {
@@ -809,14 +800,6 @@ onMounted(() => {
           <label class="field">
             <span>時間</span>
             <input v-model="selectedTime" type="datetime-local" />
-          </label>
-          <label class="field">
-            <span>記錄時間</span>
-            <input v-model="recordedAt" type="datetime-local" />
-          </label>
-          <label class="field">
-            <span>地點</span>
-            <input v-model="selectedLocation" type="text" placeholder="輸入會議/拜訪地點" />
           </label>
           <label class="field wide">
             <span>需跟進內容</span>
