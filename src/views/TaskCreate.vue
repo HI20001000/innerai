@@ -594,10 +594,10 @@ const closeMenusOnOutsideClick = (event) => {
   if (!withinSelectField) {
     activeList.value = null
   }
-  if (!withinQuickAssign) {
+  if (activeQuickAssignMenu.value && !withinQuickAssign) {
     activeQuickAssignMenu.value = false
   }
-  if (!withinAssignee) {
+  if (activeFollowUpAssigneeMenu.value !== null && !withinAssignee) {
     activeFollowUpAssigneeMenu.value = null
   }
 }
