@@ -1132,12 +1132,11 @@ async function buildMeetingRecordRow(file, folderId) {
   if (isText && content) {
     contentText = content.toString('utf8')
   }
-  if (!contentText && isDocx && content) {
+  if (!contentText && isDocx && content && isLikelyDocxBuffer(content)) {
     try {
       const result = await mammoth.extractRawText({ buffer: content })
       contentText = result?.value ? result.value.trim() : null
     } catch (error) {
-      console.error(error)
       contentText = null
     }
   }
@@ -1149,6 +1148,11 @@ async function buildMeetingRecordRow(file, folderId) {
     content,
     contentText,
   ]
+}
+
+function isLikelyDocxBuffer(buffer) {
+  if (!buffer || buffer.length < 4) return false
+  return buffer[0] === 0x50 && buffer[1] === 0x4b
 }
 
 const handleAppendMeetingRecords = async (req, res, folderId) => {
@@ -1348,12 +1352,11 @@ const handleGetMeetingRecords = async (req, res) => {
             record.mime_type ===
               'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
             filename.endsWith('.docx')
-          if (isDocx) {
+          if (isDocx && isLikelyDocxBuffer(record.file_content)) {
             try {
               const result = await mammoth.extractRawText({ buffer: record.file_content })
               contentText = result?.value ? result.value.trim() : null
             } catch (error) {
-              console.error(error)
             }
           }
         }
