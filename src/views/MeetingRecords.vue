@@ -67,8 +67,8 @@ const parseJsonSafe = async (response) => {
 }
 
 const formatContent = (record) => {
-  if (!record?.content_text) return '目前僅支援文字檔案預覽（txt）。'
-  return record.content_text
+  if (record?.content_text) return record.content_text
+  return '目前僅支援文字與 Word（.txt／.docx）預覽。'
 }
 
 const filteredClients = computed(() => {
