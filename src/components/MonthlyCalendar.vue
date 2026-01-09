@@ -148,13 +148,31 @@ const buildClientFollowUpStatusByDate = (items, clientName) => {
   }, {})
 }
 
+const buildAllFollowUpStatusByDate = (items) =>
+  items.reduce((summary, item) => {
+    const dateKey = toDateKey(item.scheduled_at)
+    if (!dateKey) return summary
+    const followUps = Array.isArray(item?.follow_ups) ? item.follow_ups : []
+    if (followUps.length === 0) return summary
+    const pendingCount = countPendingForFollowUps(followUps)
+    if (!summary[dateKey]) {
+      summary[dateKey] = { total: 0, pending: 0 }
+    }
+    summary[dateKey].total += followUps.length
+    summary[dateKey].pending += pendingCount
+    return summary
+  }, {})
+
 const followUpStatusByDate = computed(() => {
   const items = submissionsSource.value || []
   if (props.clientName) {
     return buildClientFollowUpStatusByDate(items, props.clientName)
   }
   const mail = props.userMail || readUserMail()
-  return buildFollowUpStatusByDate(items, mail, toDateKey)
+  if (mail) {
+    return buildFollowUpStatusByDate(items, mail, toDateKey)
+  }
+  return buildAllFollowUpStatusByDate(items)
 })
 
 const todayKey = getTaipeiTodayKey()

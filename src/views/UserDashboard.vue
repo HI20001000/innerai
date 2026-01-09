@@ -111,9 +111,11 @@ const clientSubmissions = computed(() => {
   return submissions.value.filter((submission) => submission.client_name === name)
 })
 
-const activeSubmissions = computed(() =>
-  viewMode.value === 'user' ? userSubmissions.value : clientSubmissions.value
-)
+const activeSubmissions = computed(() => {
+  if (viewMode.value === 'user') return userSubmissions.value
+  if (viewMode.value === 'client') return clientSubmissions.value
+  return submissions.value
+})
 
 const followUpItems = computed(() =>
   activeSubmissions.value.flatMap((submission) => {
@@ -205,39 +207,55 @@ const timelineTitle = computed(() => {
   return `${year}年${month}月${day}日時間線`
 })
 
-const headerTitle = computed(() =>
-  viewMode.value === 'user' ? '用戶工作安排' : '客戶工作安排'
-)
+const headerTitle = computed(() => {
+  if (viewMode.value === 'user') return '用戶工作安排'
+  if (viewMode.value === 'client') return '客戶工作安排'
+  return '全部工作安排'
+})
 
-const headerSubhead = computed(() =>
-  viewMode.value === 'user'
-    ? '監控單一用戶的任務進度、待辦與跟進狀況。'
-    : '以客戶視角檢視該客戶的跟進任務進度與安排。'
-)
+const headerSubhead = computed(() => {
+  if (viewMode.value === 'user') {
+    return '監控單一用戶的任務進度、待辦與跟進狀況。'
+  }
+  if (viewMode.value === 'client') {
+    return '以客戶視角檢視該客戶的跟進任務進度與安排。'
+  }
+  return '整體檢視目前所有任務與跟進安排。'
+})
 
 const selectionLabel = computed(() => (viewMode.value === 'user' ? '選擇用戶' : '選擇客戶'))
 
-const profileName = computed(() =>
-  viewMode.value === 'user'
-    ? selectedUser.value?.username || '未選擇用戶'
-    : selectedClient.value?.name || '未選擇客戶'
-)
+const profileName = computed(() => {
+  if (viewMode.value === 'user') {
+    return selectedUser.value?.username || '未選擇用戶'
+  }
+  if (viewMode.value === 'client') {
+    return selectedClient.value?.name || '未選擇客戶'
+  }
+  return '全部任務'
+})
 
-const profileMeta = computed(() =>
-  viewMode.value === 'user'
-    ? selectedUser.value?.mail || '尚未載入使用者資訊'
-    : selectedClient.value?.name
-      ? '客戶視角'
-      : '尚未載入客戶資訊'
-)
+const profileMeta = computed(() => {
+  if (viewMode.value === 'user') {
+    return selectedUser.value?.mail || '尚未載入使用者資訊'
+  }
+  if (viewMode.value === 'client') {
+    return selectedClient.value?.name ? '客戶視角' : '尚未載入客戶資訊'
+  }
+  return '全體概覽'
+})
 
-const summaryMeta = computed(() =>
-  viewMode.value === 'user' ? '目前選定用戶的工作量' : '目前選定客戶的工作量'
-)
+const summaryMeta = computed(() => {
+  if (viewMode.value === 'user') return '目前選定用戶的工作量'
+  if (viewMode.value === 'client') return '目前選定客戶的工作量'
+  return '目前全部任務的工作量'
+})
 
-const calendarSubtitle = computed(() =>
-  viewMode.value === 'user' ? '顯示與你相關的待辦數量' : '顯示該客戶的待辦數量'
-)
+const calendarSubtitle = computed(() => {
+  if (viewMode.value === 'user') return '顯示與你相關的待辦數量'
+  if (viewMode.value === 'client') return '顯示該客戶的待辦數量'
+  return '顯示全部任務的待辦數量'
+})
 
 const getFilteredUsers = () => {
   const query = userSearchQuery.value.trim().toLowerCase()
@@ -353,6 +371,13 @@ watch(
           >
             客戶視角
           </button>
+          <button
+            type="button"
+            :class="['toggle-button', { active: viewMode === 'all' }]"
+            @click="setViewMode('all')"
+          >
+            全部
+          </button>
         </div>
       </header>
 
@@ -389,7 +414,7 @@ watch(
             </button>
           </div>
         </div>
-        <div v-else class="control select-field-wrapper">
+        <div v-else-if="viewMode === 'client'" class="control select-field-wrapper">
           <span>{{ selectionLabel }}</span>
           <button class="select-field" type="button" @click="toggleClientMenu">
             {{ selectedClient?.name || '選擇客戶' }}
@@ -412,12 +437,22 @@ watch(
             </button>
           </div>
         </div>
+        <div v-else class="control select-field-wrapper">
+          <span>任務範圍</span>
+          <div class="select-field static-field">全部任務</div>
+        </div>
         <div class="user-profile">
           <div
             class="user-avatar"
             :style="{ backgroundColor: selectedUser?.icon_bg || '#e2e8f0' }"
           >
-            {{ viewMode === 'user' ? selectedUser?.icon || '👤' : '🏷️' }}
+            {{
+              viewMode === 'user'
+                ? selectedUser?.icon || '👤'
+                : viewMode === 'client'
+                  ? '🏷️'
+                  : '📋'
+            }}
           </div>
           <div>
             <p class="user-name">{{ profileName }}</p>
@@ -611,6 +646,11 @@ watch(
   background: #fff;
   text-align: left;
   cursor: pointer;
+}
+
+.static-field {
+  cursor: default;
+  color: #94a3b8;
 }
 
 .select-field::after {
