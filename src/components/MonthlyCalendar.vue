@@ -297,6 +297,10 @@ onMounted(() => {
   cursor: pointer;
 }
 
+.calendar-cell.past {
+  background: #fff1f2;
+}
+
 .calendar-cell.empty {
   background: transparent;
   box-shadow: none;
