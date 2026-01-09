@@ -42,7 +42,6 @@ const uploadInput = ref(null)
 
 const goToNewTask = () => router?.push('/tasks/new')
 const goToTaskList = () => router?.push('/tasks/view')
-const goToMeetingUpload = () => router?.push('/meetings/upload')
 const goToMeetingRecords = () => router?.push('/meetings')
 const goToHome = () => router?.push('/home')
 const goToProfile = () => router?.push('/settings')
@@ -395,9 +394,6 @@ onMounted(fetchMeetingRecords)
                 <h2>客戶</h2>
               </div>
               <div>
-                <button class="ghost-mini" type="button" @click="goToMeetingUpload">
-                  編輯
-                </button>
                 <button class="ghost-mini" type="button" @click="resetSelections">
                   取消
                 </button>
