@@ -1,6 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, getCurrentInstance, onMounted, ref } from 'vue'
 import WorkspaceSidebar from '../components/WorkspaceSidebar.vue'
 import ResultModal from '../components/ResultModal.vue'
 import ScrollPanel from '../components/element/ScrollPanel.vue'
@@ -19,7 +18,7 @@ const props = defineProps({
 })
 
 const apiBaseUrl = 'http://localhost:3001'
-const router = useRouter()
+const router = getCurrentInstance()?.appContext?.config?.globalProperties?.$router ?? null
 const activePath = computed(() => router?.currentRoute?.value?.path || '')
 
 const records = ref([])
@@ -42,10 +41,12 @@ const showResult = ref(false)
 const resultTitle = ref('')
 const resultMessage = ref('')
 const isUploading = ref(false)
+const isReportGenerating = ref(false)
 const uploadInput = ref(null)
 
 const goToNewTask = () => router?.push('/tasks/new')
 const goToTaskList = () => router?.push('/tasks/view')
+const goToMeetingUpload = () => router?.push('/meetings/upload')
 const goToMeetingRecords = () => router?.push('/meetings')
 const goToHome = () => router?.push('/home')
 const goToProfile = () => router?.push('/settings')
@@ -316,6 +317,7 @@ const generateMeetingReport = async (meeting) => {
   if (!meeting) return
   const auth = readAuthStorage()
   if (!auth) return
+  isReportGenerating.value = true
   try {
     const response = await fetch(`${apiBaseUrl}/api/meeting-reports/${meeting.id}`, {
       method: 'POST',
@@ -339,6 +341,8 @@ const generateMeetingReport = async (meeting) => {
     resultTitle.value = '整合失敗'
     resultMessage.value = '會議記錄整合失敗'
     showResult.value = true
+  } finally {
+    isReportGenerating.value = false
   }
 }
 
@@ -562,26 +566,29 @@ onMounted(fetchMeetingRecords)
                   <button
                     type="button"
                     class="meeting-action"
-                    @click.stop="generateMeetingReport(meeting)"
-                  >
-                    🤖
-                  </button>
-                  <button
-                    type="button"
-                    class="meeting-action"
                     @click.stop="activeMeeting = meeting; activeRecord = null; activeRecordMeta = null; deleteMeetingFolder()"
                   >
                     −
                   </button>
-                  <button
-                    type="button"
-                    class="meeting-action wide"
-                    :disabled="!meeting.report?.content_text"
-                    @click.stop="openMeetingReport(meeting)"
-                  >
-                    檢視
-                  </button>
                 </div>
+              </button>
+            </div>
+            <div class="meeting-report-actions">
+              <button
+                type="button"
+                class="meeting-action wide"
+                :disabled="!activeMeeting || isReportGenerating"
+                @click="activeMeeting && generateMeetingReport(activeMeeting)"
+              >
+                🤖 整合
+              </button>
+              <button
+                type="button"
+                class="meeting-action wide"
+                :disabled="!activeMeeting?.report?.content_text"
+                @click="activeMeeting && openMeetingReport(activeMeeting)"
+              >
+                檢視
               </button>
             </div>
           </div>
@@ -657,7 +664,11 @@ onMounted(fetchMeetingRecords)
                 activeReportMeta.created_by_email
               }}
             </p>
-            <pre class="record-content">
+            <div v-if="isReportGenerating" class="loading-state">
+              <span class="loading-spinner" aria-hidden="true"></span>
+              整合會議記錄中...
+            </div>
+            <pre v-else class="record-content">
 {{ activeReport ? activeReport.content_text : activeRecord ? formatContent(activeRecord) : '請先選擇會議記錄。' }}
             </pre>
           </div>
@@ -965,6 +976,12 @@ onMounted(fetchMeetingRecords)
   flex-wrap: wrap;
 }
 
+.meeting-report-actions {
+  display: inline-flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
 .meeting-action {
   border: none;
   background: rgba(15, 23, 42, 0.08);
@@ -989,6 +1006,28 @@ onMounted(fetchMeetingRecords)
 .meeting-action:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.loading-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(15, 23, 42, 0.2);
+  border-top-color: rgba(15, 23, 42, 0.7);
+  border-radius: 999px;
+  animation: spin 0.9s linear infinite;
+  display: inline-block;
+}
+
+.loading-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .meeting-card.active .meeting-action {
