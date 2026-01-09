@@ -506,7 +506,7 @@ onMounted(fetchMeetingRecords)
                     class="meeting-action"
                     @click.stop="activeMeeting = meeting; activeRecord = null; activeRecordMeta = null; deleteMeetingFolder()"
                   >
-                    ✓
+                    −
                   </button>
                 </div>
               </button>
@@ -829,12 +829,6 @@ onMounted(fetchMeetingRecords)
 .panel-actions .ghost-mini:disabled {
   opacity: 0.6;
   cursor: not-allowed;
-}
-
-.ghost-mini.danger {
-  color: #b91c1c;
-  border-color: rgba(239, 68, 68, 0.3);
-  background: rgba(239, 68, 68, 0.12);
 }
 
 .sr-only {
