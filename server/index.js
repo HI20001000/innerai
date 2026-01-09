@@ -1161,7 +1161,7 @@ const handleGetMeetingRecords = async (req, res) => {
       'SELECT id, meeting_time, created_by_email, created_at FROM meeting_folders'
     )
     const [records] = await connection.query(
-      `SELECT id, folder_id, file_name, file_path, mime_type, content_text
+      `SELECT id, folder_id, file_name, file_path, mime_type, content_text, file_content
        FROM meeting_records
        ORDER BY id ASC`
     )
@@ -1184,12 +1184,28 @@ const handleGetMeetingRecords = async (req, res) => {
     for (const record of records) {
       const folder = foldersById.get(record.folder_id)
       if (folder) {
+        let contentText = record.content_text
+        if (!contentText && record.file_content) {
+          const filename = String(record.file_name || '').toLowerCase()
+          const isDocx =
+            record.mime_type ===
+              'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+            filename.endsWith('.docx')
+          if (isDocx) {
+            try {
+              const result = await mammoth.extractRawText({ buffer: record.file_content })
+              contentText = result?.value ? result.value.trim() : null
+            } catch (error) {
+              console.error(error)
+            }
+          }
+        }
         folder.records.push({
           id: record.id,
           file_name: record.file_name,
           file_path: record.file_path,
           mime_type: record.mime_type,
-          content_text: record.content_text,
+          content_text: contentText,
         })
       }
     }

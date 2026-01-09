@@ -117,12 +117,10 @@ const selectVendor = (vendorName) => {
 
 const selectProduct = (productName) => {
   activeProduct.value = productName
-  if (!activeVendor.value) {
-    const vendor = getVendors().find((item) =>
-      item.products.some((product) => product.name === productName)
-    )
-    if (vendor) activeVendor.value = vendor.name
-  }
+  const vendor = getVendors().find((item) =>
+    item.products.some((product) => product.name === productName)
+  )
+  if (vendor) activeVendor.value = vendor.name
   activeMeeting.value = null
   activeRecord.value = null
   activeRecordMeta.value = null
