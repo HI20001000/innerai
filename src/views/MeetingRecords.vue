@@ -4,6 +4,7 @@ import WorkspaceSidebar from '../components/WorkspaceSidebar.vue'
 import ResultModal from '../components/ResultModal.vue'
 import ScrollPanel from '../components/element/ScrollPanel.vue'
 import { formatDateTimeDisplay } from '../scripts/time.js'
+import { buildMeetingReportFilename, downloadMeetingReport } from '../scripts/meetingReports.js'
 
 const props = defineProps({
   embedded: {
@@ -23,6 +24,8 @@ const activePath = computed(() => router?.currentRoute?.value?.path || '')
 const records = ref([])
 const activeRecord = ref(null)
 const activeRecordMeta = ref(null)
+const activeReport = ref(null)
+const activeReportMeta = ref(null)
 const activeClient = ref('')
 const activeVendor = ref('')
 const activeProduct = ref('')
@@ -131,6 +134,8 @@ const selectMeeting = (meeting) => {
   activeMeeting.value = meeting
   activeRecord.value = null
   activeRecordMeta.value = null
+  activeReport.value = null
+  activeReportMeta.value = null
 }
 
 const resetSelections = () => {
@@ -296,12 +301,59 @@ const deleteMeetingFolder = async () => {
     activeMeeting.value = null
     activeRecord.value = null
     activeRecordMeta.value = null
+    activeReport.value = null
+    activeReportMeta.value = null
   } catch (error) {
     console.error(error)
     resultTitle.value = '刪除失敗'
     resultMessage.value = '會議資料夾刪除失敗'
     showResult.value = true
   }
+}
+
+const generateMeetingReport = async (meeting) => {
+  if (!meeting) return
+  const auth = readAuthStorage()
+  if (!auth) return
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/meeting-reports/${meeting.id}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${auth.token}` },
+    })
+    const data = await response.json()
+    if (!response.ok || !data?.success) {
+      resultTitle.value = '整合失敗'
+      resultMessage.value = data?.message || '會議記錄整合失敗'
+      showResult.value = true
+      return
+    }
+    meeting.report = {
+      id: meeting.report?.id || `report-${meeting.id}`,
+      content_text: data.data?.content_text || '',
+    }
+    activeReport.value = meeting.report
+    activeReportMeta.value = meeting
+  } catch (error) {
+    console.error(error)
+    resultTitle.value = '整合失敗'
+    resultMessage.value = '會議記錄整合失敗'
+    showResult.value = true
+  }
+}
+
+const openMeetingReport = (meeting) => {
+  if (!meeting?.report?.content_text) return
+  activeMeeting.value = meeting
+  activeReport.value = meeting.report
+  activeReportMeta.value = meeting
+  activeRecord.value = null
+  activeRecordMeta.value = null
+}
+
+const downloadReport = () => {
+  if (!activeReport.value) return
+  const filename = buildMeetingReportFilename(activeReportMeta.value?.meeting_time)
+  downloadMeetingReport(activeReport.value.content_text || '', filename)
 }
 
 const filteredVendors = computed(() => {
@@ -394,6 +446,9 @@ onMounted(fetchMeetingRecords)
                 <h2>客戶</h2>
               </div>
               <div>
+                <button class="ghost-mini" type="button" @click="goToMeetingUpload">
+                  編輯
+                </button>
                 <button class="ghost-mini" type="button" @click="resetSelections">
                   取消
                 </button>
@@ -506,9 +561,24 @@ onMounted(fetchMeetingRecords)
                   <button
                     type="button"
                     class="meeting-action"
+                    @click.stop="generateMeetingReport(meeting)"
+                  >
+                    🤖
+                  </button>
+                  <button
+                    type="button"
+                    class="meeting-action"
                     @click.stop="activeMeeting = meeting; activeRecord = null; activeRecordMeta = null; deleteMeetingFolder()"
                   >
                     −
+                  </button>
+                  <button
+                    type="button"
+                    class="meeting-action wide"
+                    :disabled="!meeting.report?.content_text"
+                    @click.stop="openMeetingReport(meeting)"
+                  >
+                    檢視
                   </button>
                 </div>
               </button>
@@ -558,15 +628,36 @@ onMounted(fetchMeetingRecords)
           <ScrollPanel height="calc(100vh - 240px)">
           <div class="panel-section">
             <div class="panel-header">
-              <h2>{{ activeRecord ? activeRecord.file_name : '檔案預覽' }}</h2>
+              <h2>
+                {{
+                  activeReport
+                    ? '整合會議記錄'
+                    : activeRecord
+                      ? activeRecord.file_name
+                      : '檔案預覽'
+                }}
+              </h2>
+              <button
+                v-if="activeReport"
+                type="button"
+                class="ghost-mini"
+                @click="downloadReport"
+              >
+                下載
+              </button>
             </div>
             <p v-if="activeRecordMeta" class="meta">
               會議時間：{{ formatDateTimeDisplay(activeRecordMeta.meeting_time) }}｜建立者：{{
                 activeRecordMeta.created_by_email
               }}｜建立時間：{{ formatDateTimeDisplay(activeRecordMeta.created_at) }}
             </p>
+            <p v-else-if="activeReportMeta" class="meta">
+              會議時間：{{ formatDateTimeDisplay(activeReportMeta.meeting_time) }}｜建立者：{{
+                activeReportMeta.created_by_email
+              }}
+            </p>
             <pre class="record-content">
-{{ activeRecord ? formatContent(activeRecord) : '請先選擇會議記錄。' }}
+{{ activeReport ? activeReport.content_text : activeRecord ? formatContent(activeRecord) : '請先選擇會議記錄。' }}
             </pre>
           </div>
           </ScrollPanel>
@@ -870,6 +961,7 @@ onMounted(fetchMeetingRecords)
 .meeting-actions {
   display: inline-flex;
   gap: 0.4rem;
+  flex-wrap: wrap;
 }
 
 .meeting-action {
@@ -884,6 +976,13 @@ onMounted(fetchMeetingRecords)
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+.meeting-action.wide {
+  width: auto;
+  padding: 0 0.6rem;
+  font-weight: 600;
+  font-size: 0.75rem;
 }
 
 .meeting-action:disabled {

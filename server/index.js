@@ -28,6 +28,7 @@ const {
   MYSQL_PASSWORD = '12345',
   DIFY_URL = '',
   DIFY_API_KEY = '',
+  DIFY_MEETING_API_KEY = '',
 } = process.env
 
 const DATABASE_NAME = 'innerai'
@@ -214,6 +215,16 @@ const ensureTables = async (connection) => {
       content_text LONGTEXT,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       INDEX idx_meeting_records_folder (folder_id)
+    )`,
+    `CREATE TABLE IF NOT EXISTS meeting_reports (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      folder_id INT NOT NULL,
+      content_text LONGTEXT,
+      created_by_email VARCHAR(255) NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_meeting_reports_folder (folder_id),
+      INDEX idx_meeting_reports_folder (folder_id)
     )`,
     `CREATE TABLE IF NOT EXISTS client_vendor_links (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -1201,6 +1212,7 @@ const handleDeleteMeetingFolder = async (req, res, folderId) => {
     connection = await getConnection()
     await connection.beginTransaction()
     await connection.query('DELETE FROM meeting_records WHERE folder_id = ?', [folderId])
+    await connection.query('DELETE FROM meeting_reports WHERE folder_id = ?', [folderId])
     await connection.query('DELETE FROM product_meeting_links WHERE meeting_folder_id = ?', [
       folderId,
     ])
@@ -1227,6 +1239,64 @@ const handleDeleteMeetingFolder = async (req, res, folderId) => {
   }
 }
 
+const handleGenerateMeetingReport = async (req, res, folderId) => {
+  const user = await getRequiredAuthUser(req, res)
+  if (!user) return
+  if (!DIFY_URL || !DIFY_MEETING_API_KEY) {
+    sendJson(res, 500, { success: false, message: 'Dify 設定不存在' })
+    return
+  }
+  try {
+    const connection = await getConnection()
+    const [records] = await connection.query(
+      'SELECT file_name, content_text FROM meeting_records WHERE folder_id = ? ORDER BY id ASC',
+      [folderId]
+    )
+    const contents = records
+      .map((record) => record.content_text || '')
+      .filter((text) => String(text).trim().length > 0)
+    if (contents.length === 0) {
+      sendJson(res, 400, { success: false, message: '會議記錄內容不足以整合' })
+      return
+    }
+    const query = contents.join('\n\n')
+    const response = await fetch(`${DIFY_URL}/chat-messages`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${DIFY_MEETING_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        inputs: {},
+        query,
+        response_mode: 'blocking',
+        conversation_id: '',
+        user: 'innerai',
+      }),
+    })
+    const data = await response.json()
+    if (!response.ok) {
+      sendJson(res, 500, { success: false, message: data?.message || 'Dify 處理失敗' })
+      return
+    }
+    const contentText = data?.answer || data?.data?.answer || data?.data?.result || ''
+    if (!String(contentText).trim()) {
+      sendJson(res, 500, { success: false, message: '整合內容為空' })
+      return
+    }
+    await connection.query(
+      `INSERT INTO meeting_reports (folder_id, content_text, created_by_email)
+       VALUES (?, ?, ?)
+       ON DUPLICATE KEY UPDATE content_text = VALUES(content_text), created_by_email = VALUES(created_by_email)`,
+      [folderId, String(contentText), user.mail]
+    )
+    sendJson(res, 200, { success: true, data: { content_text: contentText } })
+  } catch (error) {
+    console.error(error)
+    sendJson(res, 500, { success: false, message: '整合會議記錄失敗' })
+  }
+}
+
 const handleGetMeetingRecords = async (req, res) => {
   const user = await getRequiredAuthUser(req, res)
   if (!user) return
@@ -1248,6 +1318,9 @@ const handleGetMeetingRecords = async (req, res) => {
       `SELECT id, folder_id, file_name, file_path, mime_type, content_text, file_content
        FROM meeting_records
        ORDER BY id ASC`
+    )
+    const [reports] = await connection.query(
+      'SELECT id, folder_id, content_text, created_at, updated_at FROM meeting_reports'
     )
 
     const foldersById = new Map()
@@ -1291,6 +1364,23 @@ const handleGetMeetingRecords = async (req, res) => {
           mime_type: record.mime_type,
           content_text: contentText,
         })
+      }
+    }
+    for (const report of reports) {
+      const folder = foldersById.get(report.folder_id)
+      if (folder) {
+        folder.report = {
+          id: report.id,
+          content_text: report.content_text,
+          created_at:
+            report.created_at instanceof Date
+              ? formatToTaipeiDateTime(report.created_at)
+              : report.created_at,
+          updated_at:
+            report.updated_at instanceof Date
+              ? formatToTaipeiDateTime(report.updated_at)
+              : report.updated_at,
+        }
       }
     }
 
@@ -1920,6 +2010,17 @@ const start = async () => {
       }
       if (req.method === 'DELETE') {
         await handleDeleteMeetingFolder(req, res, id)
+        return
+      }
+    }
+    if (url.pathname.startsWith('/api/meeting-reports/')) {
+      const id = Number(url.pathname.split('/').pop())
+      if (!Number.isFinite(id)) {
+        sendJson(res, 400, { success: false, message: '會議資料夾 ID 無效' })
+        return
+      }
+      if (req.method === 'POST') {
+        await handleGenerateMeetingReport(req, res, id)
         return
       }
     }
