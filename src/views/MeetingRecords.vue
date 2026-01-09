@@ -985,6 +985,12 @@ onMounted(fetchMeetingRecords)
   flex-wrap: wrap;
 }
 
+.meeting-report-actions {
+  display: inline-flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
 .meeting-action {
   border: none;
   background: rgba(15, 23, 42, 0.08);
