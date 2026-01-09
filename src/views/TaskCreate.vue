@@ -932,11 +932,8 @@ onBeforeUnmount(() => {
                         <span class="user-label">
                           {{ user.username || 'user' }} &lt;{{ user.mail }}&gt;
                         </span>
-                        <span
-                          v-if="isFollowUpAssigneeSelected(item, user)"
-                          class="user-selected"
-                        >
-                          已選
+                        <span v-if="isFollowUpAssigneeSelected(item, user)" class="user-selected">
+                          ✓
                         </span>
                       </button>
                     </div>
@@ -1331,6 +1328,12 @@ onBeforeUnmount(() => {
   right: auto;
 }
 
+.follow-up-assignee .option-list {
+  width: max-content;
+  min-width: 320px;
+  right: auto;
+}
+
 .ghost-button.small {
   padding: 0.45rem 0.8rem;
   font-size: 0.85rem;
@@ -1343,7 +1346,9 @@ onBeforeUnmount(() => {
 }
 
 .assignee-list {
-  max-height: 200px;
+  max-height: none;
+  overflow: visible;
+  width: max-content;
 }
 
 .option-status.exists {
@@ -1373,6 +1378,7 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   gap: 0.6rem;
+  white-space: nowrap;
 }
 
 .user-avatar {
