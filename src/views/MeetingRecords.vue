@@ -44,6 +44,7 @@ const goToMeetingUpload = () => router?.push('/meetings/upload')
 const goToMeetingRecords = () => router?.push('/meetings')
 const goToHome = () => router?.push('/home')
 const goToProfile = () => router?.push('/settings')
+const goToUserDashboard = () => router?.push('/users/dashboard')
 
 const readAuthStorage = () => {
   const raw = window.localStorage.getItem('innerai_auth')
@@ -66,8 +67,8 @@ const parseJsonSafe = async (response) => {
 }
 
 const formatContent = (record) => {
-  if (!record?.content_text) return '目前僅支援文字檔案預覽（txt）。'
-  return record.content_text
+  if (record?.content_text) return record.content_text
+  return '目前僅支援文字與 Word（.txt／.docx）預覽。'
 }
 
 const filteredClients = computed(() => {
@@ -218,6 +219,7 @@ onMounted(fetchMeetingRecords)
       :on-view-tasks="goToTaskList"
       :on-upload-meeting="goToMeetingUpload"
       :on-view-meetings="goToMeetingRecords"
+      :on-view-user-dashboard="goToUserDashboard"
       :on-go-home="goToHome"
       :on-go-profile="goToProfile"
       :active-path="activePath"
@@ -242,9 +244,14 @@ onMounted(fetchMeetingRecords)
               <div class="panel-title">
                 <h2>客戶</h2>
               </div>
-              <button class="ghost-button" type="button" @click="resetSelections">
-                重置
-              </button>
+              <div class="panel-actions">
+                <button class="ghost-mini" type="button" @click="goToMeetingUpload">
+                  編輯
+                </button>
+                <button class="ghost-mini" type="button" @click="resetSelections">
+                  取消
+                </button>
+              </div>
             </div>
             <button class="select-field" type="button" @click="openList('client')">
               {{ activeClient || '選擇客戶' }}
@@ -479,6 +486,12 @@ onMounted(fetchMeetingRecords)
   gap: 0.6rem;
 }
 
+.panel-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .panel-header h2 {
   margin: 0;
   font-size: 1.1rem;
@@ -492,6 +505,17 @@ onMounted(fetchMeetingRecords)
   font-weight: 600;
   cursor: pointer;
   color: #475569;
+}
+
+.ghost-mini {
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  padding: 0.2rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
 }
 
 .primary-button {
