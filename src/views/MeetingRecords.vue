@@ -1,6 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, getCurrentInstance, onMounted, ref } from 'vue'
 import WorkspaceSidebar from '../components/WorkspaceSidebar.vue'
 import ResultModal from '../components/ResultModal.vue'
 import ScrollPanel from '../components/element/ScrollPanel.vue'
@@ -19,7 +18,7 @@ const props = defineProps({
 })
 
 const apiBaseUrl = 'http://localhost:3001'
-const router = useRouter()
+const router = getCurrentInstance()?.appContext?.config?.globalProperties?.$router ?? null
 const activePath = computed(() => router?.currentRoute?.value?.path || '')
 
 const records = ref([])
@@ -46,6 +45,7 @@ const uploadInput = ref(null)
 
 const goToNewTask = () => router?.push('/tasks/new')
 const goToTaskList = () => router?.push('/tasks/view')
+const goToMeetingUpload = () => router?.push('/meetings/upload')
 const goToMeetingRecords = () => router?.push('/meetings')
 const goToHome = () => router?.push('/home')
 const goToProfile = () => router?.push('/settings')
