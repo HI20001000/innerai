@@ -289,12 +289,18 @@ const toggleRelatedUser = (item) => {
 
 const toggleQuickAssignMenu = () => {
   activeQuickAssignMenu.value = !activeQuickAssignMenu.value
+  if (activeQuickAssignMenu.value) {
+    activeFollowUpAssigneeMenu.value = null
+  }
   searchQuery.user = ''
 }
 
 const toggleFollowUpAssigneeMenu = (index) => {
   activeFollowUpAssigneeMenu.value =
     activeFollowUpAssigneeMenu.value === index ? null : index
+  if (activeFollowUpAssigneeMenu.value !== null) {
+    activeQuickAssignMenu.value = false
+  }
   searchQuery.user = ''
 }
 
