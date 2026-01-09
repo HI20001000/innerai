@@ -645,6 +645,10 @@ onMounted(async () => {
   font-weight: 600;
   background: #e2e8f0;
   color: #0f172a;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
 }
 
 .progress {
