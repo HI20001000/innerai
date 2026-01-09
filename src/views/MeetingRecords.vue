@@ -522,6 +522,24 @@ onMounted(fetchMeetingRecords)
           <div class="panel-section">
             <div class="panel-header">
               <h2>會議記錄</h2>
+              <div class="panel-actions">
+                <button
+                  class="ghost-mini"
+                  type="button"
+                  :disabled="!activeMeeting || isUploading"
+                  @click="triggerUpload"
+                >
+                  {{ isUploading ? '上傳中...' : '新增記錄' }}
+                </button>
+                <button
+                  class="ghost-mini danger"
+                  type="button"
+                  :disabled="!activeMeeting"
+                  @click="deleteMeetingFolder"
+                >
+                  刪除會議
+                </button>
+              </div>
             </div>
             <div class="record-list">
               <div
@@ -667,6 +685,12 @@ onMounted(fetchMeetingRecords)
   display: inline-flex;
   align-items: center;
   gap: 0.6rem;
+}
+
+.panel-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .panel-header h2 {
