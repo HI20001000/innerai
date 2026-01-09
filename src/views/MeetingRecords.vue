@@ -246,8 +246,6 @@ const handleUploadChange = async (event) => {
 
 const deleteMeetingRecord = async (record) => {
   if (!record) return
-  const confirmed = window.confirm(`確定要刪除「${record.file_name}」嗎？`)
-  if (!confirmed) return
   const auth = readAuthStorage()
   if (!auth) return
   try {
@@ -274,8 +272,6 @@ const deleteMeetingRecord = async (record) => {
 
 const deleteMeetingFolder = async () => {
   if (!activeMeeting.value) return
-  const confirmed = window.confirm('確定要刪除整份會議文件夾嗎？此操作無法復原。')
-  if (!confirmed) return
   const auth = readAuthStorage()
   if (!auth) return
   try {
@@ -489,11 +485,30 @@ onMounted(fetchMeetingRecords)
                 :class="{ active: activeMeeting?.id === meeting.id }"
                 @click="selectMeeting(meeting)"
               >
-                <strong>{{ formatDateTimeDisplay(meeting.meeting_time) }}</strong>
-                <span class="meeting-meta">
-                  建立者：{{ meeting.created_by_email }}｜{{ formatDateTimeDisplay(meeting.created_at) }}
-                </span>
-                <span class="meeting-count">{{ meeting.records.length }} 份記錄</span>
+                <div class="meeting-card-main">
+                  <strong>{{ formatDateTimeDisplay(meeting.meeting_time) }}</strong>
+                  <span class="meeting-meta">
+                    建立者：{{ meeting.created_by_email }}｜{{ formatDateTimeDisplay(meeting.created_at) }}
+                  </span>
+                  <span class="meeting-count">{{ meeting.records.length }} 份記錄</span>
+                </div>
+                <div class="meeting-actions">
+                  <button
+                    type="button"
+                    class="meeting-action"
+                    :disabled="isUploading"
+                    @click.stop="activeMeeting = meeting; activeRecord = null; activeRecordMeta = null; triggerUpload()"
+                  >
+                    ＋
+                  </button>
+                  <button
+                    type="button"
+                    class="meeting-action"
+                    @click.stop="activeMeeting = meeting; activeRecord = null; activeRecordMeta = null; deleteMeetingFolder()"
+                  >
+                    ✓
+                  </button>
+                </div>
               </button>
             </div>
           </div>
@@ -536,12 +551,8 @@ onMounted(fetchMeetingRecords)
                     <span class="record-path">{{ record.file_path }}</span>
                   </div>
                 </button>
-                <button
-                  type="button"
-                  class="danger-text"
-                  @click.stop="deleteMeetingRecord(record)"
-                >
-                  刪除
+                <button type="button" class="record-action" @click.stop="deleteMeetingRecord(record)">
+                  −
                 </button>
               </div>
             </div>
@@ -778,7 +789,7 @@ onMounted(fetchMeetingRecords)
 .record-item {
   display: flex;
   align-items: center;
-  gap: 0.8rem;
+  gap: 0.6rem;
 }
 
 .record-button {
@@ -790,6 +801,20 @@ onMounted(fetchMeetingRecords)
   text-align: left;
   cursor: pointer;
   display: block;
+}
+
+.record-action {
+  border: none;
+  background: #fee2e2;
+  color: #b91c1c;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .record-button:hover {
@@ -810,15 +835,6 @@ onMounted(fetchMeetingRecords)
   color: #b91c1c;
   border-color: rgba(239, 68, 68, 0.3);
   background: rgba(239, 68, 68, 0.12);
-}
-
-.danger-text {
-  border: none;
-  background: transparent;
-  color: #b91c1c;
-  font-weight: 600;
-  cursor: pointer;
-  padding: 0;
 }
 
 .sr-only {
@@ -868,9 +884,44 @@ onMounted(fetchMeetingRecords)
   text-align: left;
   cursor: pointer;
   display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.meeting-card-main {
+  display: grid;
   gap: 0.35rem;
 }
 
+.meeting-actions {
+  display: inline-flex;
+  gap: 0.4rem;
+}
+
+.meeting-action {
+  border: none;
+  background: rgba(15, 23, 42, 0.08);
+  color: inherit;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.meeting-action:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.meeting-card.active .meeting-action {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
 .meeting-card.active {
   border-color: #111827;
   background: #111827;
