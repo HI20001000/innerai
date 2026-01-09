@@ -883,75 +883,77 @@ onBeforeUnmount(() => {
               <div
                 v-for="(item, index) in followUpItems"
                 :key="`${item.content}-${index}`"
-                class="follow-up-item"
+                class="follow-up-row"
               >
-                <template v-if="editingFollowUpIndex === index">
-                  <input v-model="followUpEditValue" type="text" class="follow-up-edit-input" />
-                </template>
-                <span v-else class="follow-up-content">{{ item.content }}</span>
-                <div class="follow-up-actions">
-                  <div class="follow-up-assignee">
-                    <button
-                      type="button"
-                      class="select-field small"
-                      :disabled="selectedRelatedUsers.length === 0"
-                      @click="toggleFollowUpAssigneeMenu(index)"
-                    >
-                      {{ getFollowUpAssigneeLabel(item) }}
-                    </button>
-                    <div
-                      v-if="activeFollowUpAssigneeMenu === index"
-                      class="option-list assignee-list"
-                    >
-                      <input
-                        v-model="searchQuery.user"
-                        class="option-search"
-                        type="text"
-                        placeholder="搜尋用戶"
-                      />
-                      <button
-                        type="button"
-                        class="option-item quick-assign"
-                        @click="assignAllFollowUpAssignees(item)"
-                      >
-                        一鍵指派所有關聯用戶
-                      </button>
-                      <button
-                        v-for="user in getFilteredRelatedUsers()"
-                        :key="user.mail"
-                        type="button"
-                        class="option-item user-option"
-                        @click="toggleFollowUpAssignee(item, user)"
-                      >
-                        <span
-                          class="user-avatar"
-                          :style="{ backgroundColor: user.icon_bg || '#e2e8f0' }"
-                        >
-                          {{ user.icon || '🙂' }}
-                        </span>
-                        <span class="user-label">
-                          {{ user.username || 'user' }} &lt;{{ user.mail }}&gt;
-                        </span>
-                        <span v-if="isFollowUpAssigneeSelected(item, user)" class="user-selected">
-                          ✓
-                        </span>
-                      </button>
-                    </div>
-                  </div>
+                <div class="follow-up-assignee">
                   <button
                     type="button"
-                    class="chip-edit"
-                    @click="
-                      editingFollowUpIndex === index
-                        ? confirmFollowUpEdit()
-                        : editFollowUpItem(item, index)
-                    "
+                    class="select-field small"
+                    :disabled="selectedRelatedUsers.length === 0"
+                    @click="toggleFollowUpAssigneeMenu(index)"
                   >
-                    {{ editingFollowUpIndex === index ? '✓' : '✎' }}
+                    {{ getFollowUpAssigneeLabel(item) }}
                   </button>
-                  <button type="button" class="chip-remove" @click="removeFollowUpItem(index)">
-                    ×
-                  </button>
+                  <div
+                    v-if="activeFollowUpAssigneeMenu === index"
+                    class="option-list assignee-list"
+                  >
+                    <input
+                      v-model="searchQuery.user"
+                      class="option-search"
+                      type="text"
+                      placeholder="搜尋用戶"
+                    />
+                    <button
+                      type="button"
+                      class="option-item quick-assign"
+                      @click="assignAllFollowUpAssignees(item)"
+                    >
+                      一鍵指派所有關聯用戶
+                    </button>
+                    <button
+                      v-for="user in getFilteredRelatedUsers()"
+                      :key="user.mail"
+                      type="button"
+                      class="option-item user-option"
+                      @click="toggleFollowUpAssignee(item, user)"
+                    >
+                      <span
+                        class="user-avatar"
+                        :style="{ backgroundColor: user.icon_bg || '#e2e8f0' }"
+                      >
+                        {{ user.icon || '🙂' }}
+                      </span>
+                      <span class="user-label">
+                        {{ user.username || 'user' }} &lt;{{ user.mail }}&gt;
+                      </span>
+                      <span v-if="isFollowUpAssigneeSelected(item, user)" class="user-selected">
+                        ✓
+                      </span>
+                    </button>
+                  </div>
+                </div>
+                <div class="follow-up-item">
+                  <template v-if="editingFollowUpIndex === index">
+                    <input v-model="followUpEditValue" type="text" class="follow-up-edit-input" />
+                  </template>
+                  <span v-else class="follow-up-content">{{ item.content }}</span>
+                  <div class="follow-up-actions">
+                    <button
+                      type="button"
+                      class="chip-edit"
+                      @click="
+                        editingFollowUpIndex === index
+                          ? confirmFollowUpEdit()
+                          : editFollowUpItem(item, index)
+                      "
+                    >
+                      {{ editingFollowUpIndex === index ? '✓' : '✎' }}
+                    </button>
+                    <button type="button" class="chip-remove" @click="removeFollowUpItem(index)">
+                      ×
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1292,6 +1294,12 @@ onBeforeUnmount(() => {
   gap: 0.4rem;
 }
 
+.follow-up-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
 .follow-up-item {
   background: #f8fafc;
   border: 1px solid #e2e8f0;
@@ -1300,6 +1308,7 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 0.6rem;
+  flex: 1;
 }
 
 .follow-up-actions {
