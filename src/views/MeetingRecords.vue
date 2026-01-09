@@ -539,21 +539,21 @@ onMounted(fetchMeetingRecords)
               <span class="count">共 {{ getMeetings().length }} 筆</span>
             </div>
             <div class="meeting-list-grid">
-              <button
-                v-for="meeting in getMeetings()"
-                :key="meeting.id"
-                type="button"
-                class="meeting-card"
-                :class="{ active: activeMeeting?.id === meeting.id }"
-                @click="selectMeeting(meeting)"
-              >
-                <div class="meeting-card-main">
-                  <strong>{{ formatDateTimeDisplay(meeting.meeting_time) }}</strong>
-                  <span class="meeting-meta">
-                    建立者：{{ meeting.created_by_email }}｜{{ formatDateTimeDisplay(meeting.created_at) }}
-                  </span>
-                  <span class="meeting-count">{{ meeting.records.length }} 份記錄</span>
-                </div>
+              <div v-for="meeting in getMeetings()" :key="meeting.id" class="meeting-row">
+                <button
+                  type="button"
+                  class="meeting-card"
+                  :class="{ active: activeMeeting?.id === meeting.id }"
+                  @click="selectMeeting(meeting)"
+                >
+                  <div class="meeting-card-main">
+                    <strong>{{ formatDateTimeDisplay(meeting.meeting_time) }}</strong>
+                    <span class="meeting-meta">
+                      建立者：{{ meeting.created_by_email }}｜{{ formatDateTimeDisplay(meeting.created_at) }}
+                    </span>
+                    <span class="meeting-count">{{ meeting.records.length }} 份記錄</span>
+                  </div>
+                </button>
                 <div class="meeting-actions">
                   <button
                     type="button"
@@ -587,7 +587,7 @@ onMounted(fetchMeetingRecords)
                     檢視
                   </button>
                 </div>
-              </button>
+              </div>
             </div>
             <div class="meeting-report-actions">
               <button
@@ -968,6 +968,13 @@ onMounted(fetchMeetingRecords)
   gap: 0.8rem;
 }
 
+.meeting-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.6rem;
+  align-items: center;
+}
+
 .meeting-card {
   border: 1px solid #e2e8f0;
   border-radius: 16px;
@@ -975,10 +982,7 @@ onMounted(fetchMeetingRecords)
   background: #f8fafc;
   text-align: left;
   cursor: pointer;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.35rem;
-  align-items: center;
+  display: block;
 }
 
 .meeting-card-main {
