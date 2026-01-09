@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { getTaipeiTodayKey, toDateKey } from '../scripts/time.js'
-import { buildFollowUpStatusByDate } from '../scripts/followUps.js'
+import { buildFollowUpStatusByDate, countPendingForFollowUps } from '../scripts/followUps.js'
 
 const apiBaseUrl = 'http://localhost:3001'
 const submissions = ref([])
@@ -39,9 +39,17 @@ const props = defineProps({
     type: Array,
     default: null,
   },
+  clientName: {
+    type: String,
+    default: '',
+  },
   userMail: {
     type: String,
     default: '',
+  },
+  subtitle: {
+    type: String,
+    default: '顯示與你相關的待辦數量',
   },
 })
 
@@ -122,9 +130,49 @@ const openMonthPicker = () => {
   monthPicker.value?.click()
 }
 
+const buildClientFollowUpStatusByDate = (items, clientName) => {
+  if (!clientName) return {}
+  return items.reduce((summary, item) => {
+    if (item.client_name !== clientName) return summary
+    const dateKey = toDateKey(item.scheduled_at)
+    if (!dateKey) return summary
+    const followUps = Array.isArray(item?.follow_ups) ? item.follow_ups : []
+    if (followUps.length === 0) return summary
+    const pendingCount = countPendingForFollowUps(followUps)
+    if (!summary[dateKey]) {
+      summary[dateKey] = { total: 0, pending: 0 }
+    }
+    summary[dateKey].total += followUps.length
+    summary[dateKey].pending += pendingCount
+    return summary
+  }, {})
+}
+
+const buildAllFollowUpStatusByDate = (items) =>
+  items.reduce((summary, item) => {
+    const dateKey = toDateKey(item.scheduled_at)
+    if (!dateKey) return summary
+    const followUps = Array.isArray(item?.follow_ups) ? item.follow_ups : []
+    if (followUps.length === 0) return summary
+    const pendingCount = countPendingForFollowUps(followUps)
+    if (!summary[dateKey]) {
+      summary[dateKey] = { total: 0, pending: 0 }
+    }
+    summary[dateKey].total += followUps.length
+    summary[dateKey].pending += pendingCount
+    return summary
+  }, {})
+
 const followUpStatusByDate = computed(() => {
+  const items = submissionsSource.value || []
+  if (props.clientName) {
+    return buildClientFollowUpStatusByDate(items, props.clientName)
+  }
   const mail = props.userMail || readUserMail()
-  return buildFollowUpStatusByDate(submissionsSource.value || [], mail, toDateKey)
+  if (mail) {
+    return buildFollowUpStatusByDate(items, mail, toDateKey)
+  }
+  return buildAllFollowUpStatusByDate(items)
 })
 
 const todayKey = getTaipeiTodayKey()
@@ -141,7 +189,7 @@ onMounted(() => {
     <header class="calendar-header">
       <div>
         <h3 class="calendar-title">本月行事曆</h3>
-        <p class="calendar-subtitle">顯示與你相關的待辦數量</p>
+        <p class="calendar-subtitle">{{ props.subtitle }}</p>
       </div>
       <div class="calendar-controls">
         <button class="calendar-nav" type="button" @click="changeMonth(-1)">‹</button>
