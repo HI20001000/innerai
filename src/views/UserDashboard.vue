@@ -1,5 +1,5 @@
 <script setup>
-import { computed, getCurrentInstance, onMounted, ref } from 'vue'
+import { computed, getCurrentInstance, onMounted, ref, watch } from 'vue'
 import WorkspaceSidebar from '../components/WorkspaceSidebar.vue'
 import MonthlyCalendar from '../components/MonthlyCalendar.vue'
 import { formatDateTimeDisplay, getTaipeiTodayKey, toDateKey } from '../scripts/time.js'
@@ -17,12 +17,16 @@ const goToHome = () => router?.push('/home')
 const goToProfile = () => router?.push('/settings')
 const goToUserDashboard = () => router?.push('/users/dashboard')
 
+const viewMode = ref('user')
 const users = ref([])
 const submissions = ref([])
 const selectedUserMail = ref('')
+const selectedClientName = ref('')
 const selectedDate = ref(todayKey)
 const activeUserMenu = ref(false)
+const activeClientMenu = ref(false)
 const userSearchQuery = ref('')
+const clientSearchQuery = ref('')
 const isLoading = ref(false)
 const errorMessage = ref('')
 
@@ -78,6 +82,21 @@ const selectedUser = computed(
   () => users.value.find((user) => user.mail === selectedUserMail.value) || users.value[0]
 )
 
+const clients = computed(() => {
+  const names = new Set()
+  return submissions.value.reduce((result, submission) => {
+    const name = submission.client_name
+    if (!name || names.has(name)) return result
+    names.add(name)
+    result.push({ name })
+    return result
+  }, [])
+})
+
+const selectedClient = computed(
+  () => clients.value.find((client) => client.name === selectedClientName.value) || clients.value[0]
+)
+
 const userSubmissions = computed(() => {
   const mail = selectedUser.value?.mail
   if (!mail) return []
@@ -86,8 +105,18 @@ const userSubmissions = computed(() => {
   )
 })
 
+const clientSubmissions = computed(() => {
+  const name = selectedClient.value?.name
+  if (!name) return []
+  return submissions.value.filter((submission) => submission.client_name === name)
+})
+
+const activeSubmissions = computed(() =>
+  viewMode.value === 'user' ? userSubmissions.value : clientSubmissions.value
+)
+
 const followUpItems = computed(() =>
-  userSubmissions.value.flatMap((submission) => {
+  activeSubmissions.value.flatMap((submission) => {
     const followUps = Array.isArray(submission.follow_ups) ? submission.follow_ups : []
     return followUps.map((followUp) => ({
       id: `${submission.id}-${followUp.id}`,
@@ -95,7 +124,10 @@ const followUpItems = computed(() =>
       status: followUp.status_name || '進行中',
       statusBgColor: followUp.status_bg_color || '',
       scheduledAt: submission.scheduled_at,
-      owner: selectedUser.value?.username || selectedUser.value?.mail || '未指派',
+      owner:
+        viewMode.value === 'user'
+          ? selectedUser.value?.username || selectedUser.value?.mail || '未指派'
+          : submission.client_name || '未指派',
       assignees: Array.isArray(followUp.assignees) ? followUp.assignees : [],
       label: `${submission.client_name}_${submission.vendor_name}_${submission.product_name}`,
     }))
@@ -103,7 +135,7 @@ const followUpItems = computed(() =>
 )
 
 const timelineItems = computed(() =>
-  userSubmissions.value
+  activeSubmissions.value
     .filter((submission) => toDateKey(submission.scheduled_at) === selectedDate.value)
     .sort((a, b) => String(a.scheduled_at || '').localeCompare(String(b.scheduled_at || '')))
 )
@@ -163,10 +195,7 @@ const formatTimeOnly = (value) => {
   return parts.length > 1 ? parts[1].slice(0, 5) : formatted
 }
 
-const calendarSubmissions = computed(() => {
-  if (!selectedUser.value) return []
-  return userSubmissions.value
-})
+const calendarSubmissions = computed(() => activeSubmissions.value)
 
 const timelineTitle = computed(() => {
   const date = selectedDate.value
@@ -175,6 +204,40 @@ const timelineTitle = computed(() => {
   if (!year || !month || !day) return '時間線'
   return `${year}年${month}月${day}日時間線`
 })
+
+const headerTitle = computed(() =>
+  viewMode.value === 'user' ? '用戶工作安排' : '客戶工作安排'
+)
+
+const headerSubhead = computed(() =>
+  viewMode.value === 'user'
+    ? '監控單一用戶的任務進度、待辦與跟進狀況。'
+    : '以客戶視角檢視該客戶的跟進任務進度與安排。'
+)
+
+const selectionLabel = computed(() => (viewMode.value === 'user' ? '選擇用戶' : '選擇客戶'))
+
+const profileName = computed(() =>
+  viewMode.value === 'user'
+    ? selectedUser.value?.username || '未選擇用戶'
+    : selectedClient.value?.name || '未選擇客戶'
+)
+
+const profileMeta = computed(() =>
+  viewMode.value === 'user'
+    ? selectedUser.value?.mail || '尚未載入使用者資訊'
+    : selectedClient.value?.name
+      ? '客戶視角'
+      : '尚未載入客戶資訊'
+)
+
+const summaryMeta = computed(() =>
+  viewMode.value === 'user' ? '目前選定用戶的工作量' : '目前選定客戶的工作量'
+)
+
+const calendarSubtitle = computed(() =>
+  viewMode.value === 'user' ? '顯示與你相關的待辦數量' : '顯示該客戶的待辦數量'
+)
 
 const getFilteredUsers = () => {
   const query = userSearchQuery.value.trim().toLowerCase()
@@ -193,11 +256,37 @@ const toggleUserMenu = () => {
   }
 }
 
+const toggleClientMenu = () => {
+  activeClientMenu.value = !activeClientMenu.value
+  if (activeClientMenu.value) {
+    clientSearchQuery.value = ''
+  }
+}
+
 const selectUser = (user) => {
   if (!user?.mail) return
   selectedUserMail.value = user.mail
   activeUserMenu.value = false
   userSearchQuery.value = ''
+}
+
+const getFilteredClients = () => {
+  const query = clientSearchQuery.value.trim().toLowerCase()
+  if (!query) return clients.value
+  return clients.value.filter((client) => client.name.toLowerCase().includes(query))
+}
+
+const selectClient = (client) => {
+  if (!client?.name) return
+  selectedClientName.value = client.name
+  activeClientMenu.value = false
+  clientSearchQuery.value = ''
+}
+
+const setViewMode = (mode) => {
+  viewMode.value = mode
+  activeUserMenu.value = false
+  activeClientMenu.value = false
 }
 
 const handleSelectDate = (dateKey) => {
@@ -211,11 +300,22 @@ onMounted(async () => {
     await Promise.all([fetchUsers(), fetchSubmissions()])
   } catch (error) {
     console.error(error)
-    errorMessage.value = '無法載入用戶工作安排'
+    errorMessage.value = '無法載入工作安排'
   } finally {
     isLoading.value = false
   }
 })
+
+watch(
+  [submissions, viewMode],
+  () => {
+    if (viewMode.value !== 'client') return
+    if (!selectedClientName.value && clients.value.length > 0) {
+      selectedClientName.value = clients.value[0].name
+    }
+  },
+  { immediate: true }
+)
 </script>
 
 <template>
@@ -235,14 +335,30 @@ onMounted(async () => {
       <header class="dashboard-header">
         <div>
           <p class="eyebrow">管理者儀表盤</p>
-          <h1 class="headline">用戶工作安排</h1>
-          <p class="subhead">監控單一用戶的任務進度、待辦與跟進狀況。</p>
+          <h1 class="headline">{{ headerTitle }}</h1>
+          <p class="subhead">{{ headerSubhead }}</p>
+        </div>
+        <div class="view-toggle">
+          <button
+            type="button"
+            :class="['toggle-button', { active: viewMode === 'user' }]"
+            @click="setViewMode('user')"
+          >
+            用戶視角
+          </button>
+          <button
+            type="button"
+            :class="['toggle-button', { active: viewMode === 'client' }]"
+            @click="setViewMode('client')"
+          >
+            客戶視角
+          </button>
         </div>
       </header>
 
       <section class="dashboard-controls">
-        <div class="control select-field-wrapper">
-          <span>選擇用戶</span>
+        <div v-if="viewMode === 'user'" class="control select-field-wrapper">
+          <span>{{ selectionLabel }}</span>
           <button class="select-field" type="button" @click="toggleUserMenu">
             {{ selectedUser?.username || selectedUser?.mail || '選擇用戶' }}
           </button>
@@ -273,16 +389,39 @@ onMounted(async () => {
             </button>
           </div>
         </div>
+        <div v-else class="control select-field-wrapper">
+          <span>{{ selectionLabel }}</span>
+          <button class="select-field" type="button" @click="toggleClientMenu">
+            {{ selectedClient?.name || '選擇客戶' }}
+          </button>
+          <div v-if="activeClientMenu" class="option-list assignee-list">
+            <input
+              v-model="clientSearchQuery"
+              class="option-search"
+              type="text"
+              placeholder="搜尋客戶"
+            />
+            <button
+              v-for="client in getFilteredClients()"
+              :key="client.name"
+              type="button"
+              class="option-item"
+              @click="selectClient(client)"
+            >
+              {{ client.name }}
+            </button>
+          </div>
+        </div>
         <div class="user-profile">
           <div
             class="user-avatar"
             :style="{ backgroundColor: selectedUser?.icon_bg || '#e2e8f0' }"
           >
-            {{ selectedUser?.icon || '👤' }}
+            {{ viewMode === 'user' ? selectedUser?.icon || '👤' : '🏷️' }}
           </div>
           <div>
-            <p class="user-name">{{ selectedUser?.username || '未選擇用戶' }}</p>
-            <p class="user-meta">{{ selectedUser?.mail || '尚未載入使用者資訊' }}</p>
+            <p class="user-name">{{ profileName }}</p>
+            <p class="user-meta">{{ profileMeta }}</p>
           </div>
         </div>
       </section>
@@ -291,7 +430,7 @@ onMounted(async () => {
         <article class="summary-card">
           <p class="card-label">任務總數</p>
           <p class="card-value">{{ totalCount }}</p>
-          <p class="card-meta">目前選定用戶的工作量</p>
+          <p class="card-meta">{{ summaryMeta }}</p>
         </article>
         <article class="summary-card">
           <p class="card-label">未完成</p>
@@ -368,7 +507,9 @@ onMounted(async () => {
           <MonthlyCalendar
             :selected-date="selectedDate"
             :submissions="calendarSubmissions"
-            :user-mail="selectedUser?.mail"
+            :user-mail="viewMode === 'user' ? selectedUser?.mail : ''"
+            :client-name="viewMode === 'client' ? selectedClient?.name : ''"
+            :subtitle="calendarSubtitle"
             @select-date="handleSelectDate"
           />
         </article>
@@ -395,6 +536,29 @@ onMounted(async () => {
   justify-content: space-between;
   align-items: flex-end;
   gap: 2rem;
+}
+
+.view-toggle {
+  display: inline-flex;
+  background: #f1f5f9;
+  padding: 0.3rem;
+  border-radius: 999px;
+  gap: 0.3rem;
+}
+
+.toggle-button {
+  border: none;
+  background: transparent;
+  padding: 0.4rem 0.9rem;
+  border-radius: 999px;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+}
+
+.toggle-button.active {
+  background: #111827;
+  color: #fff;
 }
 
 .eyebrow {
