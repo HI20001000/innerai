@@ -590,6 +590,7 @@ const closeMenusOnOutsideClick = (event) => {
   const withinSelectField = target.closest('.select-field-wrapper')
   const withinQuickAssign = target.closest('.quick-assign-wrapper')
   const withinAssignee = target.closest('.follow-up-assignee')
+  const withinAssigneeMenu = target.closest('.assignee-list')
 
   if (!withinSelectField) {
     activeList.value = null
@@ -597,7 +598,7 @@ const closeMenusOnOutsideClick = (event) => {
   if (activeQuickAssignMenu.value && !withinQuickAssign) {
     activeQuickAssignMenu.value = false
   }
-  if (activeFollowUpAssigneeMenu.value !== null && !withinAssignee) {
+  if (activeFollowUpAssigneeMenu.value !== null && !withinAssignee && !withinAssigneeMenu) {
     activeFollowUpAssigneeMenu.value = null
   }
 }
