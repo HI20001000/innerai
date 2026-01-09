@@ -388,7 +388,7 @@ onMounted(fetchMeetingRecords)
               <div class="panel-title">
                 <h2>客戶</h2>
               </div>
-              <div class="panel-actions">
+              <div>
                 <button class="ghost-mini" type="button" @click="goToMeetingUpload">
                   編輯
                 </button>
@@ -824,11 +824,6 @@ onMounted(fetchMeetingRecords)
 .record-title {
   display: grid;
   gap: 0.2rem;
-}
-
-.panel-actions .ghost-mini:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
 }
 
 .sr-only {
