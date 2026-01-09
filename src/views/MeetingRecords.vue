@@ -589,6 +589,24 @@ onMounted(fetchMeetingRecords)
                 </div>
               </button>
             </div>
+            <div class="meeting-report-actions">
+              <button
+                type="button"
+                class="meeting-action wide"
+                :disabled="!activeMeeting || isReportGenerating"
+                @click="activeMeeting && generateMeetingReport(activeMeeting)"
+              >
+                🤖 整合
+              </button>
+              <button
+                type="button"
+                class="meeting-action wide"
+                :disabled="!activeMeeting?.report?.content_text"
+                @click="activeMeeting && openMeetingReport(activeMeeting)"
+              >
+                檢視
+              </button>
+            </div>
           </div>
 
           <div class="panel-section">
@@ -971,6 +989,12 @@ onMounted(fetchMeetingRecords)
 .meeting-actions {
   display: inline-flex;
   gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.meeting-report-actions {
+  display: inline-flex;
+  gap: 0.6rem;
   flex-wrap: wrap;
 }
 
