@@ -549,9 +549,11 @@ onMounted(fetchMeetingRecords)
                   <div class="meeting-card-main">
                     <strong>{{ formatDateTimeDisplay(meeting.meeting_time) }}</strong>
                     <span class="meeting-meta">
-                      建立者：{{ meeting.created_by_email }}｜{{ formatDateTimeDisplay(meeting.created_at) }}
+                      <span>
+                        建立者：{{ meeting.created_by_email }}｜{{ formatDateTimeDisplay(meeting.created_at) }}
+                      </span>
+                      <span class="meeting-count">{{ meeting.records.length }} 份記錄</span>
                     </span>
-                    <span class="meeting-count">{{ meeting.records.length }} 份記錄</span>
                   </div>
                   <div class="meeting-actions">
                     <button
@@ -1052,6 +1054,10 @@ onMounted(fetchMeetingRecords)
 .meeting-meta {
   font-size: 0.8rem;
   color: #64748b;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
 }
 
 .meeting-count {
