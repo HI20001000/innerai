@@ -583,9 +583,9 @@ onMounted(fetchMeetingRecords)
                     🤖
                   </button>
                   <button
+                    v-if="meeting.report?.content_text"
                     type="button"
                     class="meeting-action wide"
-                    :disabled="!meeting.report?.content_text"
                     @click.stop="activeMeeting = meeting; openMeetingReport(meeting)"
                   >
                     檢視
