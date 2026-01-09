@@ -566,9 +566,25 @@ onMounted(fetchMeetingRecords)
                   <button
                     type="button"
                     class="meeting-action"
+                    :disabled="isReportGenerating"
+                    @click.stop="activeMeeting = meeting; activeRecord = null; activeRecordMeta = null; generateMeetingReport(meeting)"
+                  >
+                    🤖
+                  </button>
+                  <button
+                    type="button"
+                    class="meeting-action"
                     @click.stop="activeMeeting = meeting; activeRecord = null; activeRecordMeta = null; deleteMeetingFolder()"
                   >
                     −
+                  </button>
+                  <button
+                    type="button"
+                    class="meeting-action wide"
+                    :disabled="!meeting.report?.content_text"
+                    @click.stop="activeMeeting = meeting; openMeetingReport(meeting)"
+                  >
+                    檢視
                   </button>
                 </div>
               </button>
