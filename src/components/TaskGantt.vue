@@ -155,7 +155,7 @@ const axisTicks = computed(() => {
   } else if (rangeType.value === 'year') {
     const end = new Date(start.getFullYear() + rangeConfig.value.count, start.getMonth(), 1)
     const cursor = new Date(start.getFullYear(), 0, 1)
-    while (cursor <= end) {
+    while (cursor < end) {
       const dayIndex = Math.round(
         (toDayStart(cursor).getTime() - start.getTime()) / MILLISECONDS_IN_DAY
       )
@@ -169,7 +169,7 @@ const axisTicks = computed(() => {
   } else {
     const end = new Date(start.getTime() + totalDays.value * MILLISECONDS_IN_DAY)
     const cursor = new Date(start.getFullYear(), start.getMonth(), 1)
-    while (cursor <= end) {
+    while (cursor < end) {
       const dayIndex = Math.round(
         (toDayStart(cursor).getTime() - start.getTime()) / MILLISECONDS_IN_DAY
       )
@@ -186,27 +186,7 @@ const axisTicks = computed(() => {
 
 const minorTicks = computed(() => {
   if (rangeType.value === 'day') return []
-  if (rangeType.value === 'year') {
-    const ticks = []
-    const start = toDayStart(timelineStart.value)
-    const end = new Date(start.getFullYear() + rangeConfig.value.count, start.getMonth(), 1)
-    const cursor = new Date(start.getFullYear(), start.getMonth(), 1)
-    while (cursor <= end) {
-      const dayIndex = Math.round(
-        (toDayStart(cursor).getTime() - start.getTime()) / MILLISECONDS_IN_DAY
-      )
-      ticks.push({
-        key: `minor-${cursor.toISOString()}`,
-        dayIndex,
-      })
-      cursor.setMonth(cursor.getMonth() + 1)
-    }
-    return ticks
-  }
-  return Array.from({ length: totalDays.value + 1 }, (_, index) => ({
-    key: `minor-${index}`,
-    dayIndex: index,
-  }))
+  return []
 })
 
 const getBarColor = (user) => user?.icon_bg || DEFAULT_CLIENT_COLOR
