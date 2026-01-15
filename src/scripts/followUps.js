@@ -18,7 +18,7 @@ export const buildFollowUpStatusByDate = (submissions = [], mail, toDateKey) => 
   for (const item of submissions) {
     const related = item.related_users || []
     if (!related.some((user) => user.mail === mail)) continue
-    const dateKey = toDateKey(item.start_at)
+    const dateKey = toDateKey(item.end_at || item.start_at)
     if (!dateKey) continue
     const followUps = Array.isArray(item?.follow_ups) ? item.follow_ups : []
     if (followUps.length === 0) continue
