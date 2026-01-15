@@ -376,82 +376,88 @@ const timelineWidth = computed(() => rangeConfig.value.count * rangeConfig.value
     </header>
 
     <div class="gantt-body">
-      <div class="gantt-sidebar">
-        <div class="gantt-sidebar-header"></div>
-        <div
-          v-for="row in ganttRows"
-          :key="row.id"
-          :class="['gantt-label', `gantt-label-${row.type}`]"
-        >
-          <button
-            v-if="row.type === 'group'"
-            type="button"
-            class="gantt-group"
-            @click="toggleGroup(row.groupId || row.id)"
-          >
-            <div class="gantt-group-badge" :style="{ backgroundColor: row.color }">
-              {{ row.icon }}
-            </div>
-            <div class="gantt-group-text">
-              <span class="gantt-group-name">{{ row.label }}</span>
-              <span v-if="row.meta" class="gantt-group-meta">{{ row.meta }}</span>
-            </div>
-            <span class="gantt-task-toggle">
-              {{ isGroupExpanded(row.groupId || row.id) ? '▾' : '▸' }}
+      <div class="gantt-axis-row">
+        <div class="gantt-axis-spacer"></div>
+        <div class="gantt-timeline">
+          <div class="gantt-axis" :style="{ width: `${timelineWidth}px` }">
+            <span
+              v-for="tick in axisTicks"
+              :key="tick.key"
+              class="gantt-tick"
+              :style="{ left: `${tick.offset * rangeConfig.width}px` }"
+            >
+              {{ tick.label }}
             </span>
-          </button>
-          <button
-            v-else-if="row.type === 'task'"
-            type="button"
-            class="gantt-task-button"
-            @click="toggleTask(row.taskId)"
-          >
-            <span class="gantt-task-text">{{ row.label }}</span>
-            <span class="gantt-task-toggle">{{ isTaskExpanded(row.taskId) ? '▾' : '▸' }}</span>
-          </button>
-          <span v-else class="gantt-followup-text">{{ row.label }}</span>
+          </div>
         </div>
       </div>
-      <div class="gantt-timeline">
-        <div class="gantt-axis" :style="{ width: `${timelineWidth}px` }">
-          <span
-            v-for="tick in axisTicks"
-            :key="tick.key"
-            class="gantt-tick"
-            :style="{ left: `${tick.offset * rangeConfig.width}px` }"
+      <div class="gantt-content-row">
+        <div class="gantt-sidebar">
+          <div
+            v-for="row in ganttRows"
+            :key="row.id"
+            :class="['gantt-label', `gantt-label-${row.type}`]"
           >
-            {{ tick.label }}
-          </span>
+            <button
+              v-if="row.type === 'group'"
+              type="button"
+              class="gantt-group"
+              @click="toggleGroup(row.groupId || row.id)"
+            >
+              <div class="gantt-group-badge" :style="{ backgroundColor: row.color }">
+                {{ row.icon }}
+              </div>
+              <div class="gantt-group-text">
+                <span class="gantt-group-name">{{ row.label }}</span>
+                <span v-if="row.meta" class="gantt-group-meta">{{ row.meta }}</span>
+              </div>
+              <span class="gantt-task-toggle">
+                {{ isGroupExpanded(row.groupId || row.id) ? '▾' : '▸' }}
+              </span>
+            </button>
+            <button
+              v-else-if="row.type === 'task'"
+              type="button"
+              class="gantt-task-button"
+              @click="toggleTask(row.taskId)"
+            >
+              <span class="gantt-task-text">{{ row.label }}</span>
+              <span class="gantt-task-toggle">{{ isTaskExpanded(row.taskId) ? '▾' : '▸' }}</span>
+            </button>
+            <span v-else class="gantt-followup-text">{{ row.label }}</span>
+          </div>
         </div>
-        <div class="gantt-rows" :style="{ width: `${timelineWidth}px` }">
-          <div v-for="row in ganttRows" :key="row.id" class="gantt-row">
-            <template v-if="row.type === 'group'">
+        <div class="gantt-timeline">
+          <div class="gantt-rows" :style="{ width: `${timelineWidth}px` }">
+            <div v-for="row in ganttRows" :key="row.id" class="gantt-row">
+              <template v-if="row.type === 'group'">
+                <div
+                  v-for="(span, index) in row.taskSpans || []"
+                  :key="`${row.id}-span-${index}`"
+                  class="gantt-bar"
+                  :style="{
+                    backgroundColor: span.color,
+                    ...getPositionStyle(span.startAt, span.endAt),
+                  }"
+                ></div>
+              </template>
               <div
-                v-for="(span, index) in row.taskSpans || []"
-                :key="`${row.id}-span-${index}`"
+                v-else-if="row.type === 'task'"
                 class="gantt-bar"
                 :style="{
-                  backgroundColor: span.color,
-                  ...getPositionStyle(span.startAt, span.endAt),
+                  backgroundColor: row.color,
+                  ...getPositionStyle(row.startAt, row.endAt),
                 }"
               ></div>
-            </template>
-            <div
-              v-else-if="row.type === 'task'"
-              class="gantt-bar"
-              :style="{
-                backgroundColor: row.color,
-                ...getPositionStyle(row.startAt, row.endAt),
-              }"
-            ></div>
-            <div
-              v-else-if="row.type === 'followup'"
-              class="gantt-marker"
-              :style="{
-                backgroundColor: row.color,
-                ...getMarkerStyle(row.endAt),
-              }"
-            ></div>
+              <div
+                v-else-if="row.type === 'followup'"
+                class="gantt-marker"
+                :style="{
+                  backgroundColor: row.color,
+                  ...getMarkerStyle(row.endAt),
+                }"
+              ></div>
+            </div>
           </div>
         </div>
       </div>
@@ -516,11 +522,22 @@ const timelineWidth = computed(() => rangeConfig.value.count * rangeConfig.value
 
 .gantt-body {
   display: grid;
-  grid-template-columns: 320px 1fr;
+  grid-template-rows: auto 1fr;
   border: 1px solid #e2e8f0;
   border-radius: 16px;
   overflow: hidden;
   background: #fff;
+}
+
+.gantt-axis-row,
+.gantt-content-row {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+}
+
+.gantt-axis-spacer {
+  background: #f8fafc;
+  padding: 1rem;
 }
 
 .gantt-sidebar {
@@ -528,10 +545,6 @@ const timelineWidth = computed(() => rangeConfig.value.count * rangeConfig.value
   padding: 1rem;
   display: grid;
   gap: 0.6rem;
-}
-
-.gantt-sidebar-header {
-  height: 36px;
 }
 
 .gantt-label {
@@ -664,6 +677,11 @@ const timelineWidth = computed(() => rangeConfig.value.count * rangeConfig.value
 
 @media (max-width: 960px) {
   .gantt-body {
+    grid-template-rows: auto 1fr;
+  }
+
+  .gantt-axis-row,
+  .gantt-content-row {
     grid-template-columns: 1fr;
   }
 
