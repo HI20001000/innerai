@@ -476,7 +476,7 @@ onMounted(() => {
             </p>
             <div v-else class="timeline-list">
               <div v-for="item in timelineItems" :key="item.id" class="time-row">
-                <span class="time">{{ formatTimeOnly(item.end_at) || '--:--' }}</span>
+                <span class="time">{{ formatTimeOnly(item.end_at) }}</span>
                 <div class="time-card">
                   <h3 class="time-card-title">
                     {{ item.client_name }}_{{ item.vendor_name }}_{{ item.product_name }}

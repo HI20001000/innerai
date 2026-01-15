@@ -130,10 +130,7 @@ const openMonthPicker = () => {
   monthPicker.value?.click()
 }
 
-const getCalendarDateKey = (item) => {
-  const source = item?.end_at || item?.start_at
-  return toDateKey(source)
-}
+const getCalendarDateKey = (item) => toDateKey(item?.end_at)
 
 const buildClientFollowUpStatusByDate = (items, clientName) => {
   if (!clientName) return {}
