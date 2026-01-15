@@ -31,6 +31,7 @@ const props = defineProps({
 
 const rangeType = ref('month')
 const expandedTaskIds = ref(new Set())
+const expandedGroupIds = ref(new Set())
 
 const toTask = (submission) => {
   if (!submission?.end_at) return null
@@ -58,19 +59,21 @@ const groupedTasks = computed(() => {
   if (props.viewMode !== 'user') {
     return []
   }
-  return (props.users || []).map((user) => {
-    const userTasks = tasks.value.filter((task) =>
-      (props.submissions || []).some(
-        (submission) =>
-          submission.id === task.id &&
-          (submission.related_users || []).some((related) => related.mail === user.mail)
+  return (props.users || [])
+    .map((user) => {
+      const userTasks = tasks.value.filter((task) =>
+        (props.submissions || []).some(
+          (submission) =>
+            submission.id === task.id &&
+            (submission.related_users || []).some((related) => related.mail === user.mail)
+        )
       )
-    )
-    return {
-      user,
-      tasks: userTasks,
-    }
-  })
+      return {
+        user,
+        tasks: userTasks,
+      }
+    })
+    .filter((group) => group.tasks.length > 0)
 })
 
 const rangeConfig = computed(() => {
@@ -148,14 +151,71 @@ const ganttRows = computed(() => {
   const rows = []
   if (props.viewMode === 'user') {
     groupedTasks.value.forEach(({ user, tasks: userTasks }) => {
+      const groupId = `group-user-${user?.mail || 'unknown'}`
+      const sortedTasks = userTasks
+        .map((task) => ({
+          ...task,
+          startAtDate: new Date(task.startAt),
+          endAtDate: new Date(task.endAt),
+        }))
+        .filter((task) => {
+          const hasStart = !Number.isNaN(task.startAtDate.getTime())
+          const hasEnd = !Number.isNaN(task.endAtDate.getTime())
+          return hasStart && hasEnd
+        })
+        .sort((a, b) => a.startAtDate.getTime() - b.startAtDate.getTime())
+      const groupStartAt = sortedTasks[0]?.startAt || userTasks[0]?.startAt
+      const groupEndAt = sortedTasks.length
+        ? sortedTasks[sortedTasks.length - 1].endAt
+        : userTasks[userTasks.length - 1]?.endAt
       rows.push({
-        id: `group-user-${user?.mail || 'unknown'}`,
+        id: groupId,
         type: 'group',
         label: user?.username || user?.mail || '用戶',
         icon: user?.icon || '🙂',
-        iconBg: GROUP_BADGE_COLOR,
+        groupId,
+        color: getBarColor(user),
+        startAt: groupStartAt,
+        endAt: groupEndAt,
+        tasks: userTasks,
       })
-      userTasks.forEach((task) => {
+      if (expandedGroupIds.value.has(groupId)) {
+        userTasks.forEach((task) => {
+          rows.push({
+            id: `task-${task.id}`,
+            taskId: task.id,
+            type: 'task',
+            label: `${task.clientName}_${task.vendorName}_${task.productName}`,
+            startAt: task.startAt,
+            endAt: task.endAt,
+            color: getBarColor(user),
+          })
+          if (expandedTaskIds.value.has(task.id)) {
+            task.followUps.forEach((followUp) => {
+              rows.push({
+                id: `followup-${task.id}-${followUp.id || followUp.content}`,
+                type: 'followup',
+                label: followUp.content || '跟進任務',
+                endAt: task.endAt,
+                color: getBarColor(user),
+              })
+            })
+          }
+        })
+      }
+    })
+  } else if (props.viewMode === 'client') {
+    const clientGroupId = `group-client-${props.selectedClient?.name || 'unknown'}`
+    rows.push({
+      id: clientGroupId,
+      type: 'group',
+      label: props.selectedClient?.name || '客戶',
+      icon: '🏷️',
+      groupId: clientGroupId,
+      color: DEFAULT_CLIENT_COLOR,
+    })
+    if (expandedGroupIds.value.has(clientGroupId)) {
+      tasks.value.forEach((task) => {
         rows.push({
           id: `task-${task.id}`,
           taskId: task.id,
@@ -163,7 +223,7 @@ const ganttRows = computed(() => {
           label: `${task.clientName}_${task.vendorName}_${task.productName}`,
           startAt: task.startAt,
           endAt: task.endAt,
-          color: getBarColor(user),
+          color: DEFAULT_CLIENT_COLOR,
         })
         if (expandedTaskIds.value.has(task.id)) {
           task.followUps.forEach((followUp) => {
@@ -172,42 +232,12 @@ const ganttRows = computed(() => {
               type: 'followup',
               label: followUp.content || '跟進任務',
               endAt: task.endAt,
-              color: getBarColor(user),
+              color: DEFAULT_CLIENT_COLOR,
             })
           })
         }
       })
-    })
-  } else if (props.viewMode === 'client') {
-    rows.push({
-      id: `group-client-${props.selectedClient?.name || 'unknown'}`,
-      type: 'group',
-      label: props.selectedClient?.name || '客戶',
-      icon: '🏷️',
-      iconBg: DEFAULT_CLIENT_COLOR,
-    })
-    tasks.value.forEach((task) => {
-      rows.push({
-        id: `task-${task.id}`,
-        taskId: task.id,
-        type: 'task',
-        label: `${task.clientName}_${task.vendorName}_${task.productName}`,
-        startAt: task.startAt,
-        endAt: task.endAt,
-        color: DEFAULT_CLIENT_COLOR,
-      })
-      if (expandedTaskIds.value.has(task.id)) {
-        task.followUps.forEach((followUp) => {
-          rows.push({
-            id: `followup-${task.id}-${followUp.id || followUp.content}`,
-            type: 'followup',
-            label: followUp.content || '跟進任務',
-            endAt: task.endAt,
-            color: DEFAULT_CLIENT_COLOR,
-          })
-        })
-      }
-    })
+    }
   }
 
   return rows
@@ -255,6 +285,18 @@ const toggleTask = (taskId) => {
 
 const isTaskExpanded = (taskId) => expandedTaskIds.value.has(taskId)
 
+const toggleGroup = (groupId) => {
+  const next = new Set(expandedGroupIds.value)
+  if (next.has(groupId)) {
+    next.delete(groupId)
+  } else {
+    next.add(groupId)
+  }
+  expandedGroupIds.value = next
+}
+
+const isGroupExpanded = (groupId) => expandedGroupIds.value.has(groupId)
+
 const setRangeType = (value) => {
   rangeType.value = value
 }
@@ -280,6 +322,9 @@ const shiftRange = (direction) => {
 }
 
 const timelineWidth = computed(() => rangeConfig.value.count * rangeConfig.value.width)
+
+const shouldRenderGroupBar = (row) =>
+  row.type === 'group' && row.startAt && row.endAt
 </script>
 
 <template>
@@ -329,12 +374,20 @@ const timelineWidth = computed(() => rangeConfig.value.count * rangeConfig.value
           :key="row.id"
           :class="['gantt-label', `gantt-label-${row.type}`]"
         >
-          <div v-if="row.type === 'group'" class="gantt-group">
-            <div class="gantt-group-badge" :style="{ backgroundColor: row.iconBg }">
+          <button
+            v-if="row.type === 'group'"
+            type="button"
+            class="gantt-group"
+            @click="toggleGroup(row.groupId || row.id)"
+          >
+            <div class="gantt-group-badge" :style="{ backgroundColor: row.color }">
               {{ row.icon }}
             </div>
             <span class="gantt-group-name">{{ row.label }}</span>
-          </div>
+            <span class="gantt-task-toggle">
+              {{ isGroupExpanded(row.groupId || row.id) ? '▾' : '▸' }}
+            </span>
+          </button>
           <button
             v-else-if="row.type === 'task'"
             type="button"
@@ -361,7 +414,7 @@ const timelineWidth = computed(() => rangeConfig.value.count * rangeConfig.value
         <div class="gantt-rows" :style="{ width: `${timelineWidth}px` }">
           <div v-for="row in ganttRows" :key="row.id" class="gantt-row">
             <div
-              v-if="row.type === 'task'"
+              v-if="row.type === 'task' || shouldRenderGroupBar(row)"
               class="gantt-bar"
               :style="{
                 backgroundColor: row.color,
@@ -445,7 +498,7 @@ const timelineWidth = computed(() => rangeConfig.value.count * rangeConfig.value
 
 .gantt-body {
   display: grid;
-  grid-template-columns: 260px 1fr;
+  grid-template-columns: 320px 1fr;
   border: 1px solid #e2e8f0;
   border-radius: 16px;
   overflow: hidden;
