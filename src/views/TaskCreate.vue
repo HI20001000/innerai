@@ -16,7 +16,8 @@ const selectedProduct = ref('')
 const selectedTags = ref([])
 const selectedRelatedUsers = ref([])
 const activeList = ref(null)
-const selectedTime = ref('')
+const selectedStartAt = ref('')
+const selectedEndAt = ref('')
 const followUpInput = ref('')
 const followUpItems = ref([])
 const editingFollowUpIndex = ref(null)
@@ -423,7 +424,8 @@ const saveDraft = () => {
     selectedProduct: selectedProduct.value,
     selectedTags: selectedTags.value,
     selectedRelatedUsers: selectedRelatedUsers.value,
-    selectedTime: selectedTime.value,
+    selectedStartAt: selectedStartAt.value,
+    selectedEndAt: selectedEndAt.value,
     followUpItems: followUpItems.value,
   }
   window.localStorage.setItem(draftKey, JSON.stringify(payload))
@@ -458,7 +460,8 @@ const submitTask = async () => {
     product: selectedProduct.value,
     tag: selectedTags.value,
     related_user_mail: selectedRelatedUsers.value.map((user) => user.mail),
-    scheduled_at: selectedTime.value,
+    start_at: selectedStartAt.value,
+    end_at: selectedEndAt.value,
     follow_up: followUpItems.value.map((item) => ({
       content: item.content,
       assignees: item.assignees || [],
@@ -529,7 +532,11 @@ const applyAutoFill = (payload) => {
     const tags = Array.isArray(payload.tag) ? payload.tag : [payload.tag]
     selectedTags.value = tags.filter(Boolean)
   }
-  if (payload.scheduled_at) selectedTime.value = payload.scheduled_at
+  if (payload.start_at) selectedStartAt.value = payload.start_at
+  if (payload.end_at) selectedEndAt.value = payload.end_at
+  if (!payload.start_at && payload.scheduled_at) {
+    selectedStartAt.value = payload.scheduled_at
+  }
   if (payload.follow_up) {
     const followUps = Array.isArray(payload.follow_up) ? payload.follow_up : [payload.follow_up]
     followUpItems.value = followUps
@@ -559,7 +566,8 @@ const loadDraft = () => {
     selectedProduct.value = payload.selectedProduct ?? ''
     selectedTags.value = payload.selectedTags ?? []
     selectedRelatedUsers.value = payload.selectedRelatedUsers ?? []
-    selectedTime.value = payload.selectedTime ?? ''
+    selectedStartAt.value = payload.selectedStartAt ?? ''
+    selectedEndAt.value = payload.selectedEndAt ?? ''
     followUpItems.value = Array.isArray(payload.followUpItems)
       ? payload.followUpItems.map((item) => {
           if (typeof item === 'string') {
@@ -824,8 +832,12 @@ onBeforeUnmount(() => {
             </div>
           </div>
           <label class="field">
-            <span>時間</span>
-            <input v-model="selectedTime" type="datetime-local" />
+            <span>開始時間</span>
+            <input v-model="selectedStartAt" type="datetime-local" />
+          </label>
+          <label class="field">
+            <span>結束時間</span>
+            <input v-model="selectedEndAt" type="datetime-local" />
           </label>
           <label class="field wide">
             <span>需跟進內容</span>
@@ -956,7 +968,7 @@ onBeforeUnmount(() => {
           <h2>建立提示</h2>
           <ul>
             <li>請確認客戶與廠家名稱一致。</li>
-            <li>時間可用於提醒或行程安排。</li>
+            <li>開始與結束時間可用於提醒或行程安排。</li>
             <li>跟進內容建議拆分為具體事項。</li>
           </ul>
         </div>
