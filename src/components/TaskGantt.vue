@@ -5,6 +5,7 @@ import { formatDateTimeDisplay } from '../scripts/time.js'
 const DEFAULT_CLIENT_COLOR = '#e2e8f0'
 const GROUP_BADGE_COLOR = '#ef4444'
 const MILLISECONDS_IN_DAY = 24 * 60 * 60 * 1000
+const DAY_WIDTH_PX = 32
 
 const props = defineProps({
   viewMode: {
@@ -125,39 +126,56 @@ const timelineEnd = computed(() => {
   return new Date(start.getFullYear(), start.getMonth() + rangeConfig.value.count, 1)
 })
 
+const toDayStart = (value) => {
+  const date = new Date(value)
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate())
+}
+
+const totalDays = computed(() => {
+  const start = toDayStart(timelineStart.value)
+  const end = toDayStart(timelineEnd.value)
+  const diff = Math.ceil((end.getTime() - start.getTime()) / MILLISECONDS_IN_DAY)
+  return Math.max(diff, 1)
+})
+
 const axisTicks = computed(() => {
   const ticks = []
-  const start = timelineStart.value
+  const start = toDayStart(timelineStart.value)
   if (rangeType.value === 'day') {
-    for (let i = 0; i <= rangeConfig.value.count; i += 1) {
+    for (let i = 0; i <= totalDays.value; i += 1) {
       const date = new Date(start.getTime() + i * MILLISECONDS_IN_DAY)
       ticks.push({
         key: date.toISOString(),
-        label: `${date.getMonth() + 1}/${date.getDate()}`,
-        offset: i,
-      })
-    }
-  } else if (rangeType.value === 'year') {
-    for (let i = 0; i <= rangeConfig.value.count; i += 1) {
-      const date = new Date(start.getFullYear(), start.getMonth() + i, 1)
-      ticks.push({
-        key: date.toISOString(),
-        label: `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, '0')}`,
-        offset: i,
+        label: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
+          date.getDate()
+        ).padStart(2, '0')}`,
+        dayIndex: i,
       })
     }
   } else {
-    for (let i = 0; i <= rangeConfig.value.count; i += 1) {
-      const date = new Date(start.getFullYear(), start.getMonth() + i, 1)
+    const end = new Date(start.getTime() + totalDays.value * MILLISECONDS_IN_DAY)
+    const cursor = new Date(start.getFullYear(), start.getMonth(), 1)
+    while (cursor <= end) {
+      const dayIndex = Math.round(
+        (toDayStart(cursor).getTime() - start.getTime()) / MILLISECONDS_IN_DAY
+      )
       ticks.push({
-        key: date.toISOString(),
-        label: `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, '0')}`,
-        offset: i,
+        key: cursor.toISOString(),
+        label: `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`,
+        dayIndex,
       })
+      cursor.setMonth(cursor.getMonth() + 1)
     }
   }
   return ticks
 })
+
+const minorTicks = computed(() =>
+  Array.from({ length: totalDays.value + 1 }, (_, index) => ({
+    key: `minor-${index}`,
+    dayIndex: index,
+  }))
+)
 
 const getBarColor = (user) => user?.icon_bg || DEFAULT_CLIENT_COLOR
 
@@ -279,15 +297,19 @@ const ganttRows = computed(() => {
 })
 
 const getPositionStyle = (startAt, endAt) => {
-  const start = new Date(startAt)
-  const end = new Date(endAt)
+  const start = toDayStart(startAt)
+  const end = toDayStart(endAt)
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
     return { display: 'none' }
   }
-  const total = timelineEnd.value.getTime() - timelineStart.value.getTime()
+  const rangeStart = toDayStart(timelineStart.value)
+  const total = totalDays.value * MILLISECONDS_IN_DAY
   if (total <= 0) return { display: 'none' }
-  const left = ((start.getTime() - timelineStart.value.getTime()) / total) * timelineWidth.value
-  const width = ((end.getTime() - start.getTime()) / total) * timelineWidth.value
+  const left =
+    ((start.getTime() - rangeStart.getTime()) / total) * timelineWidth.value
+  const endInclusive = end.getTime() + MILLISECONDS_IN_DAY
+  const width =
+    ((endInclusive - start.getTime()) / total) * timelineWidth.value
   if (width <= 0) return { display: 'none' }
   return {
     left: `${Math.max(left, 0)}px`,
@@ -296,13 +318,15 @@ const getPositionStyle = (startAt, endAt) => {
 }
 
 const getMarkerStyle = (dateValue) => {
-  const date = new Date(dateValue)
+  const date = toDayStart(dateValue)
   if (Number.isNaN(date.getTime())) {
     return { display: 'none' }
   }
-  const total = timelineEnd.value.getTime() - timelineStart.value.getTime()
+  const rangeStart = toDayStart(timelineStart.value)
+  const total = totalDays.value * MILLISECONDS_IN_DAY
   if (total <= 0) return { display: 'none' }
-  const left = ((date.getTime() - timelineStart.value.getTime()) / total) * timelineWidth.value
+  const left =
+    ((date.getTime() - rangeStart.getTime()) / total) * timelineWidth.value
   return {
     left: `${Math.min(Math.max(left, 0), timelineWidth.value)}px`,
   }
@@ -336,7 +360,7 @@ const setRangeType = (value) => {
   rangeType.value = value
 }
 
-const timelineWidth = computed(() => rangeConfig.value.count * rangeConfig.value.width)
+const timelineWidth = computed(() => totalDays.value * DAY_WIDTH_PX)
 
 const shiftRange = (direction) => {
   if (rangeType.value === 'day') {
@@ -405,9 +429,20 @@ const handleWheel = (event) => {
         <div class="gantt-axis-spacer"></div>
         <div class="gantt-timeline" @wheel="handleWheel">
           <div class="gantt-axis" :style="{ width: `${timelineWidth}px`, minWidth: '100%' }">
-            <span v-for="tick in axisTicks" :key="tick.key" class="gantt-tick">
+            <span
+              v-for="tick in axisTicks"
+              :key="tick.key"
+              class="gantt-tick gantt-tick-major"
+              :style="{ left: `${tick.dayIndex * DAY_WIDTH_PX}px` }"
+            >
               {{ tick.label }}
             </span>
+            <span
+              v-for="tick in minorTicks"
+              :key="tick.key"
+              class="gantt-tick gantt-tick-minor"
+              :style="{ left: `${tick.dayIndex * DAY_WIDTH_PX}px` }"
+            ></span>
           </div>
         </div>
       </div>
@@ -655,9 +690,7 @@ const handleWheel = (event) => {
 }
 
 .gantt-axis {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
+  position: relative;
   height: 24px;
   border-bottom: 1px solid #e2e8f0;
   margin-bottom: 0.75rem;
@@ -665,9 +698,22 @@ const handleWheel = (event) => {
 }
 
 .gantt-tick {
-  position: static;
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
   font-size: 0.75rem;
   color: #94a3b8;
+}
+
+.gantt-tick-minor {
+  width: 1px;
+  height: 6px;
+  background: #e2e8f0;
+  color: transparent;
+}
+
+.gantt-tick-major {
+  height: 100%;
 }
 
 .gantt-rows {
