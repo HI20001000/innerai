@@ -96,7 +96,7 @@ const rangeConfig = computed(() => {
     return { unit: 'day', count: 7, width: 110 }
   }
   if (rangeType.value === 'year') {
-    return { unit: 'month', count: 3, width: 180 }
+    return { unit: 'month', count: 36, width: 180 }
   }
   return { unit: 'month', count: 4, width: 150 }
 })
