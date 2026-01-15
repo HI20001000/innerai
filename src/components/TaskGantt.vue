@@ -336,38 +336,7 @@ const setRangeType = (value) => {
   rangeType.value = value
 }
 
-const shiftRange = (direction) => {
-  if (rangeType.value === 'day') {
-    anchorDate.value = new Date(
-      anchorDate.value.getTime() + direction * MILLISECONDS_IN_DAY
-    )
-  } else if (rangeType.value === 'year') {
-    anchorDate.value = new Date(
-      anchorDate.value.getFullYear(),
-      anchorDate.value.getMonth() + direction,
-      anchorDate.value.getDate()
-    )
-  } else {
-    anchorDate.value = new Date(
-      anchorDate.value.getFullYear(),
-      anchorDate.value.getMonth() + direction,
-      anchorDate.value.getDate()
-    )
-  }
-}
-
 const timelineWidth = computed(() => rangeConfig.value.count * rangeConfig.value.width)
-
-const wheelAccumulator = ref(0)
-const handleWheel = (event) => {
-  wheelAccumulator.value += event.deltaY
-  if (Math.abs(wheelAccumulator.value) < 120) {
-    return
-  }
-  const direction = wheelAccumulator.value > 0 ? 1 : -1
-  wheelAccumulator.value = 0
-  shiftRange(direction)
-}
 </script>
 
 <template>
@@ -402,10 +371,6 @@ const handleWheel = (event) => {
           >
             年
           </button>
-        </div>
-        <div class="gantt-shift">
-          <button type="button" class="ghost-button" @click="shiftRange(-1)">←</button>
-          <button type="button" class="ghost-button" @click="shiftRange(1)">→</button>
         </div>
       </div>
     </header>
@@ -446,7 +411,7 @@ const handleWheel = (event) => {
           <span v-else class="gantt-followup-text">{{ row.label }}</span>
         </div>
       </div>
-      <div class="gantt-timeline" @wheel="handleWheel">
+      <div class="gantt-timeline">
         <div class="gantt-axis" :style="{ width: `${timelineWidth}px` }">
           <span
             v-for="tick in axisTicks"
@@ -548,11 +513,6 @@ const handleWheel = (event) => {
   color: #fff;
 }
 
-.gantt-shift {
-  display: inline-flex;
-  gap: 0.5rem;
-}
-
 .gantt-body {
   display: grid;
   grid-template-columns: 320px 1fr;
@@ -643,7 +603,7 @@ const handleWheel = (event) => {
 
 .gantt-timeline {
   position: relative;
-  overflow-x: auto;
+  overflow: hidden;
   padding: 1rem 1.5rem;
 }
 

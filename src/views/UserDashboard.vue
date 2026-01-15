@@ -518,7 +518,7 @@ const ganttSubmissions = computed(() => {
         </article>
       </section>
 
-      <section class="dashboard-grid">
+      <section :class="['dashboard-grid', { 'dashboard-grid-gantt': viewType === 'gantt' }]">
         <article v-if="viewType === 'calendar'" class="panel">
           <header class="panel-header">
             <div class="panel-title-row">
@@ -843,6 +843,10 @@ const ganttSubmissions = computed(() => {
   display: grid;
   grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.9fr);
   gap: 1.5rem;
+}
+
+.dashboard-grid-gantt {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .panel {
