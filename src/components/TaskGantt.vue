@@ -532,6 +532,9 @@ const timelineWidth = computed(() => rangeConfig.value.count * rangeConfig.value
 .gantt-label {
   font-size: 0.85rem;
   color: #1f2937;
+  height: 28px;
+  display: flex;
+  align-items: center;
 }
 
 .gantt-group {
@@ -545,6 +548,7 @@ const timelineWidth = computed(() => rangeConfig.value.count * rangeConfig.value
   padding: 0;
   text-align: left;
   cursor: pointer;
+  height: 28px;
 }
 
 .gantt-group-badge {
@@ -584,6 +588,7 @@ const timelineWidth = computed(() => rangeConfig.value.count * rangeConfig.value
   color: #1f2937;
   cursor: pointer;
   text-align: left;
+  height: 28px;
 }
 
 .gantt-task-text {
@@ -599,6 +604,9 @@ const timelineWidth = computed(() => rangeConfig.value.count * rangeConfig.value
   padding-left: 1.5rem;
   color: #64748b;
   font-size: 0.8rem;
+  height: 28px;
+  display: flex;
+  align-items: center;
 }
 
 .gantt-timeline {
