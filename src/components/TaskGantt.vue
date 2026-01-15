@@ -96,7 +96,7 @@ const rangeConfig = computed(() => {
     return { unit: 'day', count: 7, width: 110 }
   }
   if (rangeType.value === 'year') {
-    return { unit: 'month', count: 36, width: 180 }
+    return { unit: 'year', count: 3, width: 180 }
   }
   return { unit: 'month', count: 4, width: 150 }
 })
@@ -110,7 +110,7 @@ const timelineStart = computed(() => {
     return base
   }
   if (rangeType.value === 'year') {
-    return new Date(base.getFullYear(), base.getMonth(), 1)
+    return new Date(base.getFullYear(), 0, 1)
   }
   return new Date(base.getFullYear(), base.getMonth(), 1)
 })
@@ -121,7 +121,7 @@ const timelineEnd = computed(() => {
     return new Date(start.getTime() + rangeConfig.value.count * MILLISECONDS_IN_DAY)
   }
   if (rangeType.value === 'year') {
-    return new Date(start.getFullYear(), start.getMonth() + rangeConfig.value.count, 1)
+    return new Date(start.getFullYear() + rangeConfig.value.count, start.getMonth(), 1)
   }
   return new Date(start.getFullYear(), start.getMonth() + rangeConfig.value.count, 1)
 })
@@ -153,19 +153,18 @@ const axisTicks = computed(() => {
       })
     }
   } else if (rangeType.value === 'year') {
-    const end = new Date(start.getTime() + totalDays.value * MILLISECONDS_IN_DAY)
-    const cursor = new Date(start.getFullYear(), start.getMonth(), 1)
+    const end = new Date(start.getFullYear() + rangeConfig.value.count, start.getMonth(), 1)
+    const cursor = new Date(start.getFullYear(), 0, 1)
     while (cursor <= end) {
-      const midMonth = new Date(cursor.getFullYear(), cursor.getMonth(), 15)
       const dayIndex = Math.round(
-        (toDayStart(midMonth).getTime() - start.getTime()) / MILLISECONDS_IN_DAY
+        (toDayStart(cursor).getTime() - start.getTime()) / MILLISECONDS_IN_DAY
       )
       ticks.push({
         key: cursor.toISOString(),
-        label: `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`,
+        label: `${cursor.getFullYear()}`,
         dayIndex,
       })
-      cursor.setMonth(cursor.getMonth() + 1)
+      cursor.setFullYear(cursor.getFullYear() + 1)
     }
   } else {
     const end = new Date(start.getTime() + totalDays.value * MILLISECONDS_IN_DAY)
@@ -187,6 +186,23 @@ const axisTicks = computed(() => {
 
 const minorTicks = computed(() => {
   if (rangeType.value === 'day') return []
+  if (rangeType.value === 'year') {
+    const ticks = []
+    const start = toDayStart(timelineStart.value)
+    const end = new Date(start.getFullYear() + rangeConfig.value.count, start.getMonth(), 1)
+    const cursor = new Date(start.getFullYear(), start.getMonth(), 1)
+    while (cursor <= end) {
+      const dayIndex = Math.round(
+        (toDayStart(cursor).getTime() - start.getTime()) / MILLISECONDS_IN_DAY
+      )
+      ticks.push({
+        key: `minor-${cursor.toISOString()}`,
+        dayIndex,
+      })
+      cursor.setMonth(cursor.getMonth() + 1)
+    }
+    return ticks
+  }
   return Array.from({ length: totalDays.value + 1 }, (_, index) => ({
     key: `minor-${index}`,
     dayIndex: index,
