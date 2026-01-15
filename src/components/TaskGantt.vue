@@ -59,6 +59,9 @@ const groupedTasks = computed(() => {
   if (props.viewMode !== 'user') {
     return []
   }
+  const submissionById = new Map(
+    (props.submissions || []).map((submission) => [submission.id, submission])
+  )
   return (props.users || [])
     .map((user) => {
       const userTasks = tasks.value.filter((task) =>
@@ -68,9 +71,20 @@ const groupedTasks = computed(() => {
             (submission.related_users || []).some((related) => related.mail === user.mail)
         )
       )
+      const clientNames = new Set()
+      let followUpCount = 0
+      userTasks.forEach((task) => {
+        const submission = submissionById.get(task.id)
+        if (submission?.client_name) {
+          clientNames.add(submission.client_name)
+        }
+        followUpCount += Array.isArray(submission?.follow_ups) ? submission.follow_ups.length : 0
+      })
       return {
         user,
         tasks: userTasks,
+        clientCount: clientNames.size,
+        followUpCount,
       }
     })
     .filter((group) => group.tasks.length > 0)
@@ -78,12 +92,12 @@ const groupedTasks = computed(() => {
 
 const rangeConfig = computed(() => {
   if (rangeType.value === 'day') {
-    return { unit: 'day', count: 14, width: 90 }
+    return { unit: 'day', count: 7, width: 110 }
   }
   if (rangeType.value === 'year') {
-    return { unit: 'year', count: 3, width: 140 }
+    return { unit: 'month', count: 3, width: 180 }
   }
-  return { unit: 'month', count: 6, width: 120 }
+  return { unit: 'month', count: 4, width: 150 }
 })
 
 const anchorDate = ref(new Date())
@@ -95,7 +109,7 @@ const timelineStart = computed(() => {
     return base
   }
   if (rangeType.value === 'year') {
-    return new Date(base.getFullYear(), 0, 1)
+    return new Date(base.getFullYear(), base.getMonth(), 1)
   }
   return new Date(base.getFullYear(), base.getMonth(), 1)
 })
@@ -106,7 +120,7 @@ const timelineEnd = computed(() => {
     return new Date(start.getTime() + rangeConfig.value.count * MILLISECONDS_IN_DAY)
   }
   if (rangeType.value === 'year') {
-    return new Date(start.getFullYear() + rangeConfig.value.count, start.getMonth(), start.getDate())
+    return new Date(start.getFullYear(), start.getMonth() + rangeConfig.value.count, 1)
   }
   return new Date(start.getFullYear(), start.getMonth() + rangeConfig.value.count, 1)
 })
@@ -125,10 +139,10 @@ const axisTicks = computed(() => {
     }
   } else if (rangeType.value === 'year') {
     for (let i = 0; i <= rangeConfig.value.count; i += 1) {
-      const date = new Date(start.getFullYear() + i, 0, 1)
+      const date = new Date(start.getFullYear(), start.getMonth() + i, 1)
       ticks.push({
         key: date.toISOString(),
-        label: `${date.getFullYear()}`,
+        label: `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, '0')}`,
         offset: i,
       })
     }
@@ -150,7 +164,7 @@ const getBarColor = (user) => user?.icon_bg || DEFAULT_CLIENT_COLOR
 const ganttRows = computed(() => {
   const rows = []
   if (props.viewMode === 'user') {
-    groupedTasks.value.forEach(({ user, tasks: userTasks }) => {
+    groupedTasks.value.forEach(({ user, tasks: userTasks, clientCount, followUpCount }) => {
       const groupId = `group-user-${user?.mail || 'unknown'}`
       const sortedTasks = userTasks
         .map((task) => ({
@@ -164,10 +178,6 @@ const ganttRows = computed(() => {
           return hasStart && hasEnd
         })
         .sort((a, b) => a.startAtDate.getTime() - b.startAtDate.getTime())
-      const groupStartAt = sortedTasks[0]?.startAt || userTasks[0]?.startAt
-      const groupEndAt = sortedTasks.length
-        ? sortedTasks[sortedTasks.length - 1].endAt
-        : userTasks[userTasks.length - 1]?.endAt
       rows.push({
         id: groupId,
         type: 'group',
@@ -175,9 +185,13 @@ const ganttRows = computed(() => {
         icon: user?.icon || '🙂',
         groupId,
         color: getBarColor(user),
-        startAt: groupStartAt,
-        endAt: groupEndAt,
+        taskSpans: sortedTasks.map((task) => ({
+          startAt: task.startAt,
+          endAt: task.endAt,
+          color: getBarColor(user),
+        })),
         tasks: userTasks,
+        meta: `客戶 ${clientCount}｜跟進 ${followUpCount}`,
       })
       if (expandedGroupIds.value.has(groupId)) {
         userTasks.forEach((task) => {
@@ -206,6 +220,21 @@ const ganttRows = computed(() => {
     })
   } else if (props.viewMode === 'client') {
     const clientGroupId = `group-client-${props.selectedClient?.name || 'unknown'}`
+    const relatedMails = new Set()
+    let unassignedFollowUps = 0
+    tasks.value.forEach((task) => {
+      const submission = (props.submissions || []).find((item) => item.id === task.id)
+      if (submission?.related_users) {
+        submission.related_users.forEach((related) => related?.mail && relatedMails.add(related.mail))
+      }
+      const followUps = Array.isArray(submission?.follow_ups) ? submission.follow_ups : []
+      followUps.forEach((followUp) => {
+        const assignees = Array.isArray(followUp?.assignees) ? followUp.assignees : []
+        if (assignees.length === 0) {
+          unassignedFollowUps += 1
+        }
+      })
+    })
     rows.push({
       id: clientGroupId,
       type: 'group',
@@ -213,6 +242,12 @@ const ganttRows = computed(() => {
       icon: '🏷️',
       groupId: clientGroupId,
       color: DEFAULT_CLIENT_COLOR,
+      taskSpans: tasks.value.map((task) => ({
+        startAt: task.startAt,
+        endAt: task.endAt,
+        color: DEFAULT_CLIENT_COLOR,
+      })),
+      meta: `同事 ${relatedMails.size}｜未指派 ${unassignedFollowUps}`,
     })
     if (expandedGroupIds.value.has(clientGroupId)) {
       tasks.value.forEach((task) => {
@@ -304,18 +339,18 @@ const setRangeType = (value) => {
 const shiftRange = (direction) => {
   if (rangeType.value === 'day') {
     anchorDate.value = new Date(
-      anchorDate.value.getTime() + direction * rangeConfig.value.count * MILLISECONDS_IN_DAY
+      anchorDate.value.getTime() + direction * MILLISECONDS_IN_DAY
     )
   } else if (rangeType.value === 'year') {
     anchorDate.value = new Date(
-      anchorDate.value.getFullYear() + direction * rangeConfig.value.count,
-      anchorDate.value.getMonth(),
+      anchorDate.value.getFullYear(),
+      anchorDate.value.getMonth() + direction,
       anchorDate.value.getDate()
     )
   } else {
     anchorDate.value = new Date(
       anchorDate.value.getFullYear(),
-      anchorDate.value.getMonth() + direction * rangeConfig.value.count,
+      anchorDate.value.getMonth() + direction,
       anchorDate.value.getDate()
     )
   }
@@ -323,8 +358,16 @@ const shiftRange = (direction) => {
 
 const timelineWidth = computed(() => rangeConfig.value.count * rangeConfig.value.width)
 
-const shouldRenderGroupBar = (row) =>
-  row.type === 'group' && row.startAt && row.endAt
+const wheelAccumulator = ref(0)
+const handleWheel = (event) => {
+  wheelAccumulator.value += event.deltaY
+  if (Math.abs(wheelAccumulator.value) < 120) {
+    return
+  }
+  const direction = wheelAccumulator.value > 0 ? 1 : -1
+  wheelAccumulator.value = 0
+  shiftRange(direction)
+}
 </script>
 
 <template>
@@ -383,7 +426,10 @@ const shouldRenderGroupBar = (row) =>
             <div class="gantt-group-badge" :style="{ backgroundColor: row.color }">
               {{ row.icon }}
             </div>
-            <span class="gantt-group-name">{{ row.label }}</span>
+            <div class="gantt-group-text">
+              <span class="gantt-group-name">{{ row.label }}</span>
+              <span v-if="row.meta" class="gantt-group-meta">{{ row.meta }}</span>
+            </div>
             <span class="gantt-task-toggle">
               {{ isGroupExpanded(row.groupId || row.id) ? '▾' : '▸' }}
             </span>
@@ -400,7 +446,7 @@ const shouldRenderGroupBar = (row) =>
           <span v-else class="gantt-followup-text">{{ row.label }}</span>
         </div>
       </div>
-      <div class="gantt-timeline">
+      <div class="gantt-timeline" @wheel="handleWheel">
         <div class="gantt-axis" :style="{ width: `${timelineWidth}px` }">
           <span
             v-for="tick in axisTicks"
@@ -413,8 +459,19 @@ const shouldRenderGroupBar = (row) =>
         </div>
         <div class="gantt-rows" :style="{ width: `${timelineWidth}px` }">
           <div v-for="row in ganttRows" :key="row.id" class="gantt-row">
+            <template v-if="row.type === 'group'">
+              <div
+                v-for="(span, index) in row.taskSpans || []"
+                :key="`${row.id}-span-${index}`"
+                class="gantt-bar"
+                :style="{
+                  backgroundColor: span.color,
+                  ...getPositionStyle(span.startAt, span.endAt),
+                }"
+              ></div>
+            </template>
             <div
-              v-if="row.type === 'task' || shouldRenderGroupBar(row)"
+              v-else-if="row.type === 'task'"
               class="gantt-bar"
               :style="{
                 backgroundColor: row.color,
@@ -522,6 +579,12 @@ const shouldRenderGroupBar = (row) =>
   align-items: center;
   gap: 0.75rem;
   font-weight: 600;
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
 }
 
 .gantt-group-badge {
@@ -537,6 +600,16 @@ const shouldRenderGroupBar = (row) =>
 
 .gantt-group-name {
   font-size: 0.95rem;
+}
+
+.gantt-group-text {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.gantt-group-meta {
+  font-size: 0.75rem;
+  color: #64748b;
 }
 
 .gantt-task-button {
