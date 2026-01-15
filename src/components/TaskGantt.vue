@@ -377,6 +377,7 @@ const timelineWidth = computed(() => rangeConfig.value.count * rangeConfig.value
 
     <div class="gantt-body">
       <div class="gantt-sidebar">
+        <div class="gantt-sidebar-header"></div>
         <div
           v-for="row in ganttRows"
           :key="row.id"
@@ -529,10 +530,14 @@ const timelineWidth = computed(() => rangeConfig.value.count * rangeConfig.value
   gap: 0.6rem;
 }
 
+.gantt-sidebar-header {
+  height: 36px;
+}
+
 .gantt-label {
   font-size: 0.85rem;
   color: #1f2937;
-  height: 28px;
+  height: 36px;
   display: flex;
   align-items: center;
 }
@@ -548,7 +553,7 @@ const timelineWidth = computed(() => rangeConfig.value.count * rangeConfig.value
   padding: 0;
   text-align: left;
   cursor: pointer;
-  height: 28px;
+  height: 36px;
 }
 
 .gantt-group-badge {
@@ -588,7 +593,7 @@ const timelineWidth = computed(() => rangeConfig.value.count * rangeConfig.value
   color: #1f2937;
   cursor: pointer;
   text-align: left;
-  height: 28px;
+  height: 36px;
 }
 
 .gantt-task-text {
@@ -604,7 +609,7 @@ const timelineWidth = computed(() => rangeConfig.value.count * rangeConfig.value
   padding-left: 1.5rem;
   color: #64748b;
   font-size: 0.8rem;
-  height: 28px;
+  height: 36px;
   display: flex;
   align-items: center;
 }
@@ -637,21 +642,21 @@ const timelineWidth = computed(() => rangeConfig.value.count * rangeConfig.value
 
 .gantt-row {
   position: relative;
-  height: 28px;
+  height: 36px;
   border-radius: 999px;
   background: #f8fafc;
 }
 
 .gantt-bar {
   position: absolute;
-  top: 6px;
-  height: 16px;
+  top: 8px;
+  height: 20px;
   border-radius: 999px;
 }
 
 .gantt-marker {
   position: absolute;
-  top: 10px;
+  top: 14px;
   width: 8px;
   height: 8px;
   border-radius: 999px;
