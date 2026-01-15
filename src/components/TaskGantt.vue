@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { formatDateTimeDisplay } from '../scripts/time.js'
 
 const DEFAULT_CLIENT_COLOR = '#e2e8f0'
@@ -152,6 +152,21 @@ const axisTicks = computed(() => {
         dayIndex: i,
       })
     }
+  } else if (rangeType.value === 'year') {
+    const end = new Date(start.getTime() + totalDays.value * MILLISECONDS_IN_DAY)
+    const cursor = new Date(start.getFullYear(), start.getMonth(), 1)
+    while (cursor <= end) {
+      const midMonth = new Date(cursor.getFullYear(), cursor.getMonth(), 15)
+      const dayIndex = Math.round(
+        (toDayStart(midMonth).getTime() - start.getTime()) / MILLISECONDS_IN_DAY
+      )
+      ticks.push({
+        key: cursor.toISOString(),
+        label: `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`,
+        dayIndex,
+      })
+      cursor.setMonth(cursor.getMonth() + 1)
+    }
   } else {
     const end = new Date(start.getTime() + totalDays.value * MILLISECONDS_IN_DAY)
     const cursor = new Date(start.getFullYear(), start.getMonth(), 1)
@@ -170,12 +185,13 @@ const axisTicks = computed(() => {
   return ticks
 })
 
-const minorTicks = computed(() =>
-  Array.from({ length: totalDays.value + 1 }, (_, index) => ({
+const minorTicks = computed(() => {
+  if (rangeType.value === 'day') return []
+  return Array.from({ length: totalDays.value + 1 }, (_, index) => ({
     key: `minor-${index}`,
     dayIndex: index,
   }))
-)
+})
 
 const getBarColor = (user) => user?.icon_bg || DEFAULT_CLIENT_COLOR
 
@@ -360,7 +376,34 @@ const setRangeType = (value) => {
   rangeType.value = value
 }
 
-const timelineWidth = computed(() => totalDays.value * DAY_WIDTH_PX)
+const timelineViewport = ref(null)
+const timelineViewportWidth = ref(0)
+let timelineObserver = null
+
+const dayWidth = computed(() => {
+  if (!timelineViewportWidth.value) return DAY_WIDTH_PX
+  return Math.max(DAY_WIDTH_PX, timelineViewportWidth.value / totalDays.value)
+})
+
+const timelineWidth = computed(() => totalDays.value * dayWidth.value)
+
+onMounted(() => {
+  if (!timelineViewport.value) return
+  timelineObserver = new ResizeObserver((entries) => {
+    const entry = entries[0]
+    if (entry?.contentRect) {
+      timelineViewportWidth.value = entry.contentRect.width
+    }
+  })
+  timelineObserver.observe(timelineViewport.value)
+})
+
+onBeforeUnmount(() => {
+  if (timelineObserver && timelineViewport.value) {
+    timelineObserver.unobserve(timelineViewport.value)
+  }
+  timelineObserver = null
+})
 
 const shiftRange = (direction) => {
   if (rangeType.value === 'day') {
@@ -427,13 +470,13 @@ const handleWheel = (event) => {
     <div class="gantt-body">
       <div class="gantt-axis-row">
         <div class="gantt-axis-spacer"></div>
-        <div class="gantt-timeline" @wheel="handleWheel">
+        <div ref="timelineViewport" class="gantt-timeline" @wheel="handleWheel">
           <div class="gantt-axis" :style="{ width: `${timelineWidth}px`, minWidth: '100%' }">
             <span
               v-for="tick in axisTicks"
               :key="tick.key"
               class="gantt-tick gantt-tick-major"
-              :style="{ left: `${tick.dayIndex * DAY_WIDTH_PX}px` }"
+              :style="{ left: `${tick.dayIndex * dayWidth}px` }"
             >
               {{ tick.label }}
             </span>
@@ -441,7 +484,7 @@ const handleWheel = (event) => {
               v-for="tick in minorTicks"
               :key="tick.key"
               class="gantt-tick gantt-tick-minor"
-              :style="{ left: `${tick.dayIndex * DAY_WIDTH_PX}px` }"
+              :style="{ left: `${tick.dayIndex * dayWidth}px` }"
             ></span>
           </div>
         </div>
