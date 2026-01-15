@@ -2,6 +2,7 @@
 import { computed, getCurrentInstance, onMounted, ref, watch } from 'vue'
 import WorkspaceSidebar from '../components/WorkspaceSidebar.vue'
 import MonthlyCalendar from '../components/MonthlyCalendar.vue'
+import TaskGantt from '../components/TaskGantt.vue'
 import { formatDateTimeDisplay, getTaipeiTodayKey, toDateKey } from '../scripts/time.js'
 
 const router = getCurrentInstance().appContext.config.globalProperties.$router
@@ -18,6 +19,7 @@ const goToProfile = () => router?.push('/settings')
 const goToUserDashboard = () => router?.push('/users/dashboard')
 
 const viewMode = ref('user')
+const viewType = ref('calendar')
 const users = ref([])
 const submissions = ref([])
 const selectedUserMail = ref('')
@@ -307,6 +309,13 @@ const setViewMode = (mode) => {
   activeClientMenu.value = false
 }
 
+const setViewType = (mode) => {
+  viewType.value = mode
+  if (viewType.value === 'gantt' && viewMode.value === 'all') {
+    setViewMode('user')
+  }
+}
+
 const handleSelectDate = (dateKey) => {
   selectedDate.value = dateKey
 }
@@ -334,6 +343,12 @@ watch(
   },
   { immediate: true }
 )
+
+const ganttSubmissions = computed(() => {
+  if (viewMode.value === 'user') return userSubmissions.value
+  if (viewMode.value === 'client') return clientSubmissions.value
+  return []
+})
 </script>
 
 <template>
@@ -356,28 +371,47 @@ watch(
           <h1 class="headline">{{ headerTitle }}</h1>
           <p class="subhead">{{ headerSubhead }}</p>
         </div>
-        <div class="view-toggle">
-          <button
-            type="button"
-            :class="['toggle-button', { active: viewMode === 'user' }]"
-            @click="setViewMode('user')"
-          >
-            用戶視角
-          </button>
-          <button
-            type="button"
-            :class="['toggle-button', { active: viewMode === 'client' }]"
-            @click="setViewMode('client')"
-          >
-            客戶視角
-          </button>
-          <button
-            type="button"
-            :class="['toggle-button', { active: viewMode === 'all' }]"
-            @click="setViewMode('all')"
-          >
-            全部
-          </button>
+        <div class="view-toggle-group">
+          <div class="view-toggle">
+            <button
+              type="button"
+              :class="['toggle-button', { active: viewMode === 'user' }]"
+              @click="setViewMode('user')"
+            >
+              用戶視角
+            </button>
+            <button
+              type="button"
+              :class="['toggle-button', { active: viewMode === 'client' }]"
+              @click="setViewMode('client')"
+            >
+              客戶視角
+            </button>
+            <button
+              v-if="viewType === 'calendar'"
+              type="button"
+              :class="['toggle-button', { active: viewMode === 'all' }]"
+              @click="setViewMode('all')"
+            >
+              全部
+            </button>
+          </div>
+          <div class="view-toggle">
+            <button
+              type="button"
+              :class="['toggle-button', { active: viewType === 'calendar' }]"
+              @click="setViewType('calendar')"
+            >
+              月曆
+            </button>
+            <button
+              type="button"
+              :class="['toggle-button', { active: viewType === 'gantt' }]"
+              @click="setViewType('gantt')"
+            >
+              甘特圖
+            </button>
+          </div>
         </div>
       </header>
 
@@ -540,12 +574,20 @@ watch(
 
         <article class="panel">
           <MonthlyCalendar
+            v-if="viewType === 'calendar'"
             :selected-date="selectedDate"
             :submissions="calendarSubmissions"
             :user-mail="viewMode === 'user' ? selectedUser?.mail : ''"
             :client-name="viewMode === 'client' ? selectedClient?.name : ''"
             :subtitle="calendarSubtitle"
             @select-date="handleSelectDate"
+          />
+          <TaskGantt
+            v-else
+            :view-mode="viewMode"
+            :submissions="ganttSubmissions"
+            :selected-user="selectedUser"
+            :selected-client="selectedClient"
           />
         </article>
       </section>
@@ -571,6 +613,13 @@ watch(
   justify-content: space-between;
   align-items: flex-end;
   gap: 2rem;
+}
+
+.view-toggle-group {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.75rem;
 }
 
 .view-toggle {
