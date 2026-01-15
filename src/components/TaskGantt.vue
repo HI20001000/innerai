@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { formatDateTimeDisplay } from '../scripts/time.js'
 
 const DEFAULT_CLIENT_COLOR = '#e2e8f0'
+const GROUP_BADGE_COLOR = '#ef4444'
 const MILLISECONDS_IN_DAY = 24 * 60 * 60 * 1000
 
 const props = defineProps({
@@ -25,6 +26,7 @@ const props = defineProps({
 })
 
 const rangeDays = ref(30)
+const expandedTaskIds = ref(new Set())
 
 const tasks = computed(() =>
   (props.submissions || [])
@@ -89,33 +91,40 @@ const ganttRows = computed(() => {
       id: `group-user-${props.selectedUser?.mail || 'unknown'}`,
       type: 'group',
       label: props.selectedUser?.username || props.selectedUser?.mail || '用戶',
+      icon: props.selectedUser?.icon || '🙂',
+      iconBg: GROUP_BADGE_COLOR,
     })
   } else if (props.viewMode === 'client') {
     rows.push({
       id: `group-client-${props.selectedClient?.name || 'unknown'}`,
       type: 'group',
       label: props.selectedClient?.name || '客戶',
+      icon: '🏷️',
+      iconBg: DEFAULT_CLIENT_COLOR,
     })
   }
 
   tasks.value.forEach((task) => {
     rows.push({
       id: `task-${task.id}`,
+      taskId: task.id,
       type: 'task',
       label: `${task.clientName}_${task.vendorName}_${task.productName}`,
       startAt: task.startAt,
       endAt: task.endAt,
       color: barColor.value,
     })
-    task.followUps.forEach((followUp) => {
-      rows.push({
-        id: `followup-${task.id}-${followUp.id || followUp.content}`,
-        type: 'followup',
-        label: followUp.content || '跟進任務',
-        endAt: task.endAt,
-        color: barColor.value,
+    if (expandedTaskIds.value.has(task.id)) {
+      task.followUps.forEach((followUp) => {
+        rows.push({
+          id: `followup-${task.id}-${followUp.id || followUp.content}`,
+          type: 'followup',
+          label: followUp.content || '跟進任務',
+          endAt: task.endAt,
+          color: barColor.value,
+        })
       })
-    })
+    }
   })
 
   return rows
@@ -158,6 +167,18 @@ const zoomIn = () => {
 const zoomOut = () => {
   rangeDays.value = Math.min(120, rangeDays.value + 7)
 }
+
+const toggleTask = (taskId) => {
+  const next = new Set(expandedTaskIds.value)
+  if (next.has(taskId)) {
+    next.delete(taskId)
+  } else {
+    next.add(taskId)
+  }
+  expandedTaskIds.value = next
+}
+
+const isTaskExpanded = (taskId) => expandedTaskIds.value.has(taskId)
 </script>
 
 <template>
@@ -183,7 +204,22 @@ const zoomOut = () => {
           :key="row.id"
           :class="['gantt-label', `gantt-label-${row.type}`]"
         >
-          {{ row.label }}
+          <div v-if="row.type === 'group'" class="gantt-group">
+            <div class="gantt-group-badge" :style="{ backgroundColor: row.iconBg }">
+              {{ row.icon }}
+            </div>
+            <span class="gantt-group-name">{{ row.label }}</span>
+          </div>
+          <button
+            v-else-if="row.type === 'task'"
+            type="button"
+            class="gantt-task-button"
+            @click="toggleTask(row.taskId)"
+          >
+            <span class="gantt-task-text">{{ row.label }}</span>
+            <span class="gantt-task-toggle">{{ isTaskExpanded(row.taskId) ? '▾' : '▸' }}</span>
+          </button>
+          <span v-else class="gantt-followup-text">{{ row.label }}</span>
         </div>
       </div>
       <div class="gantt-timeline">
@@ -279,17 +315,55 @@ const zoomOut = () => {
   color: #1f2937;
 }
 
-.gantt-label-group {
+.gantt-group {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
   font-weight: 600;
 }
 
-.gantt-label-task {
-  padding-left: 0.5rem;
+.gantt-group-badge {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 1rem;
 }
 
-.gantt-label-followup {
+.gantt-group-name {
+  font-size: 0.95rem;
+}
+
+.gantt-task-button {
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: #1f2937;
+  cursor: pointer;
+  text-align: left;
+}
+
+.gantt-task-text {
+  padding-left: 0.25rem;
+}
+
+.gantt-task-toggle {
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+
+.gantt-followup-text {
   padding-left: 1.5rem;
   color: #64748b;
+  font-size: 0.8rem;
 }
 
 .gantt-timeline {
