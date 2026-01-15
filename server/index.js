@@ -141,7 +141,8 @@ const ensureTables = async (connection) => {
       vendor_name VARCHAR(255) NOT NULL,
       product_name VARCHAR(255) NOT NULL,
       tag_name VARCHAR(255) NOT NULL,
-      scheduled_at DATETIME,
+      start_at DATETIME,
+      end_at DATETIME,
       follow_up TEXT,
       created_by_email VARCHAR(255) NOT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -265,9 +266,25 @@ const ensureTables = async (connection) => {
     }
   }
   try {
-    await connection.query('ALTER TABLE task_submissions MODIFY scheduled_at DATETIME NULL')
+    await connection.query('ALTER TABLE task_submissions ADD COLUMN start_at DATETIME NULL')
   } catch (error) {
-    if (error?.code !== 'ER_INVALID_USE_OF_NULL' && error?.code !== 'ER_BAD_FIELD_ERROR') {
+    if (error?.code !== 'ER_DUP_FIELDNAME') {
+      throw error
+    }
+  }
+  try {
+    await connection.query('ALTER TABLE task_submissions ADD COLUMN end_at DATETIME NULL')
+  } catch (error) {
+    if (error?.code !== 'ER_DUP_FIELDNAME') {
+      throw error
+    }
+  }
+  try {
+    await connection.query(
+      'UPDATE task_submissions SET start_at = scheduled_at WHERE start_at IS NULL'
+    )
+  } catch (error) {
+    if (error?.code !== 'ER_BAD_FIELD_ERROR') {
       throw error
     }
   }
@@ -506,11 +523,11 @@ const formatToTaipeiDateTime = (date) => {
 
 const formatToTaipeiIso = (date) => formatToTaipeiDateTime(date).replace(' ', 'T')
 
-const normalizeScheduledAt = (value) => {
+const normalizeDateTime = (value) => {
   if (typeof value !== 'string') return value
   if (value.includes('.')) {
     const [base] = value.split('.')
-    if (base) return normalizeScheduledAt(base)
+    if (base) return normalizeDateTime(base)
   }
   if (value.endsWith('Z')) {
     const parsed = new Date(value)
@@ -534,7 +551,8 @@ const handlePostTaskSubmission = async (req, res) => {
     product,
     tag,
     related_user_mail: relatedUserMail,
-    scheduled_at: scheduledAt,
+    start_at: startAt,
+    end_at: endAt,
     follow_up: followUp,
   } = body
   if (!isNonEmptyString(client) || !isNonEmptyString(vendor) || !isNonEmptyString(product)) {
@@ -592,11 +610,16 @@ const handlePostTaskSubmission = async (req, res) => {
     sendJson(res, 400, { success: false, message: '需跟進內容長度過長' })
     return
   }
-  if (scheduledAt && Number.isNaN(Date.parse(scheduledAt))) {
-    sendJson(res, 400, { success: false, message: '時間格式不正確' })
+  if (startAt && Number.isNaN(Date.parse(startAt))) {
+    sendJson(res, 400, { success: false, message: '開始時間格式不正確' })
     return
   }
-  const normalizedScheduledAt = scheduledAt ? normalizeScheduledAt(scheduledAt) : null
+  if (endAt && Number.isNaN(Date.parse(endAt))) {
+    sendJson(res, 400, { success: false, message: '結束時間格式不正確' })
+    return
+  }
+  const normalizedStartAt = startAt ? normalizeDateTime(startAt) : null
+  const normalizedEndAt = endAt ? normalizeDateTime(endAt) : null
   const user = await getRequiredAuthUser(req, res)
   if (!user) {
     return
@@ -615,13 +638,14 @@ const handlePostTaskSubmission = async (req, res) => {
     }
     const [result] = await connection.query(
       `INSERT INTO task_submissions
-        (client_name, vendor_name, product_name, scheduled_at, created_by_email)
-       VALUES (?, ?, ?, ?, ?)`,
+        (client_name, vendor_name, product_name, start_at, end_at, created_by_email)
+       VALUES (?, ?, ?, ?, ?, ?)`,
       [
         client.trim(),
         vendor.trim(),
         product.trim(),
-        normalizedScheduledAt,
+        normalizedStartAt,
+        normalizedEndAt,
         user.mail,
       ]
     )
@@ -695,7 +719,7 @@ const handleGetTaskSubmissions = async (req, res) => {
     const connection = await getConnection()
     const [rows] = await connection.query(
       `SELECT task_submissions.id, task_submissions.client_name, task_submissions.vendor_name,
-        task_submissions.product_name, task_submissions.scheduled_at,
+        task_submissions.product_name, task_submissions.start_at, task_submissions.end_at,
         task_submissions.created_by_email,
         task_submissions.created_at,
         users.mail as related_mail, users.icon as related_icon, users.icon_bg as related_icon_bg,
@@ -747,10 +771,12 @@ const handleGetTaskSubmissions = async (req, res) => {
           client_name: row.client_name,
           vendor_name: row.vendor_name,
           product_name: row.product_name,
-          scheduled_at:
-            row.scheduled_at instanceof Date
-              ? formatToTaipeiDateTime(row.scheduled_at)
-              : row.scheduled_at,
+          start_at:
+            row.start_at instanceof Date
+              ? formatToTaipeiDateTime(row.start_at)
+              : row.start_at,
+          end_at:
+            row.end_at instanceof Date ? formatToTaipeiDateTime(row.end_at) : row.end_at,
           created_by_email: row.created_by_email,
           created_at:
             row.created_at instanceof Date
@@ -1045,7 +1071,7 @@ const handlePostMeetingRecords = async (req, res) => {
     sendJson(res, 400, { success: false, message: '請上傳會議記錄檔案' })
     return
   }
-  const normalizedMeetingTime = normalizeScheduledAt(meetingTime)
+  const normalizedMeetingTime = normalizeDateTime(meetingTime)
   let connection = null
   try {
     connection = await getConnection()
@@ -1424,7 +1450,8 @@ const handleUpdateTaskSubmission = async (req, res, id) => {
     product,
     tag,
     related_user_mail: relatedUserMail,
-    scheduled_at: scheduledAt,
+    start_at: startAt,
+    end_at: endAt,
     follow_up: followUp,
   } = body
   if (!isNonEmptyString(client) || !isNonEmptyString(vendor) || !isNonEmptyString(product)) {
@@ -1465,11 +1492,16 @@ const handleUpdateTaskSubmission = async (req, res, id) => {
     sendJson(res, 400, { success: false, message: '需跟進內容長度過長' })
     return
   }
-  if (scheduledAt && Number.isNaN(Date.parse(scheduledAt))) {
-    sendJson(res, 400, { success: false, message: '時間格式不正確' })
+  if (startAt && Number.isNaN(Date.parse(startAt))) {
+    sendJson(res, 400, { success: false, message: '開始時間格式不正確' })
     return
   }
-  const normalizedScheduledAt = scheduledAt ? normalizeScheduledAt(scheduledAt) : null
+  if (endAt && Number.isNaN(Date.parse(endAt))) {
+    sendJson(res, 400, { success: false, message: '結束時間格式不正確' })
+    return
+  }
+  const normalizedStartAt = startAt ? normalizeDateTime(startAt) : null
+  const normalizedEndAt = endAt ? normalizeDateTime(endAt) : null
   try {
     const connection = await getConnection()
     const [users] = await connection.query('SELECT mail FROM users WHERE mail IN (?)', [
@@ -1482,13 +1514,14 @@ const handleUpdateTaskSubmission = async (req, res, id) => {
     const [result] = await connection.query(
       `UPDATE task_submissions
        SET client_name = ?, vendor_name = ?, product_name = ?,
-           scheduled_at = ?
+           start_at = ?, end_at = ?
        WHERE id = ?`,
       [
         client.trim(),
         vendor.trim(),
         product.trim(),
-        normalizedScheduledAt,
+        normalizedStartAt,
+        normalizedEndAt,
         id,
       ]
     )

@@ -138,9 +138,9 @@ const timelineItems = computed(() => {
     .filter((item) => {
       const related = item.related_users || []
       if (!related.some((user) => user.mail === mail)) return false
-      return toDateKey(item.scheduled_at) === selectedDate.value
+      return toDateKey(item.start_at) === selectedDate.value
     })
-    .sort((a, b) => String(a.scheduled_at || '').localeCompare(String(b.scheduled_at || '')))
+    .sort((a, b) => String(a.start_at || '').localeCompare(String(b.start_at || '')))
 })
 
 const formatTimeOnly = (value) => {
@@ -160,7 +160,7 @@ const timelineTitle = computed(() => {
 
 const COMPLETED_STATUS_NAME = '已完成'
 
-const getScheduledAtDate = (value) => {
+const getStartAtDate = (value) => {
   if (!value) return null
   if (typeof value === 'string') {
     const normalized = value.includes('T') ? value : value.replace(' ', 'T')
@@ -215,8 +215,8 @@ const totalPendingCount = computed(() =>
 const overduePendingCount = computed(() => {
   const now = new Date()
   return userSubmissions.value.reduce((total, item) => {
-    const scheduledAt = getScheduledAtDate(item?.scheduled_at)
-    if (!scheduledAt || scheduledAt >= now) return total
+    const startAt = getStartAtDate(item?.start_at)
+    if (!startAt || startAt >= now) return total
     const followUps = Array.isArray(item?.follow_ups) ? item.follow_ups : []
     return total + followUps.filter((followUp) => isPendingStatus(followUp)).length
   }, 0)
@@ -476,7 +476,15 @@ onMounted(() => {
             </p>
             <div v-else class="timeline-list">
               <div v-for="item in timelineItems" :key="item.id" class="time-row">
-                <span class="time">{{ formatTimeOnly(item.scheduled_at) || '--:--' }}</span>
+                <span class="time">
+                  {{
+                    item.end_at
+                      ? `${formatTimeOnly(item.start_at) || '--:--'} - ${
+                          formatTimeOnly(item.end_at) || '--:--'
+                        }`
+                      : formatTimeOnly(item.start_at) || '--:--'
+                  }}
+                </span>
                 <div class="time-card">
                   <h3 class="time-card-title">
                     {{ item.client_name }}_{{ item.vendor_name }}_{{ item.product_name }}
