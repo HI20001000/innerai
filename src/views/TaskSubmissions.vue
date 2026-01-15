@@ -28,7 +28,8 @@ const editForm = ref({
   client: '',
   vendor: '',
   product: '',
-  scheduled_at: '',
+  start_at: '',
+  end_at: '',
 })
 const showResult = ref(false)
 const resultTitle = ref('')
@@ -247,7 +248,8 @@ const startEdit = (submission) => {
     client: submission.client_name,
     vendor: submission.vendor_name,
     product: submission.product_name,
-    scheduled_at: formatDateTimeInput(submission.scheduled_at),
+    start_at: formatDateTimeInput(submission.start_at),
+    end_at: formatDateTimeInput(submission.end_at),
   }
 }
 
@@ -393,7 +395,8 @@ onMounted(() => {
               <th>廠家</th>
               <th>廠家產品</th>
               <th>標籤</th>
-              <th>時間</th>
+              <th>開始時間</th>
+              <th>結束時間</th>
               <th>需跟進內容</th>
               <th>建立者</th>
               <th>建立時間</th>
@@ -459,9 +462,15 @@ onMounted(() => {
               </td>
               <td>
                 <template v-if="editingId === item.id">
-                  <input v-model="editForm.scheduled_at" type="datetime-local" />
+                  <input v-model="editForm.start_at" type="datetime-local" />
                 </template>
-                <template v-else>{{ formatDateTimeDisplay(item.scheduled_at) }}</template>
+                <template v-else>{{ formatDateTimeDisplay(item.start_at) }}</template>
+              </td>
+              <td>
+                <template v-if="editingId === item.id">
+                  <input v-model="editForm.end_at" type="datetime-local" />
+                </template>
+                <template v-else>{{ formatDateTimeDisplay(item.end_at) }}</template>
               </td>
               <td>
                 <template v-if="editingId === item.id">
