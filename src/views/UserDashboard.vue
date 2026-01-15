@@ -2,6 +2,7 @@
 import { computed, getCurrentInstance, onMounted, ref, watch } from 'vue'
 import WorkspaceSidebar from '../components/WorkspaceSidebar.vue'
 import MonthlyCalendar from '../components/MonthlyCalendar.vue'
+import TaskGantt from '../components/TaskGantt.vue'
 import { formatDateTimeDisplay, getTaipeiTodayKey, toDateKey } from '../scripts/time.js'
 
 const router = getCurrentInstance().appContext.config.globalProperties.$router
@@ -18,6 +19,7 @@ const goToProfile = () => router?.push('/settings')
 const goToUserDashboard = () => router?.push('/users/dashboard')
 
 const viewMode = ref('user')
+const viewType = ref('calendar')
 const users = ref([])
 const submissions = ref([])
 const selectedUserMail = ref('')
@@ -125,7 +127,7 @@ const followUpItems = computed(() =>
       title: followUp.content,
       status: followUp.status_name || '進行中',
       statusBgColor: followUp.status_bg_color || '',
-      scheduledAt: submission.scheduled_at,
+      scheduledAt: submission.end_at,
       owner:
         viewMode.value === 'user'
           ? selectedUser.value?.username || selectedUser.value?.mail || '未指派'
@@ -138,8 +140,8 @@ const followUpItems = computed(() =>
 
 const timelineItems = computed(() =>
   activeSubmissions.value
-    .filter((submission) => toDateKey(submission.scheduled_at) === selectedDate.value)
-    .sort((a, b) => String(a.scheduled_at || '').localeCompare(String(b.scheduled_at || '')))
+    .filter((submission) => toDateKey(submission.end_at) === selectedDate.value)
+    .sort((a, b) => String(a.end_at || '').localeCompare(String(b.end_at || '')))
 )
 
 const totalCount = computed(() => followUpItems.value.length)
@@ -307,6 +309,13 @@ const setViewMode = (mode) => {
   activeClientMenu.value = false
 }
 
+const setViewType = (mode) => {
+  viewType.value = mode
+  if (viewType.value === 'gantt' && viewMode.value === 'all') {
+    setViewMode('user')
+  }
+}
+
 const handleSelectDate = (dateKey) => {
   selectedDate.value = dateKey
 }
@@ -334,6 +343,12 @@ watch(
   },
   { immediate: true }
 )
+
+const ganttSubmissions = computed(() => {
+  if (viewMode.value === 'user') return userSubmissions.value
+  if (viewMode.value === 'client') return clientSubmissions.value
+  return []
+})
 </script>
 
 <template>
@@ -356,28 +371,47 @@ watch(
           <h1 class="headline">{{ headerTitle }}</h1>
           <p class="subhead">{{ headerSubhead }}</p>
         </div>
-        <div class="view-toggle">
-          <button
-            type="button"
-            :class="['toggle-button', { active: viewMode === 'user' }]"
-            @click="setViewMode('user')"
-          >
-            用戶視角
-          </button>
-          <button
-            type="button"
-            :class="['toggle-button', { active: viewMode === 'client' }]"
-            @click="setViewMode('client')"
-          >
-            客戶視角
-          </button>
-          <button
-            type="button"
-            :class="['toggle-button', { active: viewMode === 'all' }]"
-            @click="setViewMode('all')"
-          >
-            全部
-          </button>
+        <div class="view-toggle-group">
+          <div class="view-toggle">
+            <button
+              type="button"
+              :class="['toggle-button', { active: viewMode === 'user' }]"
+              @click="setViewMode('user')"
+            >
+              用戶視角
+            </button>
+            <button
+              type="button"
+              :class="['toggle-button', { active: viewMode === 'client' }]"
+              @click="setViewMode('client')"
+            >
+              客戶視角
+            </button>
+            <button
+              v-if="viewType === 'calendar'"
+              type="button"
+              :class="['toggle-button', { active: viewMode === 'all' }]"
+              @click="setViewMode('all')"
+            >
+              全部
+            </button>
+          </div>
+          <div class="view-toggle">
+            <button
+              type="button"
+              :class="['toggle-button', { active: viewType === 'calendar' }]"
+              @click="setViewType('calendar')"
+            >
+              月曆
+            </button>
+            <button
+              type="button"
+              :class="['toggle-button', { active: viewType === 'gantt' }]"
+              @click="setViewType('gantt')"
+            >
+              甘特圖
+            </button>
+          </div>
         </div>
       </header>
 
@@ -503,7 +537,7 @@ watch(
             </p>
             <div v-else class="timeline-list">
               <div v-for="item in timelineItems" :key="item.id" class="time-row">
-                <span class="time">{{ formatTimeOnly(item.scheduled_at) || '--:--' }}</span>
+                <span class="time">{{ formatTimeOnly(item.end_at) }}</span>
                 <div class="time-card">
                   <h3 class="time-card-title">
                     {{ item.client_name }}_{{ item.vendor_name }}_{{ item.product_name }}
@@ -540,12 +574,20 @@ watch(
 
         <article class="panel">
           <MonthlyCalendar
+            v-if="viewType === 'calendar'"
             :selected-date="selectedDate"
             :submissions="calendarSubmissions"
             :user-mail="viewMode === 'user' ? selectedUser?.mail : ''"
             :client-name="viewMode === 'client' ? selectedClient?.name : ''"
             :subtitle="calendarSubtitle"
             @select-date="handleSelectDate"
+          />
+          <TaskGantt
+            v-else
+            :view-mode="viewMode"
+            :submissions="ganttSubmissions"
+            :selected-user="selectedUser"
+            :selected-client="selectedClient"
           />
         </article>
       </section>
@@ -571,6 +613,13 @@ watch(
   justify-content: space-between;
   align-items: flex-end;
   gap: 2rem;
+}
+
+.view-toggle-group {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.75rem;
 }
 
 .view-toggle {
