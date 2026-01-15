@@ -134,7 +134,7 @@ const buildClientFollowUpStatusByDate = (items, clientName) => {
   if (!clientName) return {}
   return items.reduce((summary, item) => {
     if (item.client_name !== clientName) return summary
-    const dateKey = toDateKey(item.scheduled_at)
+    const dateKey = toDateKey(item.start_at)
     if (!dateKey) return summary
     const followUps = Array.isArray(item?.follow_ups) ? item.follow_ups : []
     if (followUps.length === 0) return summary
@@ -150,7 +150,7 @@ const buildClientFollowUpStatusByDate = (items, clientName) => {
 
 const buildAllFollowUpStatusByDate = (items) =>
   items.reduce((summary, item) => {
-    const dateKey = toDateKey(item.scheduled_at)
+    const dateKey = toDateKey(item.start_at)
     if (!dateKey) return summary
     const followUps = Array.isArray(item?.follow_ups) ? item.follow_ups : []
     if (followUps.length === 0) return summary
