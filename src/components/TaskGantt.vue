@@ -15,6 +15,10 @@ const props = defineProps({
     type: Array,
     default: () => [],
   },
+  users: {
+    type: Array,
+    default: () => [],
+  },
   selectedUser: {
     type: Object,
     default: null,
@@ -25,74 +29,154 @@ const props = defineProps({
   },
 })
 
-const rangeDays = ref(30)
+const rangeType = ref('month')
 const expandedTaskIds = ref(new Set())
+
+const toTask = (submission) => {
+  if (!submission?.end_at) return null
+  const startAt = submission.start_at || submission.end_at
+  const endAt = submission.end_at
+  if (!startAt || !endAt) return null
+  return {
+    id: submission.id,
+    clientName: submission.client_name,
+    vendorName: submission.vendor_name,
+    productName: submission.product_name,
+    startAt,
+    endAt,
+    followUps: Array.isArray(submission.follow_ups) ? submission.follow_ups : [],
+  }
+}
 
 const tasks = computed(() =>
   (props.submissions || [])
-    .map((submission) => {
-      if (!submission?.end_at) return null
-      const startAt = submission.start_at || submission.end_at
-      const endAt = submission.end_at
-      if (!startAt || !endAt) return null
-      return {
-        id: submission.id,
-        clientName: submission.client_name,
-        vendorName: submission.vendor_name,
-        productName: submission.product_name,
-        startAt,
-        endAt,
-        followUps: Array.isArray(submission.follow_ups) ? submission.follow_ups : [],
-      }
-    })
+    .map((submission) => toTask(submission))
     .filter(Boolean)
 )
 
+const groupedTasks = computed(() => {
+  if (props.viewMode !== 'user') {
+    return []
+  }
+  return (props.users || []).map((user) => {
+    const userTasks = tasks.value.filter((task) =>
+      (props.submissions || []).some(
+        (submission) =>
+          submission.id === task.id &&
+          (submission.related_users || []).some((related) => related.mail === user.mail)
+      )
+    )
+    return {
+      user,
+      tasks: userTasks,
+    }
+  })
+})
+
+const rangeConfig = computed(() => {
+  if (rangeType.value === 'day') {
+    return { unit: 'day', count: 14, width: 90 }
+  }
+  if (rangeType.value === 'year') {
+    return { unit: 'year', count: 3, width: 140 }
+  }
+  return { unit: 'month', count: 6, width: 120 }
+})
+
+const anchorDate = ref(new Date())
+
 const timelineStart = computed(() => {
-  const entries = tasks.value
-  if (entries.length === 0) return new Date()
-  const startTimes = entries
-    .map((item) => new Date(item.startAt))
-    .filter((value) => !Number.isNaN(value.getTime()))
-  if (startTimes.length === 0) return new Date()
-  return new Date(Math.min(...startTimes.map((value) => value.getTime())))
+  const base = new Date(anchorDate.value)
+  if (rangeType.value === 'day') {
+    base.setHours(0, 0, 0, 0)
+    return base
+  }
+  if (rangeType.value === 'year') {
+    return new Date(base.getFullYear(), 0, 1)
+  }
+  return new Date(base.getFullYear(), base.getMonth(), 1)
 })
 
 const timelineEnd = computed(() => {
   const start = timelineStart.value
-  return new Date(start.getTime() + rangeDays.value * MILLISECONDS_IN_DAY)
+  if (rangeType.value === 'day') {
+    return new Date(start.getTime() + rangeConfig.value.count * MILLISECONDS_IN_DAY)
+  }
+  if (rangeType.value === 'year') {
+    return new Date(start.getFullYear() + rangeConfig.value.count, start.getMonth(), start.getDate())
+  }
+  return new Date(start.getFullYear(), start.getMonth() + rangeConfig.value.count, 1)
 })
 
 const axisTicks = computed(() => {
   const ticks = []
   const start = timelineStart.value
-  for (let i = 0; i <= rangeDays.value; i += 1) {
-    const date = new Date(start.getTime() + i * MILLISECONDS_IN_DAY)
-    ticks.push({
-      key: date.toISOString(),
-      label: `${date.getMonth() + 1}/${date.getDate()}`,
-      offset: (i / rangeDays.value) * 100,
-    })
+  if (rangeType.value === 'day') {
+    for (let i = 0; i <= rangeConfig.value.count; i += 1) {
+      const date = new Date(start.getTime() + i * MILLISECONDS_IN_DAY)
+      ticks.push({
+        key: date.toISOString(),
+        label: `${date.getMonth() + 1}/${date.getDate()}`,
+        offset: i,
+      })
+    }
+  } else if (rangeType.value === 'year') {
+    for (let i = 0; i <= rangeConfig.value.count; i += 1) {
+      const date = new Date(start.getFullYear() + i, 0, 1)
+      ticks.push({
+        key: date.toISOString(),
+        label: `${date.getFullYear()}`,
+        offset: i,
+      })
+    }
+  } else {
+    for (let i = 0; i <= rangeConfig.value.count; i += 1) {
+      const date = new Date(start.getFullYear(), start.getMonth() + i, 1)
+      ticks.push({
+        key: date.toISOString(),
+        label: `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, '0')}`,
+        offset: i,
+      })
+    }
   }
   return ticks
 })
 
-const barColor = computed(() => {
-  if (props.viewMode === 'user') {
-    return props.selectedUser?.icon_bg || DEFAULT_CLIENT_COLOR
-  }
-  return DEFAULT_CLIENT_COLOR
-})
+const getBarColor = (user) => user?.icon_bg || DEFAULT_CLIENT_COLOR
 
 const ganttRows = computed(() => {
   const rows = []
   if (props.viewMode === 'user') {
-    rows.push({
-      id: `group-user-${props.selectedUser?.mail || 'unknown'}`,
-      type: 'group',
-      label: props.selectedUser?.username || props.selectedUser?.mail || '用戶',
-      icon: props.selectedUser?.icon || '🙂',
-      iconBg: GROUP_BADGE_COLOR,
+    groupedTasks.value.forEach(({ user, tasks: userTasks }) => {
+      rows.push({
+        id: `group-user-${user?.mail || 'unknown'}`,
+        type: 'group',
+        label: user?.username || user?.mail || '用戶',
+        icon: user?.icon || '🙂',
+        iconBg: GROUP_BADGE_COLOR,
+      })
+      userTasks.forEach((task) => {
+        rows.push({
+          id: `task-${task.id}`,
+          taskId: task.id,
+          type: 'task',
+          label: `${task.clientName}_${task.vendorName}_${task.productName}`,
+          startAt: task.startAt,
+          endAt: task.endAt,
+          color: getBarColor(user),
+        })
+        if (expandedTaskIds.value.has(task.id)) {
+          task.followUps.forEach((followUp) => {
+            rows.push({
+              id: `followup-${task.id}-${followUp.id || followUp.content}`,
+              type: 'followup',
+              label: followUp.content || '跟進任務',
+              endAt: task.endAt,
+              color: getBarColor(user),
+            })
+          })
+        }
+      })
     })
   } else if (props.viewMode === 'client') {
     rows.push({
@@ -102,30 +186,29 @@ const ganttRows = computed(() => {
       icon: '🏷️',
       iconBg: DEFAULT_CLIENT_COLOR,
     })
-  }
-
-  tasks.value.forEach((task) => {
-    rows.push({
-      id: `task-${task.id}`,
-      taskId: task.id,
-      type: 'task',
-      label: `${task.clientName}_${task.vendorName}_${task.productName}`,
-      startAt: task.startAt,
-      endAt: task.endAt,
-      color: barColor.value,
-    })
-    if (expandedTaskIds.value.has(task.id)) {
-      task.followUps.forEach((followUp) => {
-        rows.push({
-          id: `followup-${task.id}-${followUp.id || followUp.content}`,
-          type: 'followup',
-          label: followUp.content || '跟進任務',
-          endAt: task.endAt,
-          color: barColor.value,
-        })
+    tasks.value.forEach((task) => {
+      rows.push({
+        id: `task-${task.id}`,
+        taskId: task.id,
+        type: 'task',
+        label: `${task.clientName}_${task.vendorName}_${task.productName}`,
+        startAt: task.startAt,
+        endAt: task.endAt,
+        color: DEFAULT_CLIENT_COLOR,
       })
-    }
-  })
+      if (expandedTaskIds.value.has(task.id)) {
+        task.followUps.forEach((followUp) => {
+          rows.push({
+            id: `followup-${task.id}-${followUp.id || followUp.content}`,
+            type: 'followup',
+            label: followUp.content || '跟進任務',
+            endAt: task.endAt,
+            color: DEFAULT_CLIENT_COLOR,
+          })
+        })
+      }
+    })
+  }
 
   return rows
 })
@@ -138,12 +221,12 @@ const getPositionStyle = (startAt, endAt) => {
   }
   const total = timelineEnd.value.getTime() - timelineStart.value.getTime()
   if (total <= 0) return { display: 'none' }
-  const left = ((start.getTime() - timelineStart.value.getTime()) / total) * 100
-  const width = ((end.getTime() - start.getTime()) / total) * 100
+  const left = ((start.getTime() - timelineStart.value.getTime()) / total) * timelineWidth.value
+  const width = ((end.getTime() - start.getTime()) / total) * timelineWidth.value
   if (width <= 0) return { display: 'none' }
   return {
-    left: `${Math.max(left, 0)}%`,
-    width: `${Math.min(width, 100 - left)}%`,
+    left: `${Math.max(left, 0)}px`,
+    width: `${Math.min(width, timelineWidth.value - left)}px`,
   }
 }
 
@@ -154,18 +237,10 @@ const getMarkerStyle = (dateValue) => {
   }
   const total = timelineEnd.value.getTime() - timelineStart.value.getTime()
   if (total <= 0) return { display: 'none' }
-  const left = ((date.getTime() - timelineStart.value.getTime()) / total) * 100
+  const left = ((date.getTime() - timelineStart.value.getTime()) / total) * timelineWidth.value
   return {
-    left: `${Math.min(Math.max(left, 0), 100)}%`,
+    left: `${Math.min(Math.max(left, 0), timelineWidth.value)}px`,
   }
-}
-
-const zoomIn = () => {
-  rangeDays.value = Math.max(7, rangeDays.value - 7)
-}
-
-const zoomOut = () => {
-  rangeDays.value = Math.min(120, rangeDays.value + 7)
 }
 
 const toggleTask = (taskId) => {
@@ -179,6 +254,32 @@ const toggleTask = (taskId) => {
 }
 
 const isTaskExpanded = (taskId) => expandedTaskIds.value.has(taskId)
+
+const setRangeType = (value) => {
+  rangeType.value = value
+}
+
+const shiftRange = (direction) => {
+  if (rangeType.value === 'day') {
+    anchorDate.value = new Date(
+      anchorDate.value.getTime() + direction * rangeConfig.value.count * MILLISECONDS_IN_DAY
+    )
+  } else if (rangeType.value === 'year') {
+    anchorDate.value = new Date(
+      anchorDate.value.getFullYear() + direction * rangeConfig.value.count,
+      anchorDate.value.getMonth(),
+      anchorDate.value.getDate()
+    )
+  } else {
+    anchorDate.value = new Date(
+      anchorDate.value.getFullYear(),
+      anchorDate.value.getMonth() + direction * rangeConfig.value.count,
+      anchorDate.value.getDate()
+    )
+  }
+}
+
+const timelineWidth = computed(() => rangeConfig.value.count * rangeConfig.value.width)
 </script>
 
 <template>
@@ -191,9 +292,33 @@ const isTaskExpanded = (taskId) => expandedTaskIds.value.has(taskId)
         </p>
       </div>
       <div class="gantt-controls">
-        <button type="button" class="ghost-button" @click="zoomIn">縮小範圍</button>
-        <input v-model.number="rangeDays" type="range" min="7" max="120" step="1" />
-        <button type="button" class="ghost-button" @click="zoomOut">放大範圍</button>
+        <div class="gantt-range-toggle">
+          <button
+            type="button"
+            :class="['gantt-range-button', { active: rangeType === 'day' }]"
+            @click="setRangeType('day')"
+          >
+            日
+          </button>
+          <button
+            type="button"
+            :class="['gantt-range-button', { active: rangeType === 'month' }]"
+            @click="setRangeType('month')"
+          >
+            月
+          </button>
+          <button
+            type="button"
+            :class="['gantt-range-button', { active: rangeType === 'year' }]"
+            @click="setRangeType('year')"
+          >
+            年
+          </button>
+        </div>
+        <div class="gantt-shift">
+          <button type="button" class="ghost-button" @click="shiftRange(-1)">←</button>
+          <button type="button" class="ghost-button" @click="shiftRange(1)">→</button>
+        </div>
       </div>
     </header>
 
@@ -223,17 +348,17 @@ const isTaskExpanded = (taskId) => expandedTaskIds.value.has(taskId)
         </div>
       </div>
       <div class="gantt-timeline">
-        <div class="gantt-axis">
+        <div class="gantt-axis" :style="{ width: `${timelineWidth}px` }">
           <span
             v-for="tick in axisTicks"
             :key="tick.key"
             class="gantt-tick"
-            :style="{ left: `${tick.offset}%` }"
+            :style="{ left: `${tick.offset * rangeConfig.width}px` }"
           >
             {{ tick.label }}
           </span>
         </div>
-        <div class="gantt-rows">
+        <div class="gantt-rows" :style="{ width: `${timelineWidth}px` }">
           <div v-for="row in ganttRows" :key="row.id" class="gantt-row">
             <div
               v-if="row.type === 'task'"
@@ -290,8 +415,32 @@ const isTaskExpanded = (taskId) => expandedTaskIds.value.has(taskId)
   gap: 0.75rem;
 }
 
-.gantt-controls input[type='range'] {
-  width: 140px;
+.gantt-range-toggle {
+  display: inline-flex;
+  background: #f1f5f9;
+  padding: 0.25rem;
+  border-radius: 999px;
+  gap: 0.25rem;
+}
+
+.gantt-range-button {
+  border: none;
+  background: transparent;
+  padding: 0.3rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  color: #475569;
+  cursor: pointer;
+}
+
+.gantt-range-button.active {
+  background: #111827;
+  color: #fff;
+}
+
+.gantt-shift {
+  display: inline-flex;
+  gap: 0.5rem;
 }
 
 .gantt-body {

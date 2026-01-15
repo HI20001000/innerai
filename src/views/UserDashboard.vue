@@ -345,7 +345,7 @@ watch(
 )
 
 const ganttSubmissions = computed(() => {
-  if (viewMode.value === 'user') return userSubmissions.value
+  if (viewMode.value === 'user') return submissions.value
   if (viewMode.value === 'client') return clientSubmissions.value
   return []
 })
@@ -415,7 +415,7 @@ const ganttSubmissions = computed(() => {
         </div>
       </header>
 
-      <section class="dashboard-controls">
+      <section v-if="viewType === 'calendar'" class="dashboard-controls">
         <div v-if="viewMode === 'user'" class="control select-field-wrapper">
           <span>{{ selectionLabel }}</span>
           <button class="select-field" type="button" @click="toggleUserMenu">
@@ -495,7 +495,7 @@ const ganttSubmissions = computed(() => {
         </div>
       </section>
 
-      <section class="summary-grid">
+      <section v-if="viewType === 'calendar'" class="summary-grid">
         <article class="summary-card">
           <p class="card-label">任務總數</p>
           <p class="card-value">{{ totalCount }}</p>
@@ -519,7 +519,7 @@ const ganttSubmissions = computed(() => {
       </section>
 
       <section class="dashboard-grid">
-        <article class="panel">
+        <article v-if="viewType === 'calendar'" class="panel">
           <header class="panel-header">
             <div class="panel-title-row">
               <h2>{{ timelineTitle }}</h2>
@@ -586,6 +586,7 @@ const ganttSubmissions = computed(() => {
             v-else
             :view-mode="viewMode"
             :submissions="ganttSubmissions"
+            :users="users"
             :selected-user="selectedUser"
             :selected-client="selectedClient"
           />
