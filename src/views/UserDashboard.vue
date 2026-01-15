@@ -125,7 +125,7 @@ const followUpItems = computed(() =>
       title: followUp.content,
       status: followUp.status_name || '進行中',
       statusBgColor: followUp.status_bg_color || '',
-      scheduledAt: submission.start_at,
+      scheduledAt: submission.end_at,
       owner:
         viewMode.value === 'user'
           ? selectedUser.value?.username || selectedUser.value?.mail || '未指派'
@@ -138,8 +138,8 @@ const followUpItems = computed(() =>
 
 const timelineItems = computed(() =>
   activeSubmissions.value
-    .filter((submission) => toDateKey(submission.start_at) === selectedDate.value)
-    .sort((a, b) => String(a.start_at || '').localeCompare(String(b.start_at || '')))
+    .filter((submission) => toDateKey(submission.end_at) === selectedDate.value)
+    .sort((a, b) => String(a.end_at || '').localeCompare(String(b.end_at || '')))
 )
 
 const totalCount = computed(() => followUpItems.value.length)
@@ -503,15 +503,7 @@ watch(
             </p>
             <div v-else class="timeline-list">
               <div v-for="item in timelineItems" :key="item.id" class="time-row">
-                <span class="time">
-                  {{
-                    item.end_at
-                      ? `${formatTimeOnly(item.start_at) || '--:--'} - ${
-                          formatTimeOnly(item.end_at) || '--:--'
-                        }`
-                      : formatTimeOnly(item.start_at) || '--:--'
-                  }}
-                </span>
+                <span class="time">{{ formatTimeOnly(item.end_at) || '--:--' }}</span>
                 <div class="time-card">
                   <h3 class="time-card-title">
                     {{ item.client_name }}_{{ item.vendor_name }}_{{ item.product_name }}
