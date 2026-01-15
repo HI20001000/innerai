@@ -404,7 +404,7 @@ const handleWheel = (event) => {
       <div class="gantt-axis-row">
         <div class="gantt-axis-spacer"></div>
         <div class="gantt-timeline" @wheel="handleWheel">
-          <div class="gantt-axis" :style="{ width: `${timelineWidth}px` }">
+          <div class="gantt-axis" :style="{ width: `${timelineWidth}px`, minWidth: '100%' }">
             <span
               v-for="tick in axisTicks"
               :key="tick.key"
@@ -453,7 +453,7 @@ const handleWheel = (event) => {
           </div>
         </div>
         <div class="gantt-timeline" @wheel="handleWheel">
-          <div class="gantt-rows" :style="{ width: `${timelineWidth}px` }">
+          <div class="gantt-rows" :style="{ width: `${timelineWidth}px`, minWidth: '100%' }">
             <div v-for="row in ganttRows" :key="row.id" class="gantt-row">
               <template v-if="row.type === 'group'">
                 <div
@@ -557,7 +557,7 @@ const handleWheel = (event) => {
 .gantt-axis-row,
 .gantt-content-row {
   display: grid;
-  grid-template-columns: 320px 1fr;
+  grid-template-columns: 320px minmax(0, 1fr);
 }
 
 .gantt-axis-spacer {
@@ -656,6 +656,7 @@ const handleWheel = (event) => {
   position: relative;
   overflow: hidden;
   padding: 1rem 1.5rem;
+  width: 100%;
 }
 
 .gantt-axis {
@@ -663,6 +664,7 @@ const handleWheel = (event) => {
   height: 24px;
   border-bottom: 1px solid #e2e8f0;
   margin-bottom: 0.75rem;
+  width: 100%;
 }
 
 .gantt-tick {
@@ -676,6 +678,7 @@ const handleWheel = (event) => {
 .gantt-rows {
   display: grid;
   gap: 0.6rem;
+  width: 100%;
 }
 
 .gantt-row {
