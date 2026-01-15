@@ -1571,6 +1571,19 @@ const handleDeleteTaskSubmission = async (req, res, id) => {
   try {
     const connection = await getConnection()
     await connection.beginTransaction()
+    const [followRows] = await connection.query(
+      'SELECT id FROM task_submission_followups WHERE submission_id = ?',
+      [id]
+    )
+    const followupIds = followRows.map((row) => row.id).filter(Boolean)
+    if (followupIds.length > 0) {
+      await connection.query(
+        'DELETE FROM task_submission_followup_assignees WHERE followup_id IN (?)',
+        [followupIds]
+      )
+    }
+    await connection.query('DELETE FROM task_submission_followups WHERE submission_id = ?', [id])
+    await connection.query('DELETE FROM task_submission_tags WHERE submission_id = ?', [id])
     await connection.query('DELETE FROM task_submission_users WHERE submission_id = ?', [id])
     const [result] = await connection.query('DELETE FROM task_submissions WHERE id = ?', [id])
     if (result.affectedRows === 0) {
