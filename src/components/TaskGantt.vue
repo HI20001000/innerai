@@ -337,6 +337,31 @@ const setRangeType = (value) => {
 }
 
 const timelineWidth = computed(() => rangeConfig.value.count * rangeConfig.value.width)
+
+const shiftRange = (direction) => {
+  if (rangeType.value === 'day') {
+    anchorDate.value = new Date(
+      anchorDate.value.getTime() + direction * MILLISECONDS_IN_DAY
+    )
+  } else {
+    anchorDate.value = new Date(
+      anchorDate.value.getFullYear(),
+      anchorDate.value.getMonth() + direction,
+      anchorDate.value.getDate()
+    )
+  }
+}
+
+const wheelAccumulator = ref(0)
+const handleWheel = (event) => {
+  wheelAccumulator.value += event.deltaY
+  if (Math.abs(wheelAccumulator.value) < 120) {
+    return
+  }
+  const direction = wheelAccumulator.value > 0 ? 1 : -1
+  wheelAccumulator.value = 0
+  shiftRange(direction)
+}
 </script>
 
 <template>
@@ -378,7 +403,7 @@ const timelineWidth = computed(() => rangeConfig.value.count * rangeConfig.value
     <div class="gantt-body">
       <div class="gantt-axis-row">
         <div class="gantt-axis-spacer"></div>
-        <div class="gantt-timeline">
+        <div class="gantt-timeline" @wheel="handleWheel">
           <div class="gantt-axis" :style="{ width: `${timelineWidth}px` }">
             <span
               v-for="tick in axisTicks"
@@ -427,7 +452,7 @@ const timelineWidth = computed(() => rangeConfig.value.count * rangeConfig.value
             <span v-else class="gantt-followup-text">{{ row.label }}</span>
           </div>
         </div>
-        <div class="gantt-timeline">
+        <div class="gantt-timeline" @wheel="handleWheel">
           <div class="gantt-rows" :style="{ width: `${timelineWidth}px` }">
             <div v-for="row in ganttRows" :key="row.id" class="gantt-row">
               <template v-if="row.type === 'group'">
