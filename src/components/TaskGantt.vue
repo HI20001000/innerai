@@ -405,12 +405,7 @@ const handleWheel = (event) => {
         <div class="gantt-axis-spacer"></div>
         <div class="gantt-timeline" @wheel="handleWheel">
           <div class="gantt-axis" :style="{ width: `${timelineWidth}px`, minWidth: '100%' }">
-            <span
-              v-for="tick in axisTicks"
-              :key="tick.key"
-              class="gantt-tick"
-              :style="{ left: `${tick.offset * rangeConfig.width}px` }"
-            >
+            <span v-for="tick in axisTicks" :key="tick.key" class="gantt-tick">
               {{ tick.label }}
             </span>
           </div>
@@ -453,7 +448,7 @@ const handleWheel = (event) => {
           </div>
         </div>
         <div class="gantt-timeline" @wheel="handleWheel">
-          <div class="gantt-rows" :style="{ width: `${timelineWidth}px`, minWidth: '100%' }">
+        <div class="gantt-rows" :style="{ width: `${timelineWidth}px`, minWidth: '100%' }">
             <div v-for="row in ganttRows" :key="row.id" class="gantt-row">
               <template v-if="row.type === 'group'">
                 <div
@@ -660,7 +655,9 @@ const handleWheel = (event) => {
 }
 
 .gantt-axis {
-  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
   height: 24px;
   border-bottom: 1px solid #e2e8f0;
   margin-bottom: 0.75rem;
@@ -668,9 +665,7 @@ const handleWheel = (event) => {
 }
 
 .gantt-tick {
-  position: absolute;
-  top: 0;
-  transform: translateX(-50%);
+  position: static;
   font-size: 0.75rem;
   color: #94a3b8;
 }
