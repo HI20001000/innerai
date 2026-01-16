@@ -91,14 +91,17 @@ const groupedTasks = computed(() => {
     .filter((group) => group.tasks.length > 0)
 })
 
+const MAX_MONTH_TICKS = 4
+const MAX_YEAR_TICKS = 3
+
 const rangeConfig = computed(() => {
   if (rangeType.value === 'day') {
     return { unit: 'day', count: 7, width: 110 }
   }
   if (rangeType.value === 'year') {
-    return { unit: 'year', count: 3, width: 180 }
+    return { unit: 'year', count: MAX_YEAR_TICKS, width: 180 }
   }
-  return { unit: 'month', count: 4, width: 150 }
+  return { unit: 'month', count: MAX_MONTH_TICKS, width: 150 }
 })
 
 const anchorDate = ref(new Date())
@@ -153,40 +156,54 @@ const axisTicks = computed(() => {
       })
     }
   } else if (rangeType.value === 'year') {
-    const end = new Date(start.getFullYear() + rangeConfig.value.count, start.getMonth(), 1)
-    const cursor = new Date(start.getFullYear(), 0, 1)
-    while (cursor < end) {
+    for (let i = 0; i <= rangeConfig.value.count; i += 1) {
+      const cursor = new Date(start.getFullYear() + i, 0, 1)
       const dayIndex = Math.round(
         (toDayStart(cursor).getTime() - start.getTime()) / MILLISECONDS_IN_DAY
       )
       ticks.push({
         key: cursor.toISOString(),
-        label: `${cursor.getFullYear()}`,
+        label: `${cursor.getFullYear()}年`,
         dayIndex,
+        isBoundaryEnd: i === rangeConfig.value.count,
       })
-      cursor.setFullYear(cursor.getFullYear() + 1)
     }
   } else {
-    const end = new Date(start.getTime() + totalDays.value * MILLISECONDS_IN_DAY)
-    const cursor = new Date(start.getFullYear(), start.getMonth(), 1)
-    while (cursor < end) {
+    for (let i = 0; i <= rangeConfig.value.count; i += 1) {
+      const cursor = new Date(start.getFullYear(), start.getMonth() + i, 1)
       const dayIndex = Math.round(
         (toDayStart(cursor).getTime() - start.getTime()) / MILLISECONDS_IN_DAY
       )
       ticks.push({
         key: cursor.toISOString(),
-        label: `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`,
+        label: `${String(cursor.getMonth() + 1).padStart(2, '0')}月`,
         dayIndex,
+        isBoundaryEnd: i === rangeConfig.value.count,
       })
-      cursor.setMonth(cursor.getMonth() + 1)
     }
   }
   return ticks
 })
 
-const minorTicks = computed(() => {
-  if (rangeType.value === 'day') return []
-  return []
+const gridTicks = computed(() => {
+  if (rangeType.value === 'day') return axisTicks.value
+  const start = toDayStart(timelineStart.value)
+  const ticks = []
+  const count = rangeConfig.value.count
+  for (let i = 0; i <= count; i += 1) {
+    const cursor =
+      rangeType.value === 'year'
+        ? new Date(start.getFullYear() + i, 0, 1)
+        : new Date(start.getFullYear(), start.getMonth() + i, 1)
+    const dayIndex = Math.round(
+      (toDayStart(cursor).getTime() - start.getTime()) / MILLISECONDS_IN_DAY
+    )
+    ticks.push({
+      key: cursor.toISOString(),
+      dayIndex,
+    })
+  }
+  return ticks
 })
 
 const getBarColor = (user) => user?.icon_bg || DEFAULT_CLIENT_COLOR
@@ -378,7 +395,11 @@ let timelineObserver = null
 
 const dayWidth = computed(() => {
   if (!timelineViewportWidth.value) return DAY_WIDTH_PX
-  return Math.max(DAY_WIDTH_PX, timelineViewportWidth.value / totalDays.value)
+  const fitWidth = timelineViewportWidth.value / totalDays.value
+  if (rangeType.value === 'day') {
+    return Math.max(DAY_WIDTH_PX, fitWidth)
+  }
+  return fitWidth
 })
 
 const timelineWidth = computed(() => totalDays.value * dayWidth.value)
@@ -471,17 +492,11 @@ const handleWheel = (event) => {
             <span
               v-for="tick in axisTicks"
               :key="tick.key"
-              class="gantt-tick gantt-tick-major"
+              :class="['gantt-tick', 'gantt-tick-major', { 'gantt-tick-end': tick.isBoundaryEnd }]"
               :style="{ left: `${tick.dayIndex * dayWidth}px` }"
             >
               {{ tick.label }}
             </span>
-            <span
-              v-for="tick in minorTicks"
-              :key="tick.key"
-              class="gantt-tick gantt-tick-minor"
-              :style="{ left: `${tick.dayIndex * dayWidth}px` }"
-            ></span>
           </div>
         </div>
       </div>
@@ -522,7 +537,15 @@ const handleWheel = (event) => {
           </div>
         </div>
         <div class="gantt-timeline" @wheel="handleWheel">
-        <div class="gantt-rows" :style="{ width: `${timelineWidth}px`, minWidth: '100%' }">
+          <div class="gantt-rows" :style="{ width: `${timelineWidth}px`, minWidth: '100%' }">
+            <div class="gantt-grid">
+              <span
+                v-for="tick in gridTicks"
+                :key="`grid-${tick.key}`"
+                class="gantt-grid-line"
+                :style="{ left: `${tick.dayIndex * dayWidth}px` }"
+              ></span>
+            </div>
             <div v-for="row in ganttRows" :key="row.id" class="gantt-row">
               <template v-if="row.type === 'group'">
                 <div
@@ -742,23 +765,37 @@ const handleWheel = (event) => {
   transform: translateX(-50%);
   font-size: 0.75rem;
   color: #94a3b8;
-}
-
-.gantt-tick-minor {
-  width: 1px;
-  height: 6px;
-  background: #e2e8f0;
-  color: transparent;
+  white-space: nowrap;
 }
 
 .gantt-tick-major {
   height: 100%;
 }
 
+.gantt-tick-end {
+  transform: translateX(-100%);
+}
+
 .gantt-rows {
   display: grid;
   gap: 0.6rem;
   width: 100%;
+  position: relative;
+}
+
+.gantt-grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.gantt-grid-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: #e2e8f0;
+  opacity: 0.7;
 }
 
 .gantt-row {
