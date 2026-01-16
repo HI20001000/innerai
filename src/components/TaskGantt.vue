@@ -437,6 +437,12 @@ const shiftRange = (direction) => {
     anchorDate.value = new Date(
       anchorDate.value.getTime() + direction * MILLISECONDS_IN_DAY
     )
+  } else if (rangeType.value === 'year') {
+    anchorDate.value = new Date(
+      anchorDate.value.getFullYear() + direction,
+      anchorDate.value.getMonth(),
+      anchorDate.value.getDate()
+    )
   } else {
     anchorDate.value = new Date(
       anchorDate.value.getFullYear(),
