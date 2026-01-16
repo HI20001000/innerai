@@ -1,8 +1,8 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
 import { formatDateTimeDisplay, toDateKey } from '../scripts/time.js'
+import { apiBaseUrl } from '../scripts/apiBaseUrl.js'
 
-const apiBaseUrl = 'http://localhost:3001'
 
 const props = defineProps({
   open: {

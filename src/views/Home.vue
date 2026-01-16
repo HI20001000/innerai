@@ -4,6 +4,7 @@ import WorkspaceSidebar from '../components/WorkspaceSidebar.vue'
 import MonthlyCalendar from '../components/MonthlyCalendar.vue'
 import FollowUpSummaryModal from '../components/FollowUpSummaryModal.vue'
 import { formatDateTimeDisplay, toDateKey, getTaipeiTodayKey } from '../scripts/time.js'
+import { apiBaseUrl } from '../scripts/apiBaseUrl.js'
 import { countPendingFollowUps } from '../scripts/followUps.js'
 import {
   buildFollowUpItems,
@@ -15,7 +16,6 @@ import {
 const router = getCurrentInstance().appContext.config.globalProperties.$router
 const username = ref('hi')
 const activePath = computed(() => router?.currentRoute?.value?.path || '')
-const apiBaseUrl = 'http://localhost:3001'
 const submissions = ref([])
 const followUpStatuses = ref([])
 const selectedDate = ref(getTaipeiTodayKey())

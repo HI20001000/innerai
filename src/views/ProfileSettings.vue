@@ -112,8 +112,8 @@
 <script setup>
 import { computed, getCurrentInstance, nextTick, onMounted, ref } from 'vue'
 import WorkspaceSidebar from '../components/WorkspaceSidebar.vue'
+import { apiBaseUrl } from '../scripts/apiBaseUrl.js'
 
-const apiBaseUrl = 'http://localhost:3001'
 const router = getCurrentInstance().appContext.config.globalProperties.$router
 const activePath = computed(() => router?.currentRoute?.value?.path || '')
 

@@ -5,6 +5,7 @@ import MonthlyCalendar from '../components/MonthlyCalendar.vue'
 import TaskGantt from '../components/TaskGantt.vue'
 import FollowUpSummaryModal from '../components/FollowUpSummaryModal.vue'
 import { formatDateTimeDisplay, getTaipeiTodayKey, toDateKey } from '../scripts/time.js'
+import { apiBaseUrl } from '../scripts/apiBaseUrl.js'
 import {
   buildFollowUpItems,
   buildSummaryCounts,
@@ -14,7 +15,6 @@ import {
 const router = getCurrentInstance().appContext.config.globalProperties.$router
 const activePath = computed(() => router?.currentRoute?.value?.path || '')
 const todayKey = getTaipeiTodayKey()
-const apiBaseUrl = 'http://localhost:3001'
 
 const goToNewTask = () => router?.push('/tasks/new')
 const goToTaskList = () => router?.push('/tasks/view')

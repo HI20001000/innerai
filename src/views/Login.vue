@@ -1,11 +1,11 @@
 <script setup>
 import { getCurrentInstance, onMounted, onUnmounted, ref } from 'vue'
+import { apiBaseUrl } from '../scripts/apiBaseUrl.js'
 
 const activeTab = ref('login')
 const heroRef = ref(null)
 const canvasRef = ref(null)
 const router = getCurrentInstance().appContext.config.globalProperties.$router
-const apiBaseUrl = 'http://localhost:3001'
 const loginEmail = ref('')
 const loginPassword = ref('')
 const rememberMe = ref(false)

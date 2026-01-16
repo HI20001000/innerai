@@ -2,8 +2,8 @@
 import { computed, onMounted, ref } from 'vue'
 import { getTaipeiTodayKey, toDateKey } from '../scripts/time.js'
 import { buildFollowUpStatusByDate, countPendingForFollowUps } from '../scripts/followUps.js'
+import { apiBaseUrl } from '../scripts/apiBaseUrl.js'
 
-const apiBaseUrl = 'http://localhost:3001'
 const submissions = ref([])
 const isLoading = ref(false)
 
