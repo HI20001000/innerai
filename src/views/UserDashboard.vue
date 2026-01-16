@@ -578,7 +578,7 @@ const ganttSubmissions = computed(() => {
             :selected-date="selectedDate"
             :submissions="calendarSubmissions"
             :user-mail="viewMode === 'user' ? selectedUser?.mail : ''"
-            :client-name="viewMode === 'client' ? selectedClient?.name : ''"
+            :client-name="''"
             :subtitle="calendarSubtitle"
             @select-date="handleSelectDate"
           />
