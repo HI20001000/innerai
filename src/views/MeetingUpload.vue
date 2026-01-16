@@ -3,6 +3,7 @@ import { computed, getCurrentInstance, onMounted, ref } from 'vue'
 import WorkspaceSidebar from '../components/WorkspaceSidebar.vue'
 import ResultModal from '../components/ResultModal.vue'
 import { getTaipeiNowInput } from '../scripts/time.js'
+import { apiBaseUrl } from '../scripts/apiBaseUrl.js'
 
 const clients = ref([])
 const vendors = ref([])
@@ -26,7 +27,6 @@ const resultTitle = ref('')
 const resultMessage = ref('')
 const isSubmitting = ref(false)
 
-const apiBaseUrl = 'http://localhost:3001'
 const router = getCurrentInstance().appContext.config.globalProperties.$router
 const activePath = computed(() => router?.currentRoute?.value?.path || '')
 

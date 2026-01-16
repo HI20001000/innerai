@@ -1,10 +1,10 @@
 import './assets/main.css'
 
 import { createApp } from 'vue'
+import { apiBaseUrl } from './scripts/apiBaseUrl.js'
 import App from './App.vue'
 import router from './router'
 
-const apiBaseUrl = 'http://localhost:3001'
 
 const readAuthStorage = () => {
   const raw = window.localStorage.getItem('innerai_auth')

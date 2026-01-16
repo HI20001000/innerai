@@ -4,9 +4,9 @@ import WorkspaceSidebar from '../components/WorkspaceSidebar.vue'
 import ResultModal from '../components/ResultModal.vue'
 import RelatedUsersTooltip from '../components/RelatedUsersTooltip.vue'
 import { formatDateTimeDisplay, formatDateTimeInput } from '../scripts/time.js'
+import { apiBaseUrl } from '../scripts/apiBaseUrl.js'
 
 const router = getCurrentInstance().appContext.config.globalProperties.$router
-const apiBaseUrl = 'http://localhost:3001'
 const activePath = computed(() => router?.currentRoute?.value?.path || '')
 const submissions = ref([])
 const isLoading = ref(false)

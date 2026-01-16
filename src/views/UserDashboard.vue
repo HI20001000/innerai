@@ -5,6 +5,7 @@ import MonthlyCalendar from '../components/MonthlyCalendar.vue'
 import TaskGantt from '../components/TaskGantt.vue'
 import FollowUpSummaryModal from '../components/FollowUpSummaryModal.vue'
 import { formatDateTimeDisplay, getTaipeiTodayKey, toDateKey } from '../scripts/time.js'
+import { apiBaseUrl } from '../scripts/apiBaseUrl.js'
 import {
   buildFollowUpItems,
   buildSummaryCounts,
@@ -14,7 +15,6 @@ import {
 const router = getCurrentInstance().appContext.config.globalProperties.$router
 const activePath = computed(() => router?.currentRoute?.value?.path || '')
 const todayKey = getTaipeiTodayKey()
-const apiBaseUrl = 'http://localhost:3001'
 
 const goToNewTask = () => router?.push('/tasks/new')
 const goToTaskList = () => router?.push('/tasks/view')
@@ -203,6 +203,7 @@ const formatTimeOnly = (value) => {
 
 const calendarSubmissions = computed(() => {
   if (viewMode.value === 'user') return userSubmissions.value
+  if (viewMode.value === 'client') return clientSubmissions.value
   return submissions.value
 })
 
@@ -613,7 +614,7 @@ const ganttSubmissions = computed(() => {
             :selected-date="selectedDate"
             :submissions="calendarSubmissions"
             :user-mail="viewMode === 'user' ? selectedUser?.mail : ''"
-            :client-name="''"
+            :client-name="viewMode === 'client' ? selectedClient?.name : ''"
             :subtitle="calendarSubtitle"
             @select-date="handleSelectDate"
           />

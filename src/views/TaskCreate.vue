@@ -4,6 +4,7 @@ import WorkspaceSidebar from '../components/WorkspaceSidebar.vue'
 import ResultModal from '../components/ResultModal.vue'
 import DifyAutoFillPanel from '../components/DifyAutoFillPanel.vue'
 import ScrollPanel from '../components/element/ScrollPanel.vue'
+import { apiBaseUrl } from '../scripts/apiBaseUrl.js'
 
 const clients = ref([])
 const vendors = ref([])
@@ -43,7 +44,6 @@ const showResult = ref(false)
 const resultTitle = ref('')
 const resultMessage = ref('')
 const isSubmitting = ref(false)
-const apiBaseUrl = 'http://localhost:3001'
 const router = getCurrentInstance().appContext.config.globalProperties.$router
 const activePath = computed(() => router?.currentRoute?.value?.path || '')
 
