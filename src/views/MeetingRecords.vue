@@ -5,6 +5,7 @@ import ResultModal from '../components/ResultModal.vue'
 import ScrollPanel from '../components/element/ScrollPanel.vue'
 import { formatDateTimeDisplay } from '../scripts/time.js'
 import { buildMeetingReportFilename, downloadMeetingReport } from '../scripts/meetingReports.js'
+import { apiBaseUrl } from '../scripts/apiBaseUrl.js'
 
 const props = defineProps({
   embedded: {
@@ -17,7 +18,6 @@ const props = defineProps({
   },
 })
 
-const apiBaseUrl = 'http://localhost:3001'
 const router = getCurrentInstance()?.appContext?.config?.globalProperties?.$router ?? null
 const activePath = computed(() => router?.currentRoute?.value?.path || '')
 

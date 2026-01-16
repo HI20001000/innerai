@@ -1,6 +1,7 @@
 <script setup>
 import { ref } from 'vue'
 import MeetingRecordModal from './MeetingRecordModal.vue'
+import { apiBaseUrl } from '../scripts/apiBaseUrl.js'
 const props = defineProps({
   onFill: {
     type: Function,
@@ -8,7 +9,6 @@ const props = defineProps({
   },
 })
 
-const apiBaseUrl = 'http://localhost:3001'
 const isLoading = ref(false)
 const message = ref('')
 const messageType = ref('')

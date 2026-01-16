@@ -1,3 +1,5 @@
+import { toDateKey } from './time.js'
+
 const COMPLETED_STATUS = '已完成'
 const INCOMPLETE_STATUS = '未完成'
 
@@ -44,11 +46,11 @@ export const buildFollowUpItems = (submissions = [], statusNameById) =>
 
 export const isOverdueFollowUp = (followUpItem, referenceDate) => {
   if (!followUpItem?.endAt) return false
-  const endDate = new Date(followUpItem.endAt)
-  if (Number.isNaN(endDate.getTime())) return false
-  const ref = referenceDate instanceof Date ? referenceDate : new Date(referenceDate)
-  if (Number.isNaN(ref.getTime())) return false
-  return endDate.getTime() < ref.getTime()
+  const endDateKey = toDateKey(followUpItem.endAt)
+  if (!endDateKey) return false
+  const refKey = toDateKey(referenceDate instanceof Date ? referenceDate : new Date(referenceDate))
+  if (!refKey) return false
+  return endDateKey < refKey
 }
 
 export const buildSummaryCounts = (followUpItems = [], referenceDate = new Date()) => {

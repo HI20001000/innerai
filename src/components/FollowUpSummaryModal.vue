@@ -1,8 +1,8 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
 import { formatDateTimeDisplay, toDateKey } from '../scripts/time.js'
+import { apiBaseUrl } from '../scripts/apiBaseUrl.js'
 
-const apiBaseUrl = 'http://localhost:3001'
 
 const props = defineProps({
   open: {
@@ -95,11 +95,11 @@ watch(
 
 const isOverdue = (submission) => {
   if (!props.includeOverdueIncomplete || !props.referenceDate) return false
-  const ref = new Date(props.referenceDate)
-  if (Number.isNaN(ref.getTime())) return false
-  const endAt = submission?.end_at ? new Date(submission.end_at) : null
-  if (!endAt || Number.isNaN(endAt.getTime())) return false
-  return endAt.getTime() < ref.getTime()
+  const refKey = toDateKey(props.referenceDate)
+  if (!refKey) return false
+  const endKey = toDateKey(submission?.end_at)
+  if (!endKey) return false
+  return endKey < refKey
 }
 
 const matchesStatusFilter = (followUp, submission) => {
@@ -430,11 +430,35 @@ const handleSelectFollowUp = (submission) => {
   height: 90vh;
   max-height: 90vh;
   overflow: auto;
+  padding-right: 2.2rem;
   box-shadow: 0 20px 60px rgba(15, 23, 42, 0.35);
   display: grid;
   gap: 1.5rem;
   align-content: start;
   align-items: start;
+}
+
+.followup-modal-card::-webkit-scrollbar {
+  width: 8px;
+}
+
+.followup-modal-card::-webkit-scrollbar-track {
+  background: rgba(148, 163, 184, 0.2);
+  border-radius: 24px;
+}
+
+.followup-modal-card::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #111827, #334155);
+  border-radius: 24px;
+}
+
+.followup-modal-card::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #1f2937, #475569);
+}
+
+.followup-modal-card {
+  scrollbar-color: #1f2937 rgba(148, 163, 184, 0.2);
+  scrollbar-width: thin;
 }
 
 .followup-modal-header {
