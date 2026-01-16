@@ -407,7 +407,8 @@ const handleSelectFollowUp = (submission) => {
   border-radius: 24px;
   padding: 1.8rem;
   width: min(1100px, 92vw);
-  max-height: 85vh;
+  height: 90vh;
+  max-height: 90vh;
   overflow: auto;
   box-shadow: 0 20px 60px rgba(15, 23, 42, 0.35);
   display: grid;

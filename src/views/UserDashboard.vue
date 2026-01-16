@@ -129,7 +129,7 @@ const followUpItems = computed(() =>
     return followUps.map((followUp) => ({
       id: `${submission.id}-${followUp.id}`,
       title: followUp.content,
-      status: followUp.status_name || '進行中',
+      status: String(followUp.status_name || '進行中').trim(),
       statusBgColor: followUp.status_bg_color || '',
       scheduledAt: submission.end_at,
       owner:
