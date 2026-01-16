@@ -207,17 +207,24 @@ const userSubmissions = computed(() => {
   })
 })
 
+const statusNameById = computed(
+  () => new Map(followUpStatuses.value.map((status) => [status.id, status.name]))
+)
+
 const followUpItems = computed(() =>
   userSubmissions.value.flatMap((submission) => {
     const followUps = Array.isArray(submission.follow_ups) ? submission.follow_ups : []
     return followUps.map((followUp) => ({
       id: `${submission.id}-${followUp.id}`,
-      status: String(followUp.status_name || '進行中').trim(),
+      status: String(
+        statusNameById.value.get(followUp.status_id) || followUp.status_name || '進行中'
+      ).trim(),
       assignees: Array.isArray(followUp.assignees) ? followUp.assignees : [],
     }))
   })
 )
 
+const totalCount = computed(() => followUpItems.value.length)
 const completedCount = computed(
   () => followUpItems.value.filter((task) => task.status === COMPLETED_STATUS).length
 )
@@ -475,6 +482,11 @@ onMounted(() => {
       </header>
 
       <section class="summary-grid">
+        <article class="summary-card">
+          <p class="card-label">任務總數</p>
+          <p class="card-value">{{ totalCount }}</p>
+          <p class="card-meta">目前所有跟進任務</p>
+        </article>
         <article class="summary-card summary-card-success">
           <p class="card-label">已完成</p>
           <p class="card-value">{{ completedCount }}</p>
