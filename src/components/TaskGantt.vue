@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { formatDateTimeDisplay } from '../scripts/time.js'
+import { toDateKey } from '../scripts/time.js'
 
 const DEFAULT_CLIENT_COLOR = '#e2e8f0'
 const GROUP_BADGE_COLOR = '#ef4444'
@@ -657,9 +657,9 @@ const handleWheel = (event) => {
       <div>
         <h3 class="gantt-title">甘特圖視圖</h3>
         <div class="gantt-subtitle">
-          <span>{{ formatDateTimeDisplay(timelineStart) }} - {{ formatDateTimeDisplay(timelineEnd) }}</span>
+          <span>{{ toDateKey(timelineStart) }} - {{ toDateKey(timelineEnd) }}</span>
           <label class="gantt-date-picker">
-            <span class="gantt-date-label">選擇時間</span>
+            <span class="gantt-date-label">選擇開始時間</span>
             <input
               type="date"
               :value="anchorDateInput"

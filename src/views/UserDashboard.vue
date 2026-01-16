@@ -18,7 +18,7 @@ const goToHome = () => router?.push('/home')
 const goToProfile = () => router?.push('/settings')
 const goToUserDashboard = () => router?.push('/users/dashboard')
 
-const viewMode = ref('user')
+const viewMode = ref('all')
 const viewType = ref('calendar')
 const users = ref([])
 const submissions = ref([])
@@ -199,7 +199,10 @@ const formatTimeOnly = (value) => {
   return parts.length > 1 ? parts[1].slice(0, 5) : formatted
 }
 
-const calendarSubmissions = computed(() => activeSubmissions.value)
+const calendarSubmissions = computed(() => {
+  if (viewMode.value === 'user') return userSubmissions.value
+  return submissions.value
+})
 
 const timelineTitle = computed(() => {
   const date = selectedDate.value
@@ -209,18 +212,14 @@ const timelineTitle = computed(() => {
   return `${year}年${month}月${day}日時間線`
 })
 
-const headerTitle = computed(() => {
-  if (viewMode.value === 'user') return '用戶工作安排'
-  if (viewMode.value === 'client') return '客戶工作安排'
-  return '全部工作安排'
-})
+const headerTitle = computed(() => '儀表盤')
 
 const headerSubhead = computed(() => {
   if (viewMode.value === 'user') {
     return '監控單一用戶的任務進度、待辦與跟進狀況。'
   }
   if (viewMode.value === 'client') {
-    return '以客戶視角檢視該客戶的跟進任務進度與安排。'
+    return '以客戶視角檢視所有客戶的跟進任務進度與安排。'
   }
   return '整體檢視目前所有任務與跟進安排。'
 })
@@ -255,7 +254,7 @@ const summaryMeta = computed(() => {
 
 const calendarSubtitle = computed(() => {
   if (viewMode.value === 'user') return '顯示與你相關的待辦數量'
-  if (viewMode.value === 'client') return '顯示該客戶的待辦數量'
+  if (viewMode.value === 'client') return '顯示所有客戶的待辦數量'
   return '顯示全部任務的待辦數量'
 })
 
