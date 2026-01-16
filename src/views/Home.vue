@@ -2,6 +2,7 @@
 import { computed, getCurrentInstance, onMounted, ref } from 'vue'
 import WorkspaceSidebar from '../components/WorkspaceSidebar.vue'
 import MonthlyCalendar from '../components/MonthlyCalendar.vue'
+import FollowUpSummaryModal from '../components/FollowUpSummaryModal.vue'
 import { formatDateTimeDisplay, toDateKey, getTaipeiTodayKey } from '../scripts/time.js'
 import { countPendingFollowUps } from '../scripts/followUps.js'
 
@@ -25,6 +26,11 @@ const statusMessageType = ref('')
 const isTimelineLoading = ref(false)
 const assigneeSearch = ref('')
 const activeAssigneeMenu = ref(null)
+const COMPLETED_STATUS = '已完成'
+const INCOMPLETE_STATUS = '未完成'
+const summaryModalOpen = ref(false)
+const summaryModalFilter = ref('all')
+const summaryModalTitle = ref('任務總數')
 
 const goToNewTask = () => {
   router?.push('/tasks/new')
@@ -204,6 +210,72 @@ const userSubmissions = computed(() => {
     return related.some((user) => user.mail === mail)
   })
 })
+
+const statusNameById = computed(
+  () => new Map(followUpStatuses.value.map((status) => [status.id, status.name]))
+)
+
+const followUpItems = computed(() =>
+  userSubmissions.value.flatMap((submission) => {
+    const followUps = Array.isArray(submission.follow_ups) ? submission.follow_ups : []
+    return followUps.map((followUp) => ({
+      id: `${submission.id}-${followUp.id}`,
+      status: String(
+        statusNameById.value.get(followUp.status_id) || followUp.status_name || '進行中'
+      ).trim(),
+      assignees: Array.isArray(followUp.assignees) ? followUp.assignees : [],
+      endAt: submission.end_at,
+    }))
+  })
+)
+
+const totalCount = computed(() => followUpItems.value.length)
+const isOverdueFollowUp = (task, now) => {
+  if (!task?.endAt) return false
+  const endDate = new Date(task.endAt)
+  if (Number.isNaN(endDate.getTime())) return false
+  return endDate.getTime() < now.getTime()
+}
+const completedCount = computed(
+  () => followUpItems.value.filter((task) => task.status === COMPLETED_STATUS).length
+)
+const incompleteCount = computed(
+  () => {
+    const now = new Date()
+    return followUpItems.value.filter(
+      (task) => task.status === INCOMPLETE_STATUS || isOverdueFollowUp(task, now)
+    ).length
+  }
+)
+const inProgressCount = computed(
+  () => {
+    const now = new Date()
+    return followUpItems.value.filter((task) => {
+      if (task.status === COMPLETED_STATUS) return false
+      if (task.status === INCOMPLETE_STATUS) return false
+      if (isOverdueFollowUp(task, now)) return false
+      return true
+    }).length
+  }
+)
+const unassignedCount = computed(
+  () => followUpItems.value.filter((task) => (task.assignees || []).length === 0).length
+)
+
+const openSummaryModal = (filter, title) => {
+  summaryModalFilter.value = filter
+  summaryModalTitle.value = title
+  summaryModalOpen.value = true
+}
+
+const closeSummaryModal = () => {
+  summaryModalOpen.value = false
+}
+
+const handleSummarySelectDate = (dateKey) => {
+  if (!dateKey) return
+  selectedDate.value = dateKey
+}
 
 const totalPendingCount = computed(() =>
   userSubmissions.value.reduce((total, item) => {
@@ -446,17 +518,63 @@ onMounted(() => {
       </header>
 
       <section class="summary-grid">
-        <article class="summary-card">
-          <p class="card-label">待辦事項</p>
-          <p class="card-value">{{ totalPendingCount }}</p>
-          <p class="card-meta">統計所有標籤（除已完成）</p>
-        </article>
-        <article class="summary-card">
-          <p class="card-label">超時未完成</p>
-          <p class="card-value">{{ overduePendingCount }}</p>
-          <p class="card-meta">以目前時間計算</p>
-        </article>
+        <button
+          type="button"
+          class="summary-card summary-card-button"
+          @click="openSummaryModal('all', '任務總數')"
+        >
+          <p class="card-label">任務總數</p>
+          <p class="card-value">{{ totalCount }}</p>
+          <p class="card-meta">目前所有跟進任務</p>
+        </button>
+        <button
+          type="button"
+          class="summary-card summary-card-success summary-card-button"
+          @click="openSummaryModal('completed', '已完成')"
+        >
+          <p class="card-label">已完成</p>
+          <p class="card-value">{{ completedCount }}</p>
+          <p class="card-meta">已完成的跟進數量</p>
+        </button>
+        <button
+          type="button"
+          class="summary-card summary-card-warning summary-card-button"
+          @click="openSummaryModal('in_progress', '進行中')"
+        >
+          <p class="card-label">進行中</p>
+          <p class="card-value">{{ inProgressCount }}</p>
+          <p class="card-meta">未完成與已完成以外狀態</p>
+        </button>
+        <button
+          type="button"
+          class="summary-card summary-card-warning summary-card-button"
+          @click="openSummaryModal('unassigned', '未指派')"
+        >
+          <p class="card-label">未指派</p>
+          <p class="card-value">{{ unassignedCount }}</p>
+          <p class="card-meta">尚未安排跟進人</p>
+        </button>
+        <button
+          type="button"
+          class="summary-card summary-card-danger summary-card-button"
+          @click="openSummaryModal('incomplete', '未完成')"
+        >
+          <p class="card-label">未完成</p>
+          <p class="card-value">{{ incompleteCount }}</p>
+          <p class="card-meta">標記為未完成的跟進</p>
+        </button>
       </section>
+
+      <FollowUpSummaryModal
+        :open="summaryModalOpen"
+        :title="summaryModalTitle"
+        :status-filter="summaryModalFilter"
+        :submissions="userSubmissions"
+        :include-overdue-incomplete="true"
+        :reference-date="new Date()"
+        @close="closeSummaryModal"
+        @select-date="handleSummarySelectDate"
+      />
 
       <section class="content-grid">
         <article class="panel wide">
@@ -762,6 +880,54 @@ onMounted(() => {
   box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
 }
 
+.summary-card-button {
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.summary-card-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.12);
+}
+
+.summary-card-button:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 4px;
+}
+
+.summary-card-success {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.summary-card-warning {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.summary-card-danger {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.summary-card-success .card-label,
+.summary-card-warning .card-label,
+.summary-card-danger .card-label,
+.summary-card-success .card-meta,
+.summary-card-warning .card-meta,
+.summary-card-danger .card-meta {
+  color: currentColor;
+  opacity: 0.75;
+}
+
+.summary-card-success .card-value,
+.summary-card-warning .card-value,
+.summary-card-danger .card-value {
+  color: currentColor;
+}
+
 .card-label {
   color: #94a3b8;
   font-size: 0.85rem;
@@ -858,7 +1024,7 @@ onMounted(() => {
   display: grid;
   grid-template-columns: 80px minmax(0, 1fr);
   gap: 1rem;
-  align-items: center;
+  align-items: start;
 }
 
 .time {
