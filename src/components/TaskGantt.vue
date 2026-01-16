@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { formatDateTimeDisplay } from '../scripts/time.js'
 
 const DEFAULT_CLIENT_COLOR = '#e2e8f0'
@@ -33,6 +33,7 @@ const props = defineProps({
 const rangeType = ref('month')
 const expandedTaskIds = ref(new Set())
 const expandedGroupIds = ref(new Set())
+const anchorDateInput = ref('')
 
 const toTask = (submission) => {
   if (!submission?.end_at) return null
@@ -111,6 +112,26 @@ const rangeConfig = computed(() => {
 })
 
 const anchorDate = ref(new Date())
+const formatDateInput = (value) => {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+anchorDateInput.value = formatDateInput(anchorDate.value)
+watch(anchorDate, (value) => {
+  anchorDateInput.value = formatDateInput(value)
+})
+const handleAnchorDateChange = (event) => {
+  const nextValue = event?.target?.value
+  if (!nextValue) return
+  const nextDate = new Date(`${nextValue}T00:00:00`)
+  if (Number.isNaN(nextDate.getTime())) return
+  anchorDate.value = nextDate
+}
 
 const timelineStart = computed(() => {
   const base = new Date(anchorDate.value)
@@ -635,9 +656,18 @@ const handleWheel = (event) => {
     <header class="gantt-header">
       <div>
         <h3 class="gantt-title">甘特圖視圖</h3>
-        <p class="gantt-subtitle">
-          {{ formatDateTimeDisplay(timelineStart) }} - {{ formatDateTimeDisplay(timelineEnd) }}
-        </p>
+        <div class="gantt-subtitle">
+          <span>{{ formatDateTimeDisplay(timelineStart) }} - {{ formatDateTimeDisplay(timelineEnd) }}</span>
+          <label class="gantt-date-picker">
+            <span class="gantt-date-label">選擇時間</span>
+            <input
+              type="date"
+              :value="anchorDateInput"
+              class="gantt-date-input"
+              @change="handleAnchorDateChange"
+            />
+          </label>
+        </div>
       </div>
       <div class="gantt-controls">
         <div class="gantt-range-toggle">
@@ -805,6 +835,32 @@ const handleWheel = (event) => {
   margin: 0.3rem 0 0;
   color: #64748b;
   font-size: 0.85rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.gantt-date-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.gantt-date-label {
+  font-size: 0.75rem;
+}
+
+.gantt-date-input {
+  border: none;
+  background: transparent;
+  font-size: 0.75rem;
+  color: inherit;
+  outline: none;
 }
 
 .gantt-controls {
