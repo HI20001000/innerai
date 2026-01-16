@@ -183,6 +183,27 @@ const axisTicks = computed(() => {
   return ticks
 })
 
+const gridTicks = computed(() => {
+  if (rangeType.value === 'day') return axisTicks.value
+  const start = toDayStart(timelineStart.value)
+  const ticks = []
+  const count = rangeConfig.value.count
+  for (let i = 0; i <= count; i += 1) {
+    const cursor =
+      rangeType.value === 'year'
+        ? new Date(start.getFullYear() + i, 0, 1)
+        : new Date(start.getFullYear(), start.getMonth() + i, 1)
+    const dayIndex = Math.round(
+      (toDayStart(cursor).getTime() - start.getTime()) / MILLISECONDS_IN_DAY
+    )
+    ticks.push({
+      key: cursor.toISOString(),
+      dayIndex,
+    })
+  }
+  return ticks
+})
+
 const getBarColor = (user) => user?.icon_bg || DEFAULT_CLIENT_COLOR
 
 const ganttRows = computed(() => {
@@ -513,7 +534,7 @@ const handleWheel = (event) => {
           <div class="gantt-rows" :style="{ width: `${timelineWidth}px`, minWidth: '100%' }">
             <div class="gantt-grid">
               <span
-                v-for="tick in axisTicks"
+                v-for="tick in gridTicks"
                 :key="`grid-${tick.key}`"
                 class="gantt-grid-line"
                 :style="{ left: `${tick.dayIndex * dayWidth}px` }"
