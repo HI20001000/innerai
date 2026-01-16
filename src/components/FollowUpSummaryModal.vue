@@ -95,11 +95,11 @@ watch(
 
 const isOverdue = (submission) => {
   if (!props.includeOverdueIncomplete || !props.referenceDate) return false
-  const ref = new Date(props.referenceDate)
-  if (Number.isNaN(ref.getTime())) return false
-  const endAt = submission?.end_at ? new Date(submission.end_at) : null
-  if (!endAt || Number.isNaN(endAt.getTime())) return false
-  return endAt.getTime() < ref.getTime()
+  const refKey = toDateKey(props.referenceDate)
+  if (!refKey) return false
+  const endKey = toDateKey(submission?.end_at)
+  if (!endKey) return false
+  return endKey < refKey
 }
 
 const matchesStatusFilter = (followUp, submission) => {
