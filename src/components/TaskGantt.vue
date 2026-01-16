@@ -393,7 +393,11 @@ let timelineObserver = null
 
 const dayWidth = computed(() => {
   if (!timelineViewportWidth.value) return DAY_WIDTH_PX
-  return Math.max(DAY_WIDTH_PX, timelineViewportWidth.value / totalDays.value)
+  const fitWidth = timelineViewportWidth.value / totalDays.value
+  if (rangeType.value === 'day') {
+    return Math.max(DAY_WIDTH_PX, fitWidth)
+  }
+  return fitWidth
 })
 
 const timelineWidth = computed(() => totalDays.value * dayWidth.value)
