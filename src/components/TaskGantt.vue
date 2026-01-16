@@ -698,6 +698,7 @@ const handleWheel = (event) => {
   width: 100%;
   min-width: 0;
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 .gantt-label {
@@ -708,6 +709,8 @@ const handleWheel = (event) => {
   align-items: center;
   width: 100%;
   box-sizing: border-box;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .gantt-group {

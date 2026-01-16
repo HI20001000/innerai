@@ -346,7 +346,7 @@ watch(
 
 const ganttSubmissions = computed(() => {
   if (viewMode.value === 'user') return submissions.value
-  if (viewMode.value === 'client') return clientSubmissions.value
+  if (viewMode.value === 'client') return submissions.value
   return []
 })
 </script>
