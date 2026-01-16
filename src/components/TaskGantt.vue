@@ -42,17 +42,14 @@ const toTask = (submission) => {
   const fallbackLabel = `${submission.client_name || '客戶'}_${submission.vendor_name || '廠家'}_${
     submission.product_name || '產品'
   }`
+  const tagLabel = submission.tag || submission.tag_name
   return {
     id: submission.id,
     clientName: submission.client_name,
     vendorName: submission.vendor_name,
     productName: submission.product_name,
     taskLabel:
-      submission.label ||
-      submission.task_label ||
-      submission.tag ||
-      submission.tag_name ||
-      fallbackLabel,
+      tagLabel || submission.label || submission.task_label || fallbackLabel,
     startAt,
     endAt,
     followUps: Array.isArray(submission.follow_ups) ? submission.follow_ups : [],
@@ -301,14 +298,15 @@ const ganttRows = computed(() => {
                 .forEach(([vendorName, productMap]) => {
                   const vendorGroupId = `${clientGroupId}-vendor-${vendorName}`
                   const vendorTasks = Array.from(productMap.values()).flat()
-                  rows.push({
-                    id: vendorGroupId,
-                    type: 'group',
-                    label: vendorName || '廠家',
-                    icon: '🏭',
-                    groupId: vendorGroupId,
-                    color: getBarColor(user),
-                    level: 3,
+            rows.push({
+              id: vendorGroupId,
+              type: 'group',
+              label: vendorName || '廠家',
+              labelStyle: 'task',
+              showIcon: false,
+              groupId: vendorGroupId,
+              color: getBarColor(user),
+              level: 3,
                     taskSpans: vendorTasks.map((task) => ({
                       startAt: task.startAt,
                       endAt: task.endAt,
@@ -324,7 +322,8 @@ const ganttRows = computed(() => {
                           id: productGroupId,
                           type: 'group',
                           label: productName || '產品',
-                          icon: '📦',
+                          labelStyle: 'task',
+                          showIcon: false,
                           groupId: productGroupId,
                           color: getBarColor(user),
                           level: 4,
@@ -425,7 +424,8 @@ const ganttRows = computed(() => {
                 id: vendorGroupId,
                 type: 'group',
                 label: vendorName || '廠家',
-                icon: '🏭',
+                labelStyle: 'task',
+                showIcon: false,
                 groupId: vendorGroupId,
                 color: DEFAULT_CLIENT_COLOR,
                 level: 2,
@@ -444,7 +444,8 @@ const ganttRows = computed(() => {
                       id: productGroupId,
                       type: 'group',
                       label: productName || '產品',
-                      icon: '📦',
+                      labelStyle: 'task',
+                      showIcon: false,
                       groupId: productGroupId,
                       color: DEFAULT_CLIENT_COLOR,
                       level: 3,
@@ -698,11 +699,22 @@ const handleWheel = (event) => {
               class="gantt-group"
               @click="toggleGroup(row.groupId || row.id)"
             >
-              <div class="gantt-group-badge" :style="{ backgroundColor: row.color }">
+              <div
+                v-if="row.showIcon !== false"
+                class="gantt-group-badge"
+                :style="{ backgroundColor: row.color }"
+              >
                 {{ row.icon }}
               </div>
               <div class="gantt-group-text">
-                <span class="gantt-group-name">{{ row.label }}</span>
+                <span
+                  :class="[
+                    'gantt-group-name',
+                    { 'gantt-group-name-task': row.labelStyle === 'task' },
+                  ]"
+                >
+                  {{ row.label }}
+                </span>
                 <span v-if="row.meta" class="gantt-group-meta">{{ row.meta }}</span>
               </div>
               <span class="gantt-task-toggle">
@@ -912,6 +924,12 @@ const handleWheel = (event) => {
 
 .gantt-group-name {
   font-size: 0.95rem;
+}
+
+.gantt-group-name-task {
+  font-size: 0.85rem;
+  font-weight: 400;
+  padding-left: 0.25rem;
 }
 
 .gantt-group-text {
