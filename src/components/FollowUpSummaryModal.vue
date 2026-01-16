@@ -413,6 +413,8 @@ const handleSelectFollowUp = (submission) => {
   box-shadow: 0 20px 60px rgba(15, 23, 42, 0.35);
   display: grid;
   gap: 1.5rem;
+  align-content: start;
+  align-items: start;
 }
 
 .followup-modal-header {
