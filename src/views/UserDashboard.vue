@@ -3,6 +3,7 @@ import { computed, getCurrentInstance, onMounted, ref, watch } from 'vue'
 import WorkspaceSidebar from '../components/WorkspaceSidebar.vue'
 import MonthlyCalendar from '../components/MonthlyCalendar.vue'
 import TaskGantt from '../components/TaskGantt.vue'
+import FollowUpSummaryModal from '../components/FollowUpSummaryModal.vue'
 import { formatDateTimeDisplay, getTaipeiTodayKey, toDateKey } from '../scripts/time.js'
 
 const router = getCurrentInstance().appContext.config.globalProperties.$router
@@ -31,6 +32,9 @@ const userSearchQuery = ref('')
 const clientSearchQuery = ref('')
 const isLoading = ref(false)
 const errorMessage = ref('')
+const summaryModalOpen = ref(false)
+const summaryModalFilter = ref('all')
+const summaryModalTitle = ref('任務總數')
 
 const COMPLETED_STATUS = '已完成'
 const INCOMPLETE_STATUS = '未完成'
@@ -193,6 +197,22 @@ const getStatusChipStyle = (task) => {
     return { backgroundColor: '#fee2e2', color: '#b91c1c' }
   }
   return { backgroundColor: '#fef3c7', color: '#92400e' }
+}
+
+const openSummaryModal = (filter, title) => {
+  summaryModalFilter.value = filter
+  summaryModalTitle.value = title
+  summaryModalOpen.value = true
+}
+
+const closeSummaryModal = () => {
+  summaryModalOpen.value = false
+}
+
+const handleSummarySelectDate = (dateKey) => {
+  if (!dateKey) return
+  selectedDate.value = dateKey
+  viewType.value = 'calendar'
 }
 
 const formatTimeOnly = (value) => {
@@ -498,32 +518,61 @@ const ganttSubmissions = computed(() => {
       </section>
 
       <section v-if="viewType === 'calendar'" class="summary-grid">
-        <article class="summary-card">
+        <button
+          type="button"
+          class="summary-card summary-card-button"
+          @click="openSummaryModal('all', '任務總數')"
+        >
           <p class="card-label">任務總數</p>
           <p class="card-value">{{ totalCount }}</p>
           <p class="card-meta">{{ summaryMeta }}</p>
-        </article>
-        <article class="summary-card summary-card-success">
+        </button>
+        <button
+          type="button"
+          class="summary-card summary-card-success summary-card-button"
+          @click="openSummaryModal('completed', '已完成')"
+        >
           <p class="card-label">已完成</p>
           <p class="card-value">{{ completedCount }}</p>
           <p class="card-meta">已完成的跟進數量</p>
-        </article>
-        <article class="summary-card summary-card-warning">
+        </button>
+        <button
+          type="button"
+          class="summary-card summary-card-warning summary-card-button"
+          @click="openSummaryModal('in_progress', '進行中')"
+        >
           <p class="card-label">進行中</p>
           <p class="card-value">{{ inProgressCount }}</p>
           <p class="card-meta">未完成與已完成以外狀態</p>
-        </article>
-        <article class="summary-card summary-card-warning">
+        </button>
+        <button
+          type="button"
+          class="summary-card summary-card-warning summary-card-button"
+          @click="openSummaryModal('unassigned', '未指派')"
+        >
           <p class="card-label">未指派</p>
           <p class="card-value">{{ unassignedCount }}</p>
           <p class="card-meta">尚未安排跟進人</p>
-        </article>
-        <article class="summary-card summary-card-danger">
+        </button>
+        <button
+          type="button"
+          class="summary-card summary-card-danger summary-card-button"
+          @click="openSummaryModal('incomplete', '未完成')"
+        >
           <p class="card-label">未完成</p>
           <p class="card-value">{{ incompleteCount }}</p>
           <p class="card-meta">標記為未完成的跟進</p>
-        </article>
+        </button>
       </section>
+
+      <FollowUpSummaryModal
+        :open="summaryModalOpen"
+        :title="summaryModalTitle"
+        :status-filter="summaryModalFilter"
+        :submissions="activeSubmissions"
+        @close="closeSummaryModal"
+        @select-date="handleSummarySelectDate"
+      />
 
       <section :class="['dashboard-grid', { 'dashboard-grid-gantt': viewType === 'gantt' }]">
         <article v-if="viewType === 'calendar'" class="panel">
@@ -826,6 +875,23 @@ const ganttSubmissions = computed(() => {
   box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
   display: grid;
   gap: 0.4rem;
+}
+
+.summary-card-button {
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.summary-card-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.12);
+}
+
+.summary-card-button:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 4px;
 }
 
 .summary-card-success {
