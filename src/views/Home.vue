@@ -656,7 +656,7 @@ onMounted(() => {
         <article class="panel wide">
           <MonthlyCalendar
             :selected-date="selectedDate"
-            :submissions="submissions"
+            :submissions="userSubmissions"
             @select-date="handleSelectDate"
           />
         </article>
