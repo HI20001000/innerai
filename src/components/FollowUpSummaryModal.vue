@@ -21,6 +21,14 @@ const props = defineProps({
     type: Array,
     default: () => [],
   },
+  includeOverdueIncomplete: {
+    type: Boolean,
+    default: false,
+  },
+  referenceDate: {
+    type: [String, Date],
+    default: '',
+  },
 })
 
 const emit = defineEmits(['close', 'select-date'])
@@ -85,12 +93,24 @@ watch(
   }
 )
 
-const matchesStatusFilter = (followUp) => {
+const isOverdue = (submission) => {
+  if (!props.includeOverdueIncomplete || !props.referenceDate) return false
+  const ref = new Date(props.referenceDate)
+  if (Number.isNaN(ref.getTime())) return false
+  const endAt = submission?.end_at ? new Date(submission.end_at) : null
+  if (!endAt || Number.isNaN(endAt.getTime())) return false
+  return endAt.getTime() < ref.getTime()
+}
+
+const matchesStatusFilter = (followUp, submission) => {
   if (!followUp) return false
   const statusName = followUp.status_name || '進行中'
   if (props.statusFilter === 'completed') return statusName === '已完成'
-  if (props.statusFilter === 'incomplete') return statusName === '未完成'
+  if (props.statusFilter === 'incomplete') {
+    return statusName === '未完成' || isOverdue(submission)
+  }
   if (props.statusFilter === 'in_progress') {
+    if (isOverdue(submission)) return false
     return statusName !== '已完成' && statusName !== '未完成'
   }
   if (props.statusFilter === 'unassigned') {
@@ -111,7 +131,7 @@ const hierarchy = computed(() => {
   const items = props.submissions || []
   items.forEach((submission) => {
     const followUps = Array.isArray(submission.follow_ups) ? submission.follow_ups : []
-    const filtered = followUps.filter(matchesStatusFilter)
+    const filtered = followUps.filter((followUp) => matchesStatusFilter(followUp, submission))
     if (filtered.length === 0) return
     const clientName = submission.client_name || '客戶'
     const vendorName = submission.vendor_name || '廠家'
