@@ -91,14 +91,17 @@ const groupedTasks = computed(() => {
     .filter((group) => group.tasks.length > 0)
 })
 
+const MAX_MONTH_TICKS = 4
+const MAX_YEAR_TICKS = 3
+
 const rangeConfig = computed(() => {
   if (rangeType.value === 'day') {
     return { unit: 'day', count: 7, width: 110 }
   }
   if (rangeType.value === 'year') {
-    return { unit: 'year', count: 3, width: 180 }
+    return { unit: 'year', count: MAX_YEAR_TICKS, width: 180 }
   }
-  return { unit: 'month', count: 4, width: 150 }
+  return { unit: 'month', count: MAX_MONTH_TICKS, width: 150 }
 })
 
 const anchorDate = ref(new Date())
@@ -146,47 +149,61 @@ const axisTicks = computed(() => {
       const date = new Date(start.getTime() + i * MILLISECONDS_IN_DAY)
       ticks.push({
         key: date.toISOString(),
-        label: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
+        label: `${String(date.getMonth() + 1).padStart(2, '0')}/${String(
           date.getDate()
         ).padStart(2, '0')}`,
         dayIndex: i,
       })
     }
   } else if (rangeType.value === 'year') {
-    const end = new Date(start.getFullYear() + rangeConfig.value.count, start.getMonth(), 1)
-    const cursor = new Date(start.getFullYear(), 0, 1)
-    while (cursor < end) {
+    for (let i = 0; i <= rangeConfig.value.count; i += 1) {
+      const cursor = new Date(start.getFullYear() + i, 0, 1)
       const dayIndex = Math.round(
         (toDayStart(cursor).getTime() - start.getTime()) / MILLISECONDS_IN_DAY
       )
       ticks.push({
         key: cursor.toISOString(),
-        label: `${cursor.getFullYear()}`,
+        label: `${cursor.getFullYear()}年`,
         dayIndex,
+        isBoundaryEnd: i === rangeConfig.value.count,
       })
-      cursor.setFullYear(cursor.getFullYear() + 1)
     }
   } else {
-    const end = new Date(start.getTime() + totalDays.value * MILLISECONDS_IN_DAY)
-    const cursor = new Date(start.getFullYear(), start.getMonth(), 1)
-    while (cursor < end) {
+    for (let i = 0; i <= rangeConfig.value.count; i += 1) {
+      const cursor = new Date(start.getFullYear(), start.getMonth() + i, 1)
       const dayIndex = Math.round(
         (toDayStart(cursor).getTime() - start.getTime()) / MILLISECONDS_IN_DAY
       )
       ticks.push({
         key: cursor.toISOString(),
-        label: `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`,
+        label: `${String(cursor.getMonth() + 1).padStart(2, '0')}月`,
         dayIndex,
+        isBoundaryEnd: i === rangeConfig.value.count,
       })
-      cursor.setMonth(cursor.getMonth() + 1)
     }
   }
   return ticks
 })
 
-const minorTicks = computed(() => {
-  if (rangeType.value === 'day') return []
-  return []
+const gridTicks = computed(() => {
+  if (rangeType.value === 'day') return axisTicks.value
+  const start = toDayStart(timelineStart.value)
+  const ticks = []
+  const count = rangeConfig.value.count
+  for (let i = 0; i <= count; i += 1) {
+    const cursor =
+      rangeType.value === 'year'
+        ? new Date(start.getFullYear() + i, 0, 1)
+        : new Date(start.getFullYear(), start.getMonth() + i, 1)
+    const dayIndex = Math.round(
+      (toDayStart(cursor).getTime() - start.getTime()) / MILLISECONDS_IN_DAY
+    )
+    ticks.push({
+      key: cursor.toISOString(),
+      dayIndex,
+    })
+  }
+  return ticks
 })
 
 const getBarColor = (user) => user?.icon_bg || DEFAULT_CLIENT_COLOR
@@ -249,60 +266,75 @@ const ganttRows = computed(() => {
       }
     })
   } else if (props.viewMode === 'client') {
-    const clientGroupId = `group-client-${props.selectedClient?.name || 'unknown'}`
-    const relatedMails = new Set()
-    let unassignedFollowUps = 0
-    tasks.value.forEach((task) => {
-      const submission = (props.submissions || []).find((item) => item.id === task.id)
-      if (submission?.related_users) {
-        submission.related_users.forEach((related) => related?.mail && relatedMails.add(related.mail))
-      }
-      const followUps = Array.isArray(submission?.follow_ups) ? submission.follow_ups : []
-      followUps.forEach((followUp) => {
-        const assignees = Array.isArray(followUp?.assignees) ? followUp.assignees : []
-        if (assignees.length === 0) {
-          unassignedFollowUps += 1
-        }
-      })
-    })
-    rows.push({
-      id: clientGroupId,
-      type: 'group',
-      label: props.selectedClient?.name || '客戶',
-      icon: '🏷️',
-      groupId: clientGroupId,
-      color: DEFAULT_CLIENT_COLOR,
-      taskSpans: tasks.value.map((task) => ({
-        startAt: task.startAt,
-        endAt: task.endAt,
-        color: DEFAULT_CLIENT_COLOR,
-      })),
-      meta: `同事 ${relatedMails.size}｜未指派 ${unassignedFollowUps}`,
-    })
-    if (expandedGroupIds.value.has(clientGroupId)) {
-      tasks.value.forEach((task) => {
-        rows.push({
-          id: `task-${task.id}`,
-          taskId: task.id,
-          type: 'task',
-          label: `${task.clientName}_${task.vendorName}_${task.productName}`,
-          startAt: task.startAt,
-          endAt: task.endAt,
-          color: DEFAULT_CLIENT_COLOR,
+    const submissionById = new Map(
+      (props.submissions || []).map((submission) => [submission.id, submission])
+    )
+    const tasksByClient = tasks.value.reduce((result, task) => {
+      const name = task.clientName || '客戶'
+      if (!result.has(name)) result.set(name, [])
+      result.get(name).push(task)
+      return result
+    }, new Map())
+    Array.from(tasksByClient.entries())
+      .sort(([nameA], [nameB]) => nameA.localeCompare(nameB))
+      .forEach(([clientName, clientTasks]) => {
+        const clientGroupId = `group-client-${clientName || 'unknown'}`
+        const relatedMails = new Set()
+        let unassignedFollowUps = 0
+        clientTasks.forEach((task) => {
+          const submission = submissionById.get(task.id)
+          if (submission?.related_users) {
+            submission.related_users.forEach((related) =>
+              related?.mail && relatedMails.add(related.mail)
+            )
+          }
+          const followUps = Array.isArray(submission?.follow_ups) ? submission.follow_ups : []
+          followUps.forEach((followUp) => {
+            const assignees = Array.isArray(followUp?.assignees) ? followUp.assignees : []
+            if (assignees.length === 0) {
+              unassignedFollowUps += 1
+            }
+          })
         })
-        if (expandedTaskIds.value.has(task.id)) {
-          task.followUps.forEach((followUp) => {
+        rows.push({
+          id: clientGroupId,
+          type: 'group',
+          label: clientName || '客戶',
+          icon: '🏷️',
+          groupId: clientGroupId,
+          color: DEFAULT_CLIENT_COLOR,
+          taskSpans: clientTasks.map((task) => ({
+            startAt: task.startAt,
+            endAt: task.endAt,
+            color: DEFAULT_CLIENT_COLOR,
+          })),
+          meta: `同事 ${relatedMails.size}｜未指派 ${unassignedFollowUps}`,
+        })
+        if (expandedGroupIds.value.has(clientGroupId)) {
+          clientTasks.forEach((task) => {
             rows.push({
-              id: `followup-${task.id}-${followUp.id || followUp.content}`,
-              type: 'followup',
-              label: followUp.content || '跟進任務',
+              id: `task-${task.id}`,
+              taskId: task.id,
+              type: 'task',
+              label: `${task.clientName}_${task.vendorName}_${task.productName}`,
+              startAt: task.startAt,
               endAt: task.endAt,
               color: DEFAULT_CLIENT_COLOR,
             })
+            if (expandedTaskIds.value.has(task.id)) {
+              task.followUps.forEach((followUp) => {
+                rows.push({
+                  id: `followup-${task.id}-${followUp.id || followUp.content}`,
+                  type: 'followup',
+                  label: followUp.content || '跟進任務',
+                  endAt: task.endAt,
+                  color: DEFAULT_CLIENT_COLOR,
+                })
+              })
+            }
           })
         }
       })
-    }
   }
 
   return rows
@@ -315,17 +347,23 @@ const getPositionStyle = (startAt, endAt) => {
     return { display: 'none' }
   }
   const rangeStart = toDayStart(timelineStart.value)
+  const rangeEnd = toDayStart(timelineEnd.value)
   const total = totalDays.value * MILLISECONDS_IN_DAY
   if (total <= 0) return { display: 'none' }
-  const left =
-    ((start.getTime() - rangeStart.getTime()) / total) * timelineWidth.value
   const endInclusive = end.getTime() + MILLISECONDS_IN_DAY
+  if (endInclusive <= rangeStart.getTime() || start.getTime() >= rangeEnd.getTime()) {
+    return { display: 'none' }
+  }
+  const clampedStart = Math.max(start.getTime(), rangeStart.getTime())
+  const clampedEnd = Math.min(endInclusive, rangeEnd.getTime())
+  const left =
+    ((clampedStart - rangeStart.getTime()) / total) * timelineWidth.value
   const width =
-    ((endInclusive - start.getTime()) / total) * timelineWidth.value
+    ((clampedEnd - clampedStart) / total) * timelineWidth.value
   if (width <= 0) return { display: 'none' }
   return {
     left: `${Math.max(left, 0)}px`,
-    width: `${Math.min(width, timelineWidth.value - left)}px`,
+    width: `${Math.max(Math.min(width, timelineWidth.value - left), 0)}px`,
   }
 }
 
@@ -335,6 +373,10 @@ const getMarkerStyle = (dateValue) => {
     return { display: 'none' }
   }
   const rangeStart = toDayStart(timelineStart.value)
+  const rangeEnd = toDayStart(timelineEnd.value)
+  if (date.getTime() < rangeStart.getTime() || date.getTime() >= rangeEnd.getTime()) {
+    return { display: 'none' }
+  }
   const total = totalDays.value * MILLISECONDS_IN_DAY
   if (total <= 0) return { display: 'none' }
   const left =
@@ -378,7 +420,11 @@ let timelineObserver = null
 
 const dayWidth = computed(() => {
   if (!timelineViewportWidth.value) return DAY_WIDTH_PX
-  return Math.max(DAY_WIDTH_PX, timelineViewportWidth.value / totalDays.value)
+  const fitWidth = timelineViewportWidth.value / totalDays.value
+  if (rangeType.value === 'day') {
+    return Math.max(DAY_WIDTH_PX, fitWidth)
+  }
+  return fitWidth
 })
 
 const timelineWidth = computed(() => totalDays.value * dayWidth.value)
@@ -405,6 +451,12 @@ const shiftRange = (direction) => {
   if (rangeType.value === 'day') {
     anchorDate.value = new Date(
       anchorDate.value.getTime() + direction * MILLISECONDS_IN_DAY
+    )
+  } else if (rangeType.value === 'year') {
+    anchorDate.value = new Date(
+      anchorDate.value.getFullYear() + direction,
+      anchorDate.value.getMonth(),
+      anchorDate.value.getDate()
     )
   } else {
     anchorDate.value = new Date(
@@ -471,17 +523,11 @@ const handleWheel = (event) => {
             <span
               v-for="tick in axisTicks"
               :key="tick.key"
-              class="gantt-tick gantt-tick-major"
+              :class="['gantt-tick', 'gantt-tick-major', { 'gantt-tick-end': tick.isBoundaryEnd }]"
               :style="{ left: `${tick.dayIndex * dayWidth}px` }"
             >
               {{ tick.label }}
             </span>
-            <span
-              v-for="tick in minorTicks"
-              :key="tick.key"
-              class="gantt-tick gantt-tick-minor"
-              :style="{ left: `${tick.dayIndex * dayWidth}px` }"
-            ></span>
           </div>
         </div>
       </div>
@@ -518,11 +564,21 @@ const handleWheel = (event) => {
               <span class="gantt-task-text">{{ row.label }}</span>
               <span class="gantt-task-toggle">{{ isTaskExpanded(row.taskId) ? '▾' : '▸' }}</span>
             </button>
-            <span v-else class="gantt-followup-text">{{ row.label }}</span>
+            <span v-else class="gantt-followup-text" :data-tooltip="row.label">
+              <span class="gantt-followup-text-content">{{ row.label }}</span>
+            </span>
           </div>
         </div>
         <div class="gantt-timeline" @wheel="handleWheel">
-        <div class="gantt-rows" :style="{ width: `${timelineWidth}px`, minWidth: '100%' }">
+          <div class="gantt-rows" :style="{ width: `${timelineWidth}px`, minWidth: '100%' }">
+            <div class="gantt-grid">
+              <span
+                v-for="tick in gridTicks"
+                :key="`grid-${tick.key}`"
+                class="gantt-grid-line"
+                :style="{ left: `${tick.dayIndex * dayWidth}px` }"
+              ></span>
+            </div>
             <div v-for="row in ganttRows" :key="row.id" class="gantt-row">
               <template v-if="row.type === 'group'">
                 <div
@@ -639,6 +695,9 @@ const handleWheel = (event) => {
   padding: 1rem;
   display: grid;
   gap: 0.6rem;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .gantt-label {
@@ -647,6 +706,8 @@ const handleWheel = (event) => {
   height: 36px;
   display: flex;
   align-items: center;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .gantt-group {
@@ -719,6 +780,43 @@ const handleWheel = (event) => {
   height: 36px;
   display: flex;
   align-items: center;
+  flex: 1;
+  max-width: 100%;
+  min-width: 0;
+  position: relative;
+}
+
+.gantt-followup-text-content {
+  display: block;
+  flex: 1;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gantt-followup-text::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: #111827;
+  color: #f8fafc;
+  padding: 0.4rem 0.6rem;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.2);
+  z-index: 10;
+}
+
+.gantt-followup-text:hover::after {
+  opacity: 1;
 }
 
 .gantt-timeline {
@@ -742,23 +840,37 @@ const handleWheel = (event) => {
   transform: translateX(-50%);
   font-size: 0.75rem;
   color: #94a3b8;
-}
-
-.gantt-tick-minor {
-  width: 1px;
-  height: 6px;
-  background: #e2e8f0;
-  color: transparent;
+  white-space: nowrap;
 }
 
 .gantt-tick-major {
   height: 100%;
 }
 
+.gantt-tick-end {
+  transform: translateX(-100%);
+}
+
 .gantt-rows {
   display: grid;
   gap: 0.6rem;
   width: 100%;
+  position: relative;
+}
+
+.gantt-grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.gantt-grid-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: #e2e8f0;
+  opacity: 0.7;
 }
 
 .gantt-row {
