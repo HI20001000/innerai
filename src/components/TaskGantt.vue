@@ -688,6 +688,8 @@ const handleWheel = (event) => {
   height: 36px;
   display: flex;
   align-items: center;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .gantt-group {
@@ -760,7 +762,7 @@ const handleWheel = (event) => {
   height: 36px;
   display: flex;
   align-items: center;
-  width: 100%;
+  flex: 1;
   max-width: 100%;
   min-width: 0;
   position: relative;
