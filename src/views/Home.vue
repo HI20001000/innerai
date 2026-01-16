@@ -146,8 +146,8 @@ const timelineItems = computed(() => {
   if (!mail) return []
   return submissions.value
     .filter((item) => {
-      const related = item.related_users || []
-      if (!related.some((user) => user.mail === mail)) return false
+      const relatedUsers = Array.isArray(item?.related_users) ? item.related_users : []
+      if (!relatedUsers.some((user) => user.mail === mail)) return false
       return toDateKey(item.end_at) === selectedDate.value
     })
     .sort((a, b) => String(a.end_at || '').localeCompare(String(b.end_at || '')))
