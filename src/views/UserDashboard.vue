@@ -346,7 +346,7 @@ watch(
 
 const ganttSubmissions = computed(() => {
   if (viewMode.value === 'user') return submissions.value
-  if (viewMode.value === 'client') return clientSubmissions.value
+  if (viewMode.value === 'client') return submissions.value
   return []
 })
 </script>
@@ -578,7 +578,7 @@ const ganttSubmissions = computed(() => {
             :selected-date="selectedDate"
             :submissions="calendarSubmissions"
             :user-mail="viewMode === 'user' ? selectedUser?.mail : ''"
-            :client-name="viewMode === 'client' ? selectedClient?.name : ''"
+            :client-name="''"
             :subtitle="calendarSubtitle"
             @select-date="handleSelectDate"
           />

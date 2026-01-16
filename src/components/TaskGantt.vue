@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { formatDateTimeDisplay } from '../scripts/time.js'
 
 const DEFAULT_CLIENT_COLOR = '#e2e8f0'
@@ -33,17 +33,24 @@ const props = defineProps({
 const rangeType = ref('month')
 const expandedTaskIds = ref(new Set())
 const expandedGroupIds = ref(new Set())
+const anchorDateInput = ref('')
 
 const toTask = (submission) => {
   if (!submission?.end_at) return null
   const startAt = submission.start_at || submission.end_at
   const endAt = submission.end_at
   if (!startAt || !endAt) return null
+  const fallbackLabel = `${submission.client_name || '客戶'}_${submission.vendor_name || '廠家'}_${
+    submission.product_name || '產品'
+  }`
+  const tagLabel = submission.tag || submission.tag_name
   return {
     id: submission.id,
     clientName: submission.client_name,
     vendorName: submission.vendor_name,
     productName: submission.product_name,
+    taskLabel:
+      tagLabel || submission.label || submission.task_label || fallbackLabel,
     startAt,
     endAt,
     followUps: Array.isArray(submission.follow_ups) ? submission.follow_ups : [],
@@ -91,17 +98,40 @@ const groupedTasks = computed(() => {
     .filter((group) => group.tasks.length > 0)
 })
 
+const MAX_MONTH_TICKS = 4
+const MAX_YEAR_TICKS = 3
+
 const rangeConfig = computed(() => {
   if (rangeType.value === 'day') {
     return { unit: 'day', count: 7, width: 110 }
   }
   if (rangeType.value === 'year') {
-    return { unit: 'year', count: 3, width: 180 }
+    return { unit: 'year', count: MAX_YEAR_TICKS, width: 180 }
   }
-  return { unit: 'month', count: 4, width: 150 }
+  return { unit: 'month', count: MAX_MONTH_TICKS, width: 150 }
 })
 
 const anchorDate = ref(new Date())
+const formatDateInput = (value) => {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+anchorDateInput.value = formatDateInput(anchorDate.value)
+watch(anchorDate, (value) => {
+  anchorDateInput.value = formatDateInput(value)
+})
+const handleAnchorDateChange = (event) => {
+  const nextValue = event?.target?.value
+  if (!nextValue) return
+  const nextDate = new Date(`${nextValue}T00:00:00`)
+  if (Number.isNaN(nextDate.getTime())) return
+  anchorDate.value = nextDate
+}
 
 const timelineStart = computed(() => {
   const base = new Date(anchorDate.value)
@@ -146,50 +176,86 @@ const axisTicks = computed(() => {
       const date = new Date(start.getTime() + i * MILLISECONDS_IN_DAY)
       ticks.push({
         key: date.toISOString(),
-        label: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
+        label: `${String(date.getMonth() + 1).padStart(2, '0')}/${String(
           date.getDate()
         ).padStart(2, '0')}`,
         dayIndex: i,
       })
     }
   } else if (rangeType.value === 'year') {
-    const end = new Date(start.getFullYear() + rangeConfig.value.count, start.getMonth(), 1)
-    const cursor = new Date(start.getFullYear(), 0, 1)
-    while (cursor < end) {
+    for (let i = 0; i <= rangeConfig.value.count; i += 1) {
+      const cursor = new Date(start.getFullYear() + i, 0, 1)
       const dayIndex = Math.round(
         (toDayStart(cursor).getTime() - start.getTime()) / MILLISECONDS_IN_DAY
       )
       ticks.push({
         key: cursor.toISOString(),
-        label: `${cursor.getFullYear()}`,
+        label: `${cursor.getFullYear()}年`,
         dayIndex,
+        isBoundaryEnd: i === rangeConfig.value.count,
       })
-      cursor.setFullYear(cursor.getFullYear() + 1)
     }
   } else {
-    const end = new Date(start.getTime() + totalDays.value * MILLISECONDS_IN_DAY)
-    const cursor = new Date(start.getFullYear(), start.getMonth(), 1)
-    while (cursor < end) {
+    for (let i = 0; i <= rangeConfig.value.count; i += 1) {
+      const cursor = new Date(start.getFullYear(), start.getMonth() + i, 1)
       const dayIndex = Math.round(
         (toDayStart(cursor).getTime() - start.getTime()) / MILLISECONDS_IN_DAY
       )
       ticks.push({
         key: cursor.toISOString(),
-        label: `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`,
+        label: `${String(cursor.getMonth() + 1).padStart(2, '0')}月`,
         dayIndex,
+        isBoundaryEnd: i === rangeConfig.value.count,
       })
-      cursor.setMonth(cursor.getMonth() + 1)
     }
   }
   return ticks
 })
 
-const minorTicks = computed(() => {
-  if (rangeType.value === 'day') return []
-  return []
+const gridTicks = computed(() => {
+  if (rangeType.value === 'day') return axisTicks.value
+  const start = toDayStart(timelineStart.value)
+  const ticks = []
+  const count = rangeConfig.value.count
+  for (let i = 0; i <= count; i += 1) {
+    const cursor =
+      rangeType.value === 'year'
+        ? new Date(start.getFullYear() + i, 0, 1)
+        : new Date(start.getFullYear(), start.getMonth() + i, 1)
+    const dayIndex = Math.round(
+      (toDayStart(cursor).getTime() - start.getTime()) / MILLISECONDS_IN_DAY
+    )
+    ticks.push({
+      key: cursor.toISOString(),
+      dayIndex,
+    })
+  }
+  return ticks
 })
 
 const getBarColor = (user) => user?.icon_bg || DEFAULT_CLIENT_COLOR
+
+const buildHierarchy = (tasksList) => {
+  const hierarchy = new Map()
+  tasksList.forEach((task) => {
+    const clientName = task.clientName || '客戶'
+    const vendorName = task.vendorName || '廠家'
+    const productName = task.productName || '產品'
+    if (!hierarchy.has(clientName)) {
+      hierarchy.set(clientName, new Map())
+    }
+    const vendorMap = hierarchy.get(clientName)
+    if (!vendorMap.has(vendorName)) {
+      vendorMap.set(vendorName, new Map())
+    }
+    const productMap = vendorMap.get(vendorName)
+    if (!productMap.has(productName)) {
+      productMap.set(productName, [])
+    }
+    productMap.get(productName).push(task)
+  })
+  return hierarchy
+}
 
 const ganttRows = computed(() => {
   const rows = []
@@ -215,6 +281,7 @@ const ganttRows = computed(() => {
         icon: user?.icon || '🙂',
         groupId,
         color: getBarColor(user),
+        level: 1,
         taskSpans: sortedTasks.map((task) => ({
           startAt: task.startAt,
           endAt: task.endAt,
@@ -224,85 +291,222 @@ const ganttRows = computed(() => {
         meta: `客戶 ${clientCount}｜跟進 ${followUpCount}`,
       })
       if (expandedGroupIds.value.has(groupId)) {
-        userTasks.forEach((task) => {
-          rows.push({
-            id: `task-${task.id}`,
-            taskId: task.id,
-            type: 'task',
-            label: `${task.clientName}_${task.vendorName}_${task.productName}`,
-            startAt: task.startAt,
-            endAt: task.endAt,
-            color: getBarColor(user),
-          })
-          if (expandedTaskIds.value.has(task.id)) {
-            task.followUps.forEach((followUp) => {
-              rows.push({
-                id: `followup-${task.id}-${followUp.id || followUp.content}`,
-                type: 'followup',
-                label: followUp.content || '跟進任務',
+        const hierarchy = buildHierarchy(userTasks)
+        Array.from(hierarchy.entries())
+          .sort(([nameA], [nameB]) => nameA.localeCompare(nameB))
+          .forEach(([clientName, vendorMap]) => {
+            const clientGroupId = `${groupId}-client-${clientName}`
+            const clientTasks = Array.from(vendorMap.values()).flatMap((productMap) =>
+              Array.from(productMap.values()).flat()
+            )
+            rows.push({
+              id: clientGroupId,
+              type: 'group',
+              label: clientName || '客戶',
+              icon: '🏷️',
+              groupId: clientGroupId,
+              color: getBarColor(user),
+              level: 2,
+              taskSpans: clientTasks.map((task) => ({
+                startAt: task.startAt,
                 endAt: task.endAt,
                 color: getBarColor(user),
-              })
+              })),
             })
-          }
-        })
+            if (expandedGroupIds.value.has(clientGroupId)) {
+              Array.from(vendorMap.entries())
+                .sort(([nameA], [nameB]) => nameA.localeCompare(nameB))
+                .forEach(([vendorName, productMap]) => {
+                  const vendorGroupId = `${clientGroupId}-vendor-${vendorName}`
+                  const vendorTasks = Array.from(productMap.values()).flat()
+            rows.push({
+              id: vendorGroupId,
+              type: 'group',
+              label: vendorName || '廠家',
+              labelStyle: 'task',
+              showIcon: false,
+              groupId: vendorGroupId,
+              color: getBarColor(user),
+              level: 3,
+                    taskSpans: vendorTasks.map((task) => ({
+                      startAt: task.startAt,
+                      endAt: task.endAt,
+                      color: getBarColor(user),
+                    })),
+                  })
+                  if (expandedGroupIds.value.has(vendorGroupId)) {
+                    Array.from(productMap.entries())
+                      .sort(([nameA], [nameB]) => nameA.localeCompare(nameB))
+                      .forEach(([productName, productTasks]) => {
+                        const productGroupId = `${vendorGroupId}-product-${productName}`
+                        rows.push({
+                          id: productGroupId,
+                          type: 'group',
+                          label: productName || '產品',
+                          labelStyle: 'task',
+                          showIcon: false,
+                          groupId: productGroupId,
+                          color: getBarColor(user),
+                          level: 4,
+                          taskSpans: productTasks.map((task) => ({
+                            startAt: task.startAt,
+                            endAt: task.endAt,
+                            color: getBarColor(user),
+                          })),
+                        })
+                        if (expandedGroupIds.value.has(productGroupId)) {
+                          productTasks.forEach((task) => {
+                            rows.push({
+                              id: `task-${task.id}`,
+                              taskId: task.id,
+                              type: 'task',
+                              label: task.taskLabel,
+                              startAt: task.startAt,
+                              endAt: task.endAt,
+                              color: getBarColor(user),
+                              level: 5,
+                            })
+                            if (expandedTaskIds.value.has(task.id)) {
+                              task.followUps.forEach((followUp) => {
+                                rows.push({
+                                  id: `followup-${task.id}-${followUp.id || followUp.content}`,
+                                  type: 'followup',
+                                  label: followUp.content || '跟進任務',
+                                  endAt: task.endAt,
+                                  color: getBarColor(user),
+                                  level: 6,
+                                })
+                              })
+                            }
+                          })
+                        }
+                      })
+                  }
+                })
+            }
+          })
       }
     })
   } else if (props.viewMode === 'client') {
-    const clientGroupId = `group-client-${props.selectedClient?.name || 'unknown'}`
-    const relatedMails = new Set()
-    let unassignedFollowUps = 0
-    tasks.value.forEach((task) => {
-      const submission = (props.submissions || []).find((item) => item.id === task.id)
-      if (submission?.related_users) {
-        submission.related_users.forEach((related) => related?.mail && relatedMails.add(related.mail))
-      }
-      const followUps = Array.isArray(submission?.follow_ups) ? submission.follow_ups : []
-      followUps.forEach((followUp) => {
-        const assignees = Array.isArray(followUp?.assignees) ? followUp.assignees : []
-        if (assignees.length === 0) {
-          unassignedFollowUps += 1
-        }
-      })
-    })
-    rows.push({
-      id: clientGroupId,
-      type: 'group',
-      label: props.selectedClient?.name || '客戶',
-      icon: '🏷️',
-      groupId: clientGroupId,
-      color: DEFAULT_CLIENT_COLOR,
-      taskSpans: tasks.value.map((task) => ({
-        startAt: task.startAt,
-        endAt: task.endAt,
-        color: DEFAULT_CLIENT_COLOR,
-      })),
-      meta: `同事 ${relatedMails.size}｜未指派 ${unassignedFollowUps}`,
-    })
-    if (expandedGroupIds.value.has(clientGroupId)) {
-      tasks.value.forEach((task) => {
-        rows.push({
-          id: `task-${task.id}`,
-          taskId: task.id,
-          type: 'task',
-          label: `${task.clientName}_${task.vendorName}_${task.productName}`,
-          startAt: task.startAt,
-          endAt: task.endAt,
-          color: DEFAULT_CLIENT_COLOR,
-        })
-        if (expandedTaskIds.value.has(task.id)) {
-          task.followUps.forEach((followUp) => {
-            rows.push({
-              id: `followup-${task.id}-${followUp.id || followUp.content}`,
-              type: 'followup',
-              label: followUp.content || '跟進任務',
-              endAt: task.endAt,
-              color: DEFAULT_CLIENT_COLOR,
-            })
+    const submissionById = new Map(
+      (props.submissions || []).map((submission) => [submission.id, submission])
+    )
+    const tasksByClient = tasks.value.reduce((result, task) => {
+      const name = task.clientName || '客戶'
+      if (!result.has(name)) result.set(name, [])
+      result.get(name).push(task)
+      return result
+    }, new Map())
+    Array.from(tasksByClient.entries())
+      .sort(([nameA], [nameB]) => nameA.localeCompare(nameB))
+      .forEach(([clientName, clientTasks]) => {
+        const clientGroupId = `group-client-${clientName || 'unknown'}`
+        const relatedMails = new Set()
+        let unassignedFollowUps = 0
+        clientTasks.forEach((task) => {
+          const submission = submissionById.get(task.id)
+          if (submission?.related_users) {
+            submission.related_users.forEach((related) =>
+              related?.mail && relatedMails.add(related.mail)
+            )
+          }
+          const followUps = Array.isArray(submission?.follow_ups) ? submission.follow_ups : []
+          followUps.forEach((followUp) => {
+            const assignees = Array.isArray(followUp?.assignees) ? followUp.assignees : []
+            if (assignees.length === 0) {
+              unassignedFollowUps += 1
+            }
           })
+        })
+        rows.push({
+          id: clientGroupId,
+          type: 'group',
+          label: clientName || '客戶',
+          icon: '🏷️',
+          groupId: clientGroupId,
+          color: DEFAULT_CLIENT_COLOR,
+          level: 1,
+          taskSpans: clientTasks.map((task) => ({
+            startAt: task.startAt,
+            endAt: task.endAt,
+            color: DEFAULT_CLIENT_COLOR,
+          })),
+          meta: `同事 ${relatedMails.size}｜未指派 ${unassignedFollowUps}`,
+        })
+        if (expandedGroupIds.value.has(clientGroupId)) {
+          const hierarchy = buildHierarchy(clientTasks)
+          const vendorMap = hierarchy.get(clientName || '客戶') || new Map()
+          Array.from(vendorMap.entries())
+            .sort(([nameA], [nameB]) => nameA.localeCompare(nameB))
+            .forEach(([vendorName, productMap]) => {
+              const vendorGroupId = `${clientGroupId}-vendor-${vendorName}`
+              const vendorTasks = Array.from(productMap.values()).flat()
+              rows.push({
+                id: vendorGroupId,
+                type: 'group',
+                label: vendorName || '廠家',
+                labelStyle: 'task',
+                showIcon: false,
+                groupId: vendorGroupId,
+                color: DEFAULT_CLIENT_COLOR,
+                level: 2,
+                taskSpans: vendorTasks.map((task) => ({
+                  startAt: task.startAt,
+                  endAt: task.endAt,
+                  color: DEFAULT_CLIENT_COLOR,
+                })),
+              })
+              if (expandedGroupIds.value.has(vendorGroupId)) {
+                Array.from(productMap.entries())
+                  .sort(([nameA], [nameB]) => nameA.localeCompare(nameB))
+                  .forEach(([productName, productTasks]) => {
+                    const productGroupId = `${vendorGroupId}-product-${productName}`
+                    rows.push({
+                      id: productGroupId,
+                      type: 'group',
+                      label: productName || '產品',
+                      labelStyle: 'task',
+                      showIcon: false,
+                      groupId: productGroupId,
+                      color: DEFAULT_CLIENT_COLOR,
+                      level: 3,
+                      taskSpans: productTasks.map((task) => ({
+                        startAt: task.startAt,
+                        endAt: task.endAt,
+                        color: DEFAULT_CLIENT_COLOR,
+                      })),
+                    })
+                    if (expandedGroupIds.value.has(productGroupId)) {
+                      productTasks.forEach((task) => {
+                        rows.push({
+                          id: `task-${task.id}`,
+                          taskId: task.id,
+                          type: 'task',
+                          label: task.taskLabel,
+                          startAt: task.startAt,
+                          endAt: task.endAt,
+                          color: DEFAULT_CLIENT_COLOR,
+                          level: 4,
+                        })
+                        if (expandedTaskIds.value.has(task.id)) {
+                          task.followUps.forEach((followUp) => {
+                            rows.push({
+                              id: `followup-${task.id}-${followUp.id || followUp.content}`,
+                              type: 'followup',
+                              label: followUp.content || '跟進任務',
+                              endAt: task.endAt,
+                              color: DEFAULT_CLIENT_COLOR,
+                              level: 5,
+                            })
+                          })
+                        }
+                      })
+                    }
+                  })
+              }
+            })
         }
       })
-    }
   }
 
   return rows
@@ -315,17 +519,23 @@ const getPositionStyle = (startAt, endAt) => {
     return { display: 'none' }
   }
   const rangeStart = toDayStart(timelineStart.value)
+  const rangeEnd = toDayStart(timelineEnd.value)
   const total = totalDays.value * MILLISECONDS_IN_DAY
   if (total <= 0) return { display: 'none' }
-  const left =
-    ((start.getTime() - rangeStart.getTime()) / total) * timelineWidth.value
   const endInclusive = end.getTime() + MILLISECONDS_IN_DAY
+  if (endInclusive <= rangeStart.getTime() || start.getTime() >= rangeEnd.getTime()) {
+    return { display: 'none' }
+  }
+  const clampedStart = Math.max(start.getTime(), rangeStart.getTime())
+  const clampedEnd = Math.min(endInclusive, rangeEnd.getTime())
+  const left =
+    ((clampedStart - rangeStart.getTime()) / total) * timelineWidth.value
   const width =
-    ((endInclusive - start.getTime()) / total) * timelineWidth.value
+    ((clampedEnd - clampedStart) / total) * timelineWidth.value
   if (width <= 0) return { display: 'none' }
   return {
     left: `${Math.max(left, 0)}px`,
-    width: `${Math.min(width, timelineWidth.value - left)}px`,
+    width: `${Math.max(Math.min(width, timelineWidth.value - left), 0)}px`,
   }
 }
 
@@ -335,6 +545,10 @@ const getMarkerStyle = (dateValue) => {
     return { display: 'none' }
   }
   const rangeStart = toDayStart(timelineStart.value)
+  const rangeEnd = toDayStart(timelineEnd.value)
+  if (date.getTime() < rangeStart.getTime() || date.getTime() >= rangeEnd.getTime()) {
+    return { display: 'none' }
+  }
   const total = totalDays.value * MILLISECONDS_IN_DAY
   if (total <= 0) return { display: 'none' }
   const left =
@@ -378,7 +592,11 @@ let timelineObserver = null
 
 const dayWidth = computed(() => {
   if (!timelineViewportWidth.value) return DAY_WIDTH_PX
-  return Math.max(DAY_WIDTH_PX, timelineViewportWidth.value / totalDays.value)
+  const fitWidth = timelineViewportWidth.value / totalDays.value
+  if (rangeType.value === 'day') {
+    return Math.max(DAY_WIDTH_PX, fitWidth)
+  }
+  return fitWidth
 })
 
 const timelineWidth = computed(() => totalDays.value * dayWidth.value)
@@ -406,6 +624,12 @@ const shiftRange = (direction) => {
     anchorDate.value = new Date(
       anchorDate.value.getTime() + direction * MILLISECONDS_IN_DAY
     )
+  } else if (rangeType.value === 'year') {
+    anchorDate.value = new Date(
+      anchorDate.value.getFullYear() + direction,
+      anchorDate.value.getMonth(),
+      anchorDate.value.getDate()
+    )
   } else {
     anchorDate.value = new Date(
       anchorDate.value.getFullYear(),
@@ -432,9 +656,18 @@ const handleWheel = (event) => {
     <header class="gantt-header">
       <div>
         <h3 class="gantt-title">甘特圖視圖</h3>
-        <p class="gantt-subtitle">
-          {{ formatDateTimeDisplay(timelineStart) }} - {{ formatDateTimeDisplay(timelineEnd) }}
-        </p>
+        <div class="gantt-subtitle">
+          <span>{{ formatDateTimeDisplay(timelineStart) }} - {{ formatDateTimeDisplay(timelineEnd) }}</span>
+          <label class="gantt-date-picker">
+            <span class="gantt-date-label">選擇時間</span>
+            <input
+              type="date"
+              :value="anchorDateInput"
+              class="gantt-date-input"
+              @change="handleAnchorDateChange"
+            />
+          </label>
+        </div>
       </div>
       <div class="gantt-controls">
         <div class="gantt-range-toggle">
@@ -471,17 +704,11 @@ const handleWheel = (event) => {
             <span
               v-for="tick in axisTicks"
               :key="tick.key"
-              class="gantt-tick gantt-tick-major"
+              :class="['gantt-tick', 'gantt-tick-major', { 'gantt-tick-end': tick.isBoundaryEnd }]"
               :style="{ left: `${tick.dayIndex * dayWidth}px` }"
             >
               {{ tick.label }}
             </span>
-            <span
-              v-for="tick in minorTicks"
-              :key="tick.key"
-              class="gantt-tick gantt-tick-minor"
-              :style="{ left: `${tick.dayIndex * dayWidth}px` }"
-            ></span>
           </div>
         </div>
       </div>
@@ -490,7 +717,11 @@ const handleWheel = (event) => {
           <div
             v-for="row in ganttRows"
             :key="row.id"
-            :class="['gantt-label', `gantt-label-${row.type}`]"
+            :class="[
+              'gantt-label',
+              `gantt-label-${row.type}`,
+              row.level ? `gantt-label-level-${row.level}` : '',
+            ]"
           >
             <button
               v-if="row.type === 'group'"
@@ -498,11 +729,22 @@ const handleWheel = (event) => {
               class="gantt-group"
               @click="toggleGroup(row.groupId || row.id)"
             >
-              <div class="gantt-group-badge" :style="{ backgroundColor: row.color }">
+              <div
+                v-if="row.showIcon !== false"
+                class="gantt-group-badge"
+                :style="{ backgroundColor: row.color }"
+              >
                 {{ row.icon }}
               </div>
               <div class="gantt-group-text">
-                <span class="gantt-group-name">{{ row.label }}</span>
+                <span
+                  :class="[
+                    'gantt-group-name',
+                    { 'gantt-group-name-task': row.labelStyle === 'task' },
+                  ]"
+                >
+                  {{ row.label }}
+                </span>
                 <span v-if="row.meta" class="gantt-group-meta">{{ row.meta }}</span>
               </div>
               <span class="gantt-task-toggle">
@@ -518,11 +760,21 @@ const handleWheel = (event) => {
               <span class="gantt-task-text">{{ row.label }}</span>
               <span class="gantt-task-toggle">{{ isTaskExpanded(row.taskId) ? '▾' : '▸' }}</span>
             </button>
-            <span v-else class="gantt-followup-text">{{ row.label }}</span>
+            <span v-else class="gantt-followup-text" :data-tooltip="row.label">
+              <span class="gantt-followup-text-content">{{ row.label }}</span>
+            </span>
           </div>
         </div>
         <div class="gantt-timeline" @wheel="handleWheel">
-        <div class="gantt-rows" :style="{ width: `${timelineWidth}px`, minWidth: '100%' }">
+          <div class="gantt-rows" :style="{ width: `${timelineWidth}px`, minWidth: '100%' }">
+            <div class="gantt-grid">
+              <span
+                v-for="tick in gridTicks"
+                :key="`grid-${tick.key}`"
+                class="gantt-grid-line"
+                :style="{ left: `${tick.dayIndex * dayWidth}px` }"
+              ></span>
+            </div>
             <div v-for="row in ganttRows" :key="row.id" class="gantt-row">
               <template v-if="row.type === 'group'">
                 <div
@@ -583,6 +835,32 @@ const handleWheel = (event) => {
   margin: 0.3rem 0 0;
   color: #64748b;
   font-size: 0.85rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.gantt-date-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.gantt-date-label {
+  font-size: 0.75rem;
+}
+
+.gantt-date-input {
+  border: none;
+  background: transparent;
+  font-size: 0.75rem;
+  color: inherit;
+  outline: none;
 }
 
 .gantt-controls {
@@ -639,6 +917,9 @@ const handleWheel = (event) => {
   padding: 1rem;
   display: grid;
   gap: 0.6rem;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .gantt-label {
@@ -647,6 +928,29 @@ const handleWheel = (event) => {
   height: 36px;
   display: flex;
   align-items: center;
+  width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+.gantt-label-level-2 {
+  padding-left: 1rem;
+}
+
+.gantt-label-level-3 {
+  padding-left: 2rem;
+}
+
+.gantt-label-level-4 {
+  padding-left: 3rem;
+}
+
+.gantt-label-level-5 {
+  padding-left: 4rem;
+}
+
+.gantt-label-level-6 {
+  padding-left: 5rem;
 }
 
 .gantt-group {
@@ -676,6 +980,12 @@ const handleWheel = (event) => {
 
 .gantt-group-name {
   font-size: 0.95rem;
+}
+
+.gantt-group-name-task {
+  font-size: 0.85rem;
+  font-weight: 400;
+  padding-left: 0.25rem;
 }
 
 .gantt-group-text {
@@ -719,6 +1029,43 @@ const handleWheel = (event) => {
   height: 36px;
   display: flex;
   align-items: center;
+  flex: 1;
+  max-width: 100%;
+  min-width: 0;
+  position: relative;
+}
+
+.gantt-followup-text-content {
+  display: block;
+  flex: 1;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gantt-followup-text::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: #111827;
+  color: #f8fafc;
+  padding: 0.4rem 0.6rem;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.2);
+  z-index: 10;
+}
+
+.gantt-followup-text:hover::after {
+  opacity: 1;
 }
 
 .gantt-timeline {
@@ -742,23 +1089,37 @@ const handleWheel = (event) => {
   transform: translateX(-50%);
   font-size: 0.75rem;
   color: #94a3b8;
-}
-
-.gantt-tick-minor {
-  width: 1px;
-  height: 6px;
-  background: #e2e8f0;
-  color: transparent;
+  white-space: nowrap;
 }
 
 .gantt-tick-major {
   height: 100%;
 }
 
+.gantt-tick-end {
+  transform: translateX(-100%);
+}
+
 .gantt-rows {
   display: grid;
   gap: 0.6rem;
   width: 100%;
+  position: relative;
+}
+
+.gantt-grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.gantt-grid-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: #e2e8f0;
+  opacity: 0.7;
 }
 
 .gantt-row {
