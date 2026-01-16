@@ -149,7 +149,7 @@ const axisTicks = computed(() => {
       const date = new Date(start.getTime() + i * MILLISECONDS_IN_DAY)
       ticks.push({
         key: date.toISOString(),
-        label: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
+        label: `${String(date.getMonth() + 1).padStart(2, '0')}/${String(
           date.getDate()
         ).padStart(2, '0')}`,
         dayIndex: i,
@@ -332,17 +332,23 @@ const getPositionStyle = (startAt, endAt) => {
     return { display: 'none' }
   }
   const rangeStart = toDayStart(timelineStart.value)
+  const rangeEnd = toDayStart(timelineEnd.value)
   const total = totalDays.value * MILLISECONDS_IN_DAY
   if (total <= 0) return { display: 'none' }
-  const left =
-    ((start.getTime() - rangeStart.getTime()) / total) * timelineWidth.value
   const endInclusive = end.getTime() + MILLISECONDS_IN_DAY
+  if (endInclusive <= rangeStart.getTime() || start.getTime() >= rangeEnd.getTime()) {
+    return { display: 'none' }
+  }
+  const clampedStart = Math.max(start.getTime(), rangeStart.getTime())
+  const clampedEnd = Math.min(endInclusive, rangeEnd.getTime())
+  const left =
+    ((clampedStart - rangeStart.getTime()) / total) * timelineWidth.value
   const width =
-    ((endInclusive - start.getTime()) / total) * timelineWidth.value
+    ((clampedEnd - clampedStart) / total) * timelineWidth.value
   if (width <= 0) return { display: 'none' }
   return {
     left: `${Math.max(left, 0)}px`,
-    width: `${Math.min(width, timelineWidth.value - left)}px`,
+    width: `${Math.max(Math.min(width, timelineWidth.value - left), 0)}px`,
   }
 }
 
@@ -352,6 +358,10 @@ const getMarkerStyle = (dateValue) => {
     return { display: 'none' }
   }
   const rangeStart = toDayStart(timelineStart.value)
+  const rangeEnd = toDayStart(timelineEnd.value)
+  if (date.getTime() < rangeStart.getTime() || date.getTime() >= rangeEnd.getTime()) {
+    return { display: 'none' }
+  }
   const total = totalDays.value * MILLISECONDS_IN_DAY
   if (total <= 0) return { display: 'none' }
   const left =
