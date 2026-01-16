@@ -39,11 +39,20 @@ const toTask = (submission) => {
   const startAt = submission.start_at || submission.end_at
   const endAt = submission.end_at
   if (!startAt || !endAt) return null
+  const fallbackLabel = `${submission.client_name || '客戶'}_${submission.vendor_name || '廠家'}_${
+    submission.product_name || '產品'
+  }`
   return {
     id: submission.id,
     clientName: submission.client_name,
     vendorName: submission.vendor_name,
     productName: submission.product_name,
+    taskLabel:
+      submission.label ||
+      submission.task_label ||
+      submission.tag ||
+      submission.tag_name ||
+      fallbackLabel,
     startAt,
     endAt,
     followUps: Array.isArray(submission.follow_ups) ? submission.follow_ups : [],
@@ -208,6 +217,28 @@ const gridTicks = computed(() => {
 
 const getBarColor = (user) => user?.icon_bg || DEFAULT_CLIENT_COLOR
 
+const buildHierarchy = (tasksList) => {
+  const hierarchy = new Map()
+  tasksList.forEach((task) => {
+    const clientName = task.clientName || '客戶'
+    const vendorName = task.vendorName || '廠家'
+    const productName = task.productName || '產品'
+    if (!hierarchy.has(clientName)) {
+      hierarchy.set(clientName, new Map())
+    }
+    const vendorMap = hierarchy.get(clientName)
+    if (!vendorMap.has(vendorName)) {
+      vendorMap.set(vendorName, new Map())
+    }
+    const productMap = vendorMap.get(vendorName)
+    if (!productMap.has(productName)) {
+      productMap.set(productName, [])
+    }
+    productMap.get(productName).push(task)
+  })
+  return hierarchy
+}
+
 const ganttRows = computed(() => {
   const rows = []
   if (props.viewMode === 'user') {
@@ -232,6 +263,7 @@ const ganttRows = computed(() => {
         icon: user?.icon || '🙂',
         groupId,
         color: getBarColor(user),
+        level: 1,
         taskSpans: sortedTasks.map((task) => ({
           startAt: task.startAt,
           endAt: task.endAt,
@@ -241,28 +273,98 @@ const ganttRows = computed(() => {
         meta: `客戶 ${clientCount}｜跟進 ${followUpCount}`,
       })
       if (expandedGroupIds.value.has(groupId)) {
-        userTasks.forEach((task) => {
-          rows.push({
-            id: `task-${task.id}`,
-            taskId: task.id,
-            type: 'task',
-            label: `${task.clientName}_${task.vendorName}_${task.productName}`,
-            startAt: task.startAt,
-            endAt: task.endAt,
-            color: getBarColor(user),
-          })
-          if (expandedTaskIds.value.has(task.id)) {
-            task.followUps.forEach((followUp) => {
-              rows.push({
-                id: `followup-${task.id}-${followUp.id || followUp.content}`,
-                type: 'followup',
-                label: followUp.content || '跟進任務',
+        const hierarchy = buildHierarchy(userTasks)
+        Array.from(hierarchy.entries())
+          .sort(([nameA], [nameB]) => nameA.localeCompare(nameB))
+          .forEach(([clientName, vendorMap]) => {
+            const clientGroupId = `${groupId}-client-${clientName}`
+            const clientTasks = Array.from(vendorMap.values()).flatMap((productMap) =>
+              Array.from(productMap.values()).flat()
+            )
+            rows.push({
+              id: clientGroupId,
+              type: 'group',
+              label: clientName || '客戶',
+              icon: '🏷️',
+              groupId: clientGroupId,
+              color: getBarColor(user),
+              level: 2,
+              taskSpans: clientTasks.map((task) => ({
+                startAt: task.startAt,
                 endAt: task.endAt,
                 color: getBarColor(user),
-              })
+              })),
             })
-          }
-        })
+            if (expandedGroupIds.value.has(clientGroupId)) {
+              Array.from(vendorMap.entries())
+                .sort(([nameA], [nameB]) => nameA.localeCompare(nameB))
+                .forEach(([vendorName, productMap]) => {
+                  const vendorGroupId = `${clientGroupId}-vendor-${vendorName}`
+                  const vendorTasks = Array.from(productMap.values()).flat()
+                  rows.push({
+                    id: vendorGroupId,
+                    type: 'group',
+                    label: vendorName || '廠家',
+                    icon: '🏭',
+                    groupId: vendorGroupId,
+                    color: getBarColor(user),
+                    level: 3,
+                    taskSpans: vendorTasks.map((task) => ({
+                      startAt: task.startAt,
+                      endAt: task.endAt,
+                      color: getBarColor(user),
+                    })),
+                  })
+                  if (expandedGroupIds.value.has(vendorGroupId)) {
+                    Array.from(productMap.entries())
+                      .sort(([nameA], [nameB]) => nameA.localeCompare(nameB))
+                      .forEach(([productName, productTasks]) => {
+                        const productGroupId = `${vendorGroupId}-product-${productName}`
+                        rows.push({
+                          id: productGroupId,
+                          type: 'group',
+                          label: productName || '產品',
+                          icon: '📦',
+                          groupId: productGroupId,
+                          color: getBarColor(user),
+                          level: 4,
+                          taskSpans: productTasks.map((task) => ({
+                            startAt: task.startAt,
+                            endAt: task.endAt,
+                            color: getBarColor(user),
+                          })),
+                        })
+                        if (expandedGroupIds.value.has(productGroupId)) {
+                          productTasks.forEach((task) => {
+                            rows.push({
+                              id: `task-${task.id}`,
+                              taskId: task.id,
+                              type: 'task',
+                              label: task.taskLabel,
+                              startAt: task.startAt,
+                              endAt: task.endAt,
+                              color: getBarColor(user),
+                              level: 5,
+                            })
+                            if (expandedTaskIds.value.has(task.id)) {
+                              task.followUps.forEach((followUp) => {
+                                rows.push({
+                                  id: `followup-${task.id}-${followUp.id || followUp.content}`,
+                                  type: 'followup',
+                                  label: followUp.content || '跟進任務',
+                                  endAt: task.endAt,
+                                  color: getBarColor(user),
+                                  level: 6,
+                                })
+                              })
+                            }
+                          })
+                        }
+                      })
+                  }
+                })
+            }
+          })
       }
     })
   } else if (props.viewMode === 'client') {
@@ -303,6 +405,7 @@ const ganttRows = computed(() => {
           icon: '🏷️',
           groupId: clientGroupId,
           color: DEFAULT_CLIENT_COLOR,
+          level: 1,
           taskSpans: clientTasks.map((task) => ({
             startAt: task.startAt,
             endAt: task.endAt,
@@ -311,28 +414,75 @@ const ganttRows = computed(() => {
           meta: `同事 ${relatedMails.size}｜未指派 ${unassignedFollowUps}`,
         })
         if (expandedGroupIds.value.has(clientGroupId)) {
-          clientTasks.forEach((task) => {
-            rows.push({
-              id: `task-${task.id}`,
-              taskId: task.id,
-              type: 'task',
-              label: `${task.clientName}_${task.vendorName}_${task.productName}`,
-              startAt: task.startAt,
-              endAt: task.endAt,
-              color: DEFAULT_CLIENT_COLOR,
-            })
-            if (expandedTaskIds.value.has(task.id)) {
-              task.followUps.forEach((followUp) => {
-                rows.push({
-                  id: `followup-${task.id}-${followUp.id || followUp.content}`,
-                  type: 'followup',
-                  label: followUp.content || '跟進任務',
+          const hierarchy = buildHierarchy(clientTasks)
+          const vendorMap = hierarchy.get(clientName || '客戶') || new Map()
+          Array.from(vendorMap.entries())
+            .sort(([nameA], [nameB]) => nameA.localeCompare(nameB))
+            .forEach(([vendorName, productMap]) => {
+              const vendorGroupId = `${clientGroupId}-vendor-${vendorName}`
+              const vendorTasks = Array.from(productMap.values()).flat()
+              rows.push({
+                id: vendorGroupId,
+                type: 'group',
+                label: vendorName || '廠家',
+                icon: '🏭',
+                groupId: vendorGroupId,
+                color: DEFAULT_CLIENT_COLOR,
+                level: 2,
+                taskSpans: vendorTasks.map((task) => ({
+                  startAt: task.startAt,
                   endAt: task.endAt,
                   color: DEFAULT_CLIENT_COLOR,
-                })
+                })),
               })
-            }
-          })
+              if (expandedGroupIds.value.has(vendorGroupId)) {
+                Array.from(productMap.entries())
+                  .sort(([nameA], [nameB]) => nameA.localeCompare(nameB))
+                  .forEach(([productName, productTasks]) => {
+                    const productGroupId = `${vendorGroupId}-product-${productName}`
+                    rows.push({
+                      id: productGroupId,
+                      type: 'group',
+                      label: productName || '產品',
+                      icon: '📦',
+                      groupId: productGroupId,
+                      color: DEFAULT_CLIENT_COLOR,
+                      level: 3,
+                      taskSpans: productTasks.map((task) => ({
+                        startAt: task.startAt,
+                        endAt: task.endAt,
+                        color: DEFAULT_CLIENT_COLOR,
+                      })),
+                    })
+                    if (expandedGroupIds.value.has(productGroupId)) {
+                      productTasks.forEach((task) => {
+                        rows.push({
+                          id: `task-${task.id}`,
+                          taskId: task.id,
+                          type: 'task',
+                          label: task.taskLabel,
+                          startAt: task.startAt,
+                          endAt: task.endAt,
+                          color: DEFAULT_CLIENT_COLOR,
+                          level: 4,
+                        })
+                        if (expandedTaskIds.value.has(task.id)) {
+                          task.followUps.forEach((followUp) => {
+                            rows.push({
+                              id: `followup-${task.id}-${followUp.id || followUp.content}`,
+                              type: 'followup',
+                              label: followUp.content || '跟進任務',
+                              endAt: task.endAt,
+                              color: DEFAULT_CLIENT_COLOR,
+                              level: 5,
+                            })
+                          })
+                        }
+                      })
+                    }
+                  })
+              }
+            })
         }
       })
   }
@@ -536,7 +686,11 @@ const handleWheel = (event) => {
           <div
             v-for="row in ganttRows"
             :key="row.id"
-            :class="['gantt-label', `gantt-label-${row.type}`]"
+            :class="[
+              'gantt-label',
+              `gantt-label-${row.type}`,
+              row.level ? `gantt-label-level-${row.level}` : '',
+            ]"
           >
             <button
               v-if="row.type === 'group'"
@@ -709,6 +863,26 @@ const handleWheel = (event) => {
   width: 100%;
   box-sizing: border-box;
   min-width: 0;
+}
+
+.gantt-label-level-2 {
+  padding-left: 1rem;
+}
+
+.gantt-label-level-3 {
+  padding-left: 2rem;
+}
+
+.gantt-label-level-4 {
+  padding-left: 3rem;
+}
+
+.gantt-label-level-5 {
+  padding-left: 4rem;
+}
+
+.gantt-label-level-6 {
+  padding-left: 5rem;
 }
 
 .gantt-group {
