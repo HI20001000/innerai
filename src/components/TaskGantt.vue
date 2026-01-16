@@ -549,7 +549,9 @@ const handleWheel = (event) => {
               <span class="gantt-task-text">{{ row.label }}</span>
               <span class="gantt-task-toggle">{{ isTaskExpanded(row.taskId) ? '▾' : '▸' }}</span>
             </button>
-            <span v-else class="gantt-followup-text">{{ row.label }}</span>
+            <span v-else class="gantt-followup-text" :data-tooltip="row.label">
+              <span class="gantt-followup-text-content">{{ row.label }}</span>
+            </span>
           </div>
         </div>
         <div class="gantt-timeline" @wheel="handleWheel">
@@ -758,6 +760,39 @@ const handleWheel = (event) => {
   height: 36px;
   display: flex;
   align-items: center;
+  max-width: 100%;
+  position: relative;
+}
+
+.gantt-followup-text-content {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gantt-followup-text::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: #111827;
+  color: #f8fafc;
+  padding: 0.4rem 0.6rem;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.2);
+  z-index: 10;
+}
+
+.gantt-followup-text:hover::after {
+  opacity: 1;
 }
 
 .gantt-timeline {
