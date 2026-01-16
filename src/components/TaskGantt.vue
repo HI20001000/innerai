@@ -156,7 +156,7 @@ const axisTicks = computed(() => {
       })
     }
   } else if (rangeType.value === 'year') {
-    for (let i = 0; i < rangeConfig.value.count; i += 1) {
+    for (let i = 0; i <= rangeConfig.value.count; i += 1) {
       const cursor = new Date(start.getFullYear() + i, 0, 1)
       const dayIndex = Math.round(
         (toDayStart(cursor).getTime() - start.getTime()) / MILLISECONDS_IN_DAY
@@ -165,10 +165,11 @@ const axisTicks = computed(() => {
         key: cursor.toISOString(),
         label: `${cursor.getFullYear()}年`,
         dayIndex,
+        isBoundaryEnd: i === rangeConfig.value.count,
       })
     }
   } else {
-    for (let i = 0; i < rangeConfig.value.count; i += 1) {
+    for (let i = 0; i <= rangeConfig.value.count; i += 1) {
       const cursor = new Date(start.getFullYear(), start.getMonth() + i, 1)
       const dayIndex = Math.round(
         (toDayStart(cursor).getTime() - start.getTime()) / MILLISECONDS_IN_DAY
@@ -177,6 +178,7 @@ const axisTicks = computed(() => {
         key: cursor.toISOString(),
         label: `${String(cursor.getMonth() + 1).padStart(2, '0')}月`,
         dayIndex,
+        isBoundaryEnd: i === rangeConfig.value.count,
       })
     }
   }
@@ -490,7 +492,7 @@ const handleWheel = (event) => {
             <span
               v-for="tick in axisTicks"
               :key="tick.key"
-              class="gantt-tick gantt-tick-major"
+              :class="['gantt-tick', 'gantt-tick-major', { 'gantt-tick-end': tick.isBoundaryEnd }]"
               :style="{ left: `${tick.dayIndex * dayWidth}px` }"
             >
               {{ tick.label }}
@@ -763,10 +765,15 @@ const handleWheel = (event) => {
   transform: translateX(-50%);
   font-size: 0.75rem;
   color: #94a3b8;
+  white-space: nowrap;
 }
 
 .gantt-tick-major {
   height: 100%;
+}
+
+.gantt-tick-end {
+  transform: translateX(-100%);
 }
 
 .gantt-rows {
