@@ -266,60 +266,75 @@ const ganttRows = computed(() => {
       }
     })
   } else if (props.viewMode === 'client') {
-    const clientGroupId = `group-client-${props.selectedClient?.name || 'unknown'}`
-    const relatedMails = new Set()
-    let unassignedFollowUps = 0
-    tasks.value.forEach((task) => {
-      const submission = (props.submissions || []).find((item) => item.id === task.id)
-      if (submission?.related_users) {
-        submission.related_users.forEach((related) => related?.mail && relatedMails.add(related.mail))
-      }
-      const followUps = Array.isArray(submission?.follow_ups) ? submission.follow_ups : []
-      followUps.forEach((followUp) => {
-        const assignees = Array.isArray(followUp?.assignees) ? followUp.assignees : []
-        if (assignees.length === 0) {
-          unassignedFollowUps += 1
-        }
-      })
-    })
-    rows.push({
-      id: clientGroupId,
-      type: 'group',
-      label: props.selectedClient?.name || '客戶',
-      icon: '🏷️',
-      groupId: clientGroupId,
-      color: DEFAULT_CLIENT_COLOR,
-      taskSpans: tasks.value.map((task) => ({
-        startAt: task.startAt,
-        endAt: task.endAt,
-        color: DEFAULT_CLIENT_COLOR,
-      })),
-      meta: `同事 ${relatedMails.size}｜未指派 ${unassignedFollowUps}`,
-    })
-    if (expandedGroupIds.value.has(clientGroupId)) {
-      tasks.value.forEach((task) => {
-        rows.push({
-          id: `task-${task.id}`,
-          taskId: task.id,
-          type: 'task',
-          label: `${task.clientName}_${task.vendorName}_${task.productName}`,
-          startAt: task.startAt,
-          endAt: task.endAt,
-          color: DEFAULT_CLIENT_COLOR,
+    const submissionById = new Map(
+      (props.submissions || []).map((submission) => [submission.id, submission])
+    )
+    const tasksByClient = tasks.value.reduce((result, task) => {
+      const name = task.clientName || '客戶'
+      if (!result.has(name)) result.set(name, [])
+      result.get(name).push(task)
+      return result
+    }, new Map())
+    Array.from(tasksByClient.entries())
+      .sort(([nameA], [nameB]) => nameA.localeCompare(nameB))
+      .forEach(([clientName, clientTasks]) => {
+        const clientGroupId = `group-client-${clientName || 'unknown'}`
+        const relatedMails = new Set()
+        let unassignedFollowUps = 0
+        clientTasks.forEach((task) => {
+          const submission = submissionById.get(task.id)
+          if (submission?.related_users) {
+            submission.related_users.forEach((related) =>
+              related?.mail && relatedMails.add(related.mail)
+            )
+          }
+          const followUps = Array.isArray(submission?.follow_ups) ? submission.follow_ups : []
+          followUps.forEach((followUp) => {
+            const assignees = Array.isArray(followUp?.assignees) ? followUp.assignees : []
+            if (assignees.length === 0) {
+              unassignedFollowUps += 1
+            }
+          })
         })
-        if (expandedTaskIds.value.has(task.id)) {
-          task.followUps.forEach((followUp) => {
+        rows.push({
+          id: clientGroupId,
+          type: 'group',
+          label: clientName || '客戶',
+          icon: '🏷️',
+          groupId: clientGroupId,
+          color: DEFAULT_CLIENT_COLOR,
+          taskSpans: clientTasks.map((task) => ({
+            startAt: task.startAt,
+            endAt: task.endAt,
+            color: DEFAULT_CLIENT_COLOR,
+          })),
+          meta: `同事 ${relatedMails.size}｜未指派 ${unassignedFollowUps}`,
+        })
+        if (expandedGroupIds.value.has(clientGroupId)) {
+          clientTasks.forEach((task) => {
             rows.push({
-              id: `followup-${task.id}-${followUp.id || followUp.content}`,
-              type: 'followup',
-              label: followUp.content || '跟進任務',
+              id: `task-${task.id}`,
+              taskId: task.id,
+              type: 'task',
+              label: `${task.clientName}_${task.vendorName}_${task.productName}`,
+              startAt: task.startAt,
               endAt: task.endAt,
               color: DEFAULT_CLIENT_COLOR,
             })
+            if (expandedTaskIds.value.has(task.id)) {
+              task.followUps.forEach((followUp) => {
+                rows.push({
+                  id: `followup-${task.id}-${followUp.id || followUp.content}`,
+                  type: 'followup',
+                  label: followUp.content || '跟進任務',
+                  endAt: task.endAt,
+                  color: DEFAULT_CLIENT_COLOR,
+                })
+              })
+            }
           })
         }
       })
-    }
   }
 
   return rows
