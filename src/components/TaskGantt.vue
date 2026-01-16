@@ -91,14 +91,17 @@ const groupedTasks = computed(() => {
     .filter((group) => group.tasks.length > 0)
 })
 
+const MAX_MONTH_TICKS = 4
+const MAX_YEAR_TICKS = 3
+
 const rangeConfig = computed(() => {
   if (rangeType.value === 'day') {
     return { unit: 'day', count: 7, width: 110 }
   }
   if (rangeType.value === 'year') {
-    return { unit: 'year', count: 3, width: 180 }
+    return { unit: 'year', count: MAX_YEAR_TICKS, width: 180 }
   }
-  return { unit: 'month', count: 4, width: 150 }
+  return { unit: 'month', count: MAX_MONTH_TICKS, width: 150 }
 })
 
 const anchorDate = ref(new Date())
@@ -161,7 +164,7 @@ const axisTicks = computed(() => {
       )
       ticks.push({
         key: cursor.toISOString(),
-        label: `${cursor.getFullYear()}`,
+        label: `${cursor.getFullYear()}年`,
         dayIndex,
       })
       cursor.setFullYear(cursor.getFullYear() + 1)
@@ -175,18 +178,13 @@ const axisTicks = computed(() => {
       )
       ticks.push({
         key: cursor.toISOString(),
-        label: `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`,
+        label: `${String(cursor.getMonth() + 1).padStart(2, '0')}月`,
         dayIndex,
       })
       cursor.setMonth(cursor.getMonth() + 1)
     }
   }
   return ticks
-})
-
-const minorTicks = computed(() => {
-  if (rangeType.value === 'day') return []
-  return []
 })
 
 const getBarColor = (user) => user?.icon_bg || DEFAULT_CLIENT_COLOR
@@ -476,12 +474,6 @@ const handleWheel = (event) => {
             >
               {{ tick.label }}
             </span>
-            <span
-              v-for="tick in minorTicks"
-              :key="tick.key"
-              class="gantt-tick gantt-tick-minor"
-              :style="{ left: `${tick.dayIndex * dayWidth}px` }"
-            ></span>
           </div>
         </div>
       </div>
@@ -522,7 +514,15 @@ const handleWheel = (event) => {
           </div>
         </div>
         <div class="gantt-timeline" @wheel="handleWheel">
-        <div class="gantt-rows" :style="{ width: `${timelineWidth}px`, minWidth: '100%' }">
+          <div class="gantt-rows" :style="{ width: `${timelineWidth}px`, minWidth: '100%' }">
+            <div class="gantt-grid">
+              <span
+                v-for="tick in axisTicks"
+                :key="`grid-${tick.key}`"
+                class="gantt-grid-line"
+                :style="{ left: `${tick.dayIndex * dayWidth}px` }"
+              ></span>
+            </div>
             <div v-for="row in ganttRows" :key="row.id" class="gantt-row">
               <template v-if="row.type === 'group'">
                 <div
@@ -744,13 +744,6 @@ const handleWheel = (event) => {
   color: #94a3b8;
 }
 
-.gantt-tick-minor {
-  width: 1px;
-  height: 6px;
-  background: #e2e8f0;
-  color: transparent;
-}
-
 .gantt-tick-major {
   height: 100%;
 }
@@ -759,6 +752,22 @@ const handleWheel = (event) => {
   display: grid;
   gap: 0.6rem;
   width: 100%;
+  position: relative;
+}
+
+.gantt-grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.gantt-grid-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: #e2e8f0;
+  opacity: 0.7;
 }
 
 .gantt-row {
