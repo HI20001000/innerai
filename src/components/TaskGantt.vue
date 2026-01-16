@@ -695,6 +695,9 @@ const handleWheel = (event) => {
   padding: 1rem;
   display: grid;
   gap: 0.6rem;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .gantt-label {
