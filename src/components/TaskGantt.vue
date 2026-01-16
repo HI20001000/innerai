@@ -760,13 +760,17 @@ const handleWheel = (event) => {
   height: 36px;
   display: flex;
   align-items: center;
+  width: 100%;
   max-width: 100%;
+  min-width: 0;
   position: relative;
 }
 
 .gantt-followup-text-content {
   display: block;
+  flex: 1;
   max-width: 100%;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
