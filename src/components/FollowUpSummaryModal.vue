@@ -27,6 +27,10 @@ const emit = defineEmits(['close', 'select-date'])
 
 const followUpStatuses = ref([])
 const isLoading = ref(false)
+const activeStatusMenu = ref(null)
+const activeAssigneeMenu = ref(null)
+const statusSearch = ref('')
+const assigneeSearch = ref('')
 
 const readAuthStorage = () => {
   const raw = window.localStorage.getItem('innerai_auth')
@@ -149,9 +153,10 @@ const hierarchy = computed(() => {
   }))
 })
 
-const updateFollowUpStatus = async (followUp, statusId) => {
+const updateFollowUpStatus = async (followUp, status) => {
   const auth = readAuthStorage()
   if (!auth || !followUp) return
+  const statusId = status?.id ?? null
   const response = await fetch(`${apiBaseUrl}/api/task-submission-followups/${followUp.id}`, {
     method: 'PUT',
     headers: {
@@ -162,7 +167,6 @@ const updateFollowUpStatus = async (followUp, statusId) => {
   })
   const data = await response.json()
   if (!response.ok || !data?.success) return
-  const status = followUpStatuses.value.find((item) => item.id === statusId)
   followUp.status_id = statusId
   followUp.status_name = status?.name || ''
   followUp.status_bg_color = status?.bg_color || ''
@@ -196,6 +200,41 @@ const toggleAssignee = async (followUp, user, relatedUsers) => {
   const mails = current.map((assignee) => assignee.mail)
   const next = mails.includes(mail) ? mails.filter((item) => item !== mail) : [...mails, mail]
   await updateFollowUpAssignees(followUp, next, relatedUsers)
+}
+
+const toggleStatusMenu = (followUpId) => {
+  statusSearch.value = ''
+  activeStatusMenu.value = activeStatusMenu.value === followUpId ? null : followUpId
+}
+
+const toggleAssigneeMenu = (followUpId) => {
+  assigneeSearch.value = ''
+  activeAssigneeMenu.value = activeAssigneeMenu.value === followUpId ? null : followUpId
+}
+
+const isAssigneeSelected = (followUp, mail) =>
+  Array.isArray(followUp?.assignees) && followUp.assignees.some((user) => user.mail === mail)
+
+const filteredStatuses = computed(() => {
+  const query = statusSearch.value.trim().toLowerCase()
+  if (!query) return followUpStatuses.value
+  return followUpStatuses.value.filter((status) => status.name.toLowerCase().includes(query))
+})
+
+const getFilteredRelatedUsers = (submission) => {
+  const relatedUsers = Array.isArray(submission?.related_users) ? submission.related_users : []
+  const query = assigneeSearch.value.trim().toLowerCase()
+  if (!query) return relatedUsers
+  return relatedUsers.filter((user) => {
+    const name = String(user.username || '').toLowerCase()
+    const mail = String(user.mail || '').toLowerCase()
+    return name.includes(query) || mail.includes(query)
+  })
+}
+
+const getAssigneeButtonText = (followUp) => {
+  const count = followUp?.assignees?.length || 0
+  return count > 0 ? `已選${count}人` : '選擇跟進人'
 }
 
 const getAssigneeText = (followUp) => {
@@ -254,38 +293,82 @@ const handleSelectFollowUp = (submission) => {
                       {{ followUp.content || '跟進任務' }}
                     </button>
                     <div class="followup-item-meta">
-                      <div class="followup-meta-block">
-                        <span class="followup-meta-label">跟進人</span>
-                        <details class="followup-meta-control">
-                          <summary>{{ getAssigneeText(followUp) }}</summary>
-                          <div class="followup-meta-panel">
-                            <label
-                              v-for="user in task.submission.related_users || []"
-                              :key="user.mail"
-                              class="followup-meta-option"
+                      <div class="followup-actions">
+                        <div class="status-select">
+                          <button
+                            type="button"
+                            class="status-select-button"
+                            @click="toggleStatusMenu(followUp.id)"
+                          >
+                            <span
+                              v-if="followUp.status_bg_color"
+                              class="status-dot"
+                              :style="{ backgroundColor: followUp.status_bg_color }"
+                            ></span>
+                            {{ followUp.status_name || '選擇狀態' }}
+                          </button>
+                          <div v-if="activeStatusMenu === followUp.id" class="status-menu">
+                            <input
+                              v-model="statusSearch"
+                              class="status-search"
+                              type="text"
+                              placeholder="搜尋狀態"
+                            />
+                            <button
+                              v-for="status in filteredStatuses"
+                              :key="status.id"
+                              type="button"
+                              class="status-item"
+                              @click="
+                                updateFollowUpStatus(followUp, status);
+                                activeStatusMenu = null
+                              "
                             >
-                              <input
-                                type="checkbox"
-                                :checked="(followUp.assignees || []).some((assignee) => assignee.mail === user.mail)"
-                                @change="toggleAssignee(followUp, user, task.submission.related_users || [])"
-                              />
-                              <span>{{ user.username || user.mail }}</span>
-                            </label>
+                              <span
+                                class="status-dot"
+                                :style="{ backgroundColor: status.bg_color || '#e2e8f0' }"
+                              ></span>
+                              {{ status.name }}
+                            </button>
                           </div>
-                        </details>
-                      </div>
-                      <div class="followup-meta-block">
-                        <span class="followup-meta-label">任務狀態</span>
-                        <select
-                          class="followup-status-select"
-                          :value="followUp.status_id || ''"
-                          @change="updateFollowUpStatus(followUp, Number($event.target.value))"
-                        >
-                          <option value="" disabled>選擇狀態</option>
-                          <option v-for="status in followUpStatuses" :key="status.id" :value="status.id">
-                            {{ status.name }}
-                          </option>
-                        </select>
+                        </div>
+                        <div class="assignee-select">
+                          <button
+                            type="button"
+                            class="select-field"
+                            @click="toggleAssigneeMenu(followUp.id)"
+                          >
+                            {{ getAssigneeButtonText(followUp) }}
+                          </button>
+                          <div v-if="activeAssigneeMenu === followUp.id" class="option-list">
+                            <input
+                              v-model="assigneeSearch"
+                              class="option-search"
+                              type="text"
+                              placeholder="搜尋用戶"
+                            />
+                            <button
+                              v-for="user in getFilteredRelatedUsers(task.submission)"
+                              :key="user.mail"
+                              type="button"
+                              class="option-item user-option"
+                              @click="toggleAssignee(followUp, user, task.submission.related_users || [])"
+                            >
+                              <span
+                                class="user-avatar"
+                                :style="{ backgroundColor: user.icon_bg || '#e2e8f0' }"
+                              >
+                                {{ user.icon || '🙂' }}
+                              </span>
+                              <span class="user-label">
+                                {{ user.username || 'user' }} &lt;{{ user.mail }}&gt;
+                              </span>
+                              <span v-if="isAssigneeSelected(followUp, user.mail)" class="user-selected">
+                                已選
+                              </span>
+                            </button>
+                          </div>
+                        </div>
                       </div>
                       <div class="followup-meta-block">
                         <span class="followup-meta-label">結束時間</span>
@@ -437,9 +520,10 @@ const handleSelectFollowUp = (submission) => {
 }
 
 .followup-item-meta {
-  display: grid;
-  gap: 0.75rem;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  align-items: flex-start;
 }
 
 .followup-meta-block {
@@ -457,37 +541,157 @@ const handleSelectFollowUp = (submission) => {
   color: #1f2937;
 }
 
-.followup-status-select {
-  border-radius: 8px;
-  border: 1px solid #e2e8f0;
-  padding: 0.35rem 0.5rem;
-  font-size: 0.8rem;
-}
-
-.followup-meta-control {
-  border-radius: 10px;
-  background: #fff;
-  padding: 0.35rem 0.5rem;
-  border: 1px solid #e2e8f0;
-}
-
-.followup-meta-control summary {
-  cursor: pointer;
-  font-size: 0.8rem;
-  color: #1f2937;
-}
-
-.followup-meta-panel {
-  margin-top: 0.5rem;
-  display: grid;
-  gap: 0.35rem;
-}
-
-.followup-meta-option {
+.followup-actions {
   display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.status-select {
+  position: relative;
+  min-width: 160px;
+}
+
+.status-select-button {
+  width: 100%;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  border-radius: 10px;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.85rem;
+  text-align: left;
+  cursor: pointer;
+  color: #0f172a;
+}
+
+.status-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 10;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
+  padding: 0.6rem;
+  width: 200px;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.status-search {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.85rem;
+}
+
+.status-item {
+  border: none;
+  background: #f8fafc;
+  border-radius: 10px;
+  padding: 0.35rem 0.6rem;
+  text-align: left;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: #0f172a;
+  display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  font-size: 0.8rem;
+}
+
+.assignee-select {
+  position: relative;
+  min-width: 220px;
+  flex: 1;
+}
+
+.select-field {
+  width: 100%;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  border-radius: 12px;
+  padding: 0.45rem 0.7rem;
+  font-size: 0.85rem;
+  text-align: left;
+  cursor: pointer;
+  color: #0f172a;
+}
+
+.option-list {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  left: 0;
+  right: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+  padding: 0.4rem;
+  display: grid;
+  gap: 0.3rem;
+  max-height: 180px;
+  overflow: auto;
+  z-index: 10;
+  box-shadow: 0 18px 30px rgba(15, 23, 42, 0.12);
+}
+
+.option-search {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.45rem 0.6rem;
+  font-size: 0.85rem;
+  background: #fff;
+}
+
+.option-item {
+  border: none;
+  background: transparent;
+  text-align: left;
+  padding: 0.5rem 0.7rem;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 500;
   color: #1f2937;
+}
+
+.option-item:hover {
+  background: #e2e8f0;
+}
+
+.user-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+}
+
+.user-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 0.75rem;
+  background: #e2e8f0;
+}
+
+.user-label {
+  font-size: 0.85rem;
+  color: #1f2937;
+}
+
+.user-selected {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: #16a34a;
+  font-weight: 600;
+}
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  display: inline-block;
 }
 </style>
