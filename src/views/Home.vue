@@ -236,6 +236,72 @@ const handleSummarySelectDate = (dateKey) => {
   selectedDate.value = dateKey
 }
 
+const statusNameById = computed(
+  () => new Map(followUpStatuses.value.map((status) => [status.id, status.name]))
+)
+
+const followUpItems = computed(() =>
+  userSubmissions.value.flatMap((submission) => {
+    const followUps = Array.isArray(submission.follow_ups) ? submission.follow_ups : []
+    return followUps.map((followUp) => ({
+      id: `${submission.id}-${followUp.id}`,
+      status: String(
+        statusNameById.value.get(followUp.status_id) || followUp.status_name || '進行中'
+      ).trim(),
+      assignees: Array.isArray(followUp.assignees) ? followUp.assignees : [],
+      endAt: submission.end_at,
+    }))
+  })
+)
+
+const totalCount = computed(() => followUpItems.value.length)
+const isOverdueFollowUp = (task, now) => {
+  if (!task?.endAt) return false
+  const endDate = new Date(task.endAt)
+  if (Number.isNaN(endDate.getTime())) return false
+  return endDate.getTime() < now.getTime()
+}
+const completedCount = computed(
+  () => followUpItems.value.filter((task) => task.status === COMPLETED_STATUS).length
+)
+const incompleteCount = computed(
+  () => {
+    const now = new Date()
+    return followUpItems.value.filter(
+      (task) => task.status === INCOMPLETE_STATUS || isOverdueFollowUp(task, now)
+    ).length
+  }
+)
+const inProgressCount = computed(
+  () => {
+    const now = new Date()
+    return followUpItems.value.filter((task) => {
+      if (task.status === COMPLETED_STATUS) return false
+      if (task.status === INCOMPLETE_STATUS) return false
+      if (isOverdueFollowUp(task, now)) return false
+      return true
+    }).length
+  }
+)
+const unassignedCount = computed(
+  () => followUpItems.value.filter((task) => (task.assignees || []).length === 0).length
+)
+
+const openSummaryModal = (filter, title) => {
+  summaryModalFilter.value = filter
+  summaryModalTitle.value = title
+  summaryModalOpen.value = true
+}
+
+const closeSummaryModal = () => {
+  summaryModalOpen.value = false
+}
+
+const handleSummarySelectDate = (dateKey) => {
+  if (!dateKey) return
+  selectedDate.value = dateKey
+}
+
 const totalPendingCount = computed(() =>
   userSubmissions.value.reduce((total, item) => {
     const followUps = Array.isArray(item?.follow_ups) ? item.follow_ups : []
