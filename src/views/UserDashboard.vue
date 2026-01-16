@@ -203,6 +203,7 @@ const formatTimeOnly = (value) => {
 
 const calendarSubmissions = computed(() => {
   if (viewMode.value === 'user') return userSubmissions.value
+  if (viewMode.value === 'client') return clientSubmissions.value
   return submissions.value
 })
 
@@ -613,7 +614,7 @@ const ganttSubmissions = computed(() => {
             :selected-date="selectedDate"
             :submissions="calendarSubmissions"
             :user-mail="viewMode === 'user' ? selectedUser?.mail : ''"
-            :client-name="''"
+            :client-name="viewMode === 'client' ? selectedClient?.name : ''"
             :subtitle="calendarSubtitle"
             @select-date="handleSelectDate"
           />
