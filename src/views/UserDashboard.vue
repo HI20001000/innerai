@@ -5,6 +5,11 @@ import MonthlyCalendar from '../components/MonthlyCalendar.vue'
 import TaskGantt from '../components/TaskGantt.vue'
 import FollowUpSummaryModal from '../components/FollowUpSummaryModal.vue'
 import { formatDateTimeDisplay, getTaipeiTodayKey, toDateKey } from '../scripts/time.js'
+import {
+  buildFollowUpItems,
+  buildSummaryCounts,
+  getSubmissionsByMode,
+} from '../scripts/dashboardData.js'
 
 const router = getCurrentInstance().appContext.config.globalProperties.$router
 const activePath = computed(() => router?.currentRoute?.value?.path || '')
@@ -117,30 +122,14 @@ const clientSubmissions = computed(() => {
   return submissions.value.filter((submission) => submission.client_name === name)
 })
 
-const activeSubmissions = computed(() => {
-  if (viewMode.value === 'user') return userSubmissions.value
-  if (viewMode.value === 'client') return clientSubmissions.value
-  return submissions.value
-})
-
-const followUpItems = computed(() =>
-  activeSubmissions.value.flatMap((submission) => {
-    const followUps = Array.isArray(submission.follow_ups) ? submission.follow_ups : []
-    return followUps.map((followUp) => ({
-      id: `${submission.id}-${followUp.id}`,
-      title: followUp.content,
-      status: String(followUp.status_name || '進行中').trim(),
-      statusBgColor: followUp.status_bg_color || '',
-      scheduledAt: submission.end_at,
-      owner:
-        viewMode.value === 'user'
-          ? selectedUser.value?.username || selectedUser.value?.mail || '未指派'
-          : submission.client_name || '未指派',
-      assignees: Array.isArray(followUp.assignees) ? followUp.assignees : [],
-      label: `${submission.client_name}_${submission.vendor_name}_${submission.product_name}`,
-    }))
+const activeSubmissions = computed(() =>
+  getSubmissionsByMode(submissions.value, viewMode.value, {
+    userMail: selectedUser.value?.mail,
+    clientName: selectedClient.value?.name,
   })
 )
+
+const followUpItems = computed(() => buildFollowUpItems(activeSubmissions.value))
 
 const timelineItems = computed(() =>
   activeSubmissions.value
@@ -148,22 +137,12 @@ const timelineItems = computed(() =>
     .sort((a, b) => String(a.end_at || '').localeCompare(String(b.end_at || '')))
 )
 
-const totalCount = computed(() => followUpItems.value.length)
-const incompleteCount = computed(
-  () => followUpItems.value.filter((task) => task.status === INCOMPLETE_STATUS).length
-)
-const inProgressCount = computed(
-  () =>
-    followUpItems.value.filter(
-      (task) => task.status !== COMPLETED_STATUS && task.status !== INCOMPLETE_STATUS
-    ).length
-)
-const completedCount = computed(
-  () => followUpItems.value.filter((task) => task.status === COMPLETED_STATUS).length
-)
-const unassignedCount = computed(
-  () => followUpItems.value.filter((task) => (task.assignees || []).length === 0).length
-)
+const summaryCounts = computed(() => buildSummaryCounts(followUpItems.value, new Date()))
+const totalCount = computed(() => summaryCounts.value.totalCount)
+const completedCount = computed(() => summaryCounts.value.completedCount)
+const incompleteCount = computed(() => summaryCounts.value.incompleteCount)
+const inProgressCount = computed(() => summaryCounts.value.inProgressCount)
+const unassignedCount = computed(() => summaryCounts.value.unassignedCount)
 
 const todaysBadge = computed(() => {
   const total = timelineItems.value.reduce(

@@ -5,6 +5,12 @@ import MonthlyCalendar from '../components/MonthlyCalendar.vue'
 import FollowUpSummaryModal from '../components/FollowUpSummaryModal.vue'
 import { formatDateTimeDisplay, toDateKey, getTaipeiTodayKey } from '../scripts/time.js'
 import { countPendingFollowUps } from '../scripts/followUps.js'
+import {
+  buildFollowUpItems,
+  buildStatusNameById,
+  buildSummaryCounts,
+  getUserSubmissions,
+} from '../scripts/dashboardData.js'
 
 const router = getCurrentInstance().appContext.config.globalProperties.$router
 const username = ref('hi')
@@ -26,8 +32,6 @@ const statusMessageType = ref('')
 const isTimelineLoading = ref(false)
 const assigneeSearch = ref('')
 const activeAssigneeMenu = ref(null)
-const COMPLETED_STATUS = '已完成'
-const INCOMPLETE_STATUS = '未完成'
 const summaryModalOpen = ref(false)
 const summaryModalFilter = ref('all')
 const summaryModalTitle = ref('任務總數')
@@ -202,14 +206,35 @@ const pendingBadge = computed(() => {
   return { text: `待處理 ${pendingFollowUpCount.value}`, className: 'panel-badge-pending' }
 })
 
-const userSubmissions = computed(() => {
-  const mail = readUserMail()
-  if (!mail) return []
-  return submissions.value.filter((item) => {
-    const related = item.related_users || []
-    return related.some((user) => user.mail === mail)
-  })
-})
+const userSubmissions = computed(() => getUserSubmissions(submissions.value, readUserMail()))
+
+const statusNameById = computed(() => buildStatusNameById(followUpStatuses.value))
+
+const followUpItems = computed(() =>
+  buildFollowUpItems(userSubmissions.value, statusNameById.value)
+)
+
+const summaryCounts = computed(() => buildSummaryCounts(followUpItems.value, new Date()))
+const totalCount = computed(() => summaryCounts.value.totalCount)
+const completedCount = computed(() => summaryCounts.value.completedCount)
+const incompleteCount = computed(() => summaryCounts.value.incompleteCount)
+const inProgressCount = computed(() => summaryCounts.value.inProgressCount)
+const unassignedCount = computed(() => summaryCounts.value.unassignedCount)
+
+const openSummaryModal = (filter, title) => {
+  summaryModalFilter.value = filter
+  summaryModalTitle.value = title
+  summaryModalOpen.value = true
+}
+
+const closeSummaryModal = () => {
+  summaryModalOpen.value = false
+}
+
+const handleSummarySelectDate = (dateKey) => {
+  if (!dateKey) return
+  selectedDate.value = dateKey
+}
 
 const statusNameById = computed(
   () => new Map(followUpStatuses.value.map((status) => [status.id, status.name]))
