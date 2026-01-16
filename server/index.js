@@ -6,7 +6,12 @@ import { URL } from 'node:url'
 import mammoth from 'mammoth'
 
 const loadEnvFile = async (path) => {
-  const content = await fs.readFile(path, 'utf8')
+  let content = ''
+  try {
+    content = await fs.readFile(path, 'utf8')
+  } catch {
+    return
+  }
   for (const line of content.split('\n')) {
     const trimmed = line.trim()
     if (!trimmed || trimmed.startsWith('#')) continue
