@@ -18,7 +18,7 @@ const goToHome = () => router?.push('/home')
 const goToProfile = () => router?.push('/settings')
 const goToUserDashboard = () => router?.push('/users/dashboard')
 
-const viewMode = ref('user')
+const viewMode = ref('all')
 const viewType = ref('calendar')
 const users = ref([])
 const submissions = ref([])
@@ -157,6 +157,9 @@ const inProgressCount = computed(
 const completedCount = computed(
   () => followUpItems.value.filter((task) => task.status === COMPLETED_STATUS).length
 )
+const unassignedCount = computed(
+  () => followUpItems.value.filter((task) => (task.assignees || []).length === 0).length
+)
 
 const todaysBadge = computed(() => {
   const total = timelineItems.value.reduce(
@@ -199,7 +202,10 @@ const formatTimeOnly = (value) => {
   return parts.length > 1 ? parts[1].slice(0, 5) : formatted
 }
 
-const calendarSubmissions = computed(() => activeSubmissions.value)
+const calendarSubmissions = computed(() => {
+  if (viewMode.value === 'user') return userSubmissions.value
+  return submissions.value
+})
 
 const timelineTitle = computed(() => {
   const date = selectedDate.value
@@ -209,18 +215,14 @@ const timelineTitle = computed(() => {
   return `${year}年${month}月${day}日時間線`
 })
 
-const headerTitle = computed(() => {
-  if (viewMode.value === 'user') return '用戶工作安排'
-  if (viewMode.value === 'client') return '客戶工作安排'
-  return '全部工作安排'
-})
+const headerTitle = computed(() => '儀表盤')
 
 const headerSubhead = computed(() => {
   if (viewMode.value === 'user') {
     return '監控單一用戶的任務進度、待辦與跟進狀況。'
   }
   if (viewMode.value === 'client') {
-    return '以客戶視角檢視該客戶的跟進任務進度與安排。'
+    return '以客戶視角檢視所有客戶的跟進任務進度與安排。'
   }
   return '整體檢視目前所有任務與跟進安排。'
 })
@@ -255,7 +257,7 @@ const summaryMeta = computed(() => {
 
 const calendarSubtitle = computed(() => {
   if (viewMode.value === 'user') return '顯示與你相關的待辦數量'
-  if (viewMode.value === 'client') return '顯示該客戶的待辦數量'
+  if (viewMode.value === 'client') return '顯示所有客戶的待辦數量'
   return '顯示全部任務的待辦數量'
 })
 
@@ -346,7 +348,7 @@ watch(
 
 const ganttSubmissions = computed(() => {
   if (viewMode.value === 'user') return submissions.value
-  if (viewMode.value === 'client') return clientSubmissions.value
+  if (viewMode.value === 'client') return submissions.value
   return []
 })
 </script>
@@ -501,20 +503,25 @@ const ganttSubmissions = computed(() => {
           <p class="card-value">{{ totalCount }}</p>
           <p class="card-meta">{{ summaryMeta }}</p>
         </article>
-        <article class="summary-card">
-          <p class="card-label">未完成</p>
-          <p class="card-value">{{ incompleteCount }}</p>
-          <p class="card-meta">標記為未完成的跟進</p>
+        <article class="summary-card summary-card-success">
+          <p class="card-label">已完成</p>
+          <p class="card-value">{{ completedCount }}</p>
+          <p class="card-meta">已完成的跟進數量</p>
         </article>
-        <article class="summary-card">
+        <article class="summary-card summary-card-warning">
           <p class="card-label">進行中</p>
           <p class="card-value">{{ inProgressCount }}</p>
           <p class="card-meta">未完成與已完成以外狀態</p>
         </article>
-        <article class="summary-card">
-          <p class="card-label">已完成</p>
-          <p class="card-value">{{ completedCount }}</p>
-          <p class="card-meta">已完成的跟進數量</p>
+        <article class="summary-card summary-card-warning">
+          <p class="card-label">未指派</p>
+          <p class="card-value">{{ unassignedCount }}</p>
+          <p class="card-meta">尚未安排跟進人</p>
+        </article>
+        <article class="summary-card summary-card-danger">
+          <p class="card-label">未完成</p>
+          <p class="card-value">{{ incompleteCount }}</p>
+          <p class="card-meta">標記為未完成的跟進</p>
         </article>
       </section>
 
@@ -578,7 +585,7 @@ const ganttSubmissions = computed(() => {
             :selected-date="selectedDate"
             :submissions="calendarSubmissions"
             :user-mail="viewMode === 'user' ? selectedUser?.mail : ''"
-            :client-name="viewMode === 'client' ? selectedClient?.name : ''"
+            :client-name="''"
             :subtitle="calendarSubtitle"
             @select-date="handleSelectDate"
           />
@@ -819,6 +826,37 @@ const ganttSubmissions = computed(() => {
   box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
   display: grid;
   gap: 0.4rem;
+}
+
+.summary-card-success {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.summary-card-warning {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.summary-card-danger {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.summary-card-success .card-label,
+.summary-card-warning .card-label,
+.summary-card-danger .card-label,
+.summary-card-success .card-meta,
+.summary-card-warning .card-meta,
+.summary-card-danger .card-meta {
+  color: currentColor;
+  opacity: 0.75;
+}
+
+.summary-card-success .card-value,
+.summary-card-warning .card-value,
+.summary-card-danger .card-value {
+  color: currentColor;
 }
 
 .card-label {
