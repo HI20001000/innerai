@@ -55,11 +55,11 @@
         class="sidebar-button"
         :class="{ active: activePath === '/users/dashboard' }"
         type="button"
-        aria-label="用戶工作安排"
+        aria-label="儀表盤"
         @click="onViewUserDashboard"
       >
-        <span class="sidebar-glyph">👤</span>
-        用戶安排
+        <span class="sidebar-glyph">📊</span>
+        儀表盤
       </button>
     </div>
     <div class="sidebar-bottom">
