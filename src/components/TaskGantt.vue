@@ -156,9 +156,8 @@ const axisTicks = computed(() => {
       })
     }
   } else if (rangeType.value === 'year') {
-    const end = new Date(start.getFullYear() + rangeConfig.value.count, start.getMonth(), 1)
-    const cursor = new Date(start.getFullYear(), 0, 1)
-    while (cursor < end) {
+    for (let i = 0; i < rangeConfig.value.count; i += 1) {
+      const cursor = new Date(start.getFullYear() + i, 0, 1)
       const dayIndex = Math.round(
         (toDayStart(cursor).getTime() - start.getTime()) / MILLISECONDS_IN_DAY
       )
@@ -167,12 +166,10 @@ const axisTicks = computed(() => {
         label: `${cursor.getFullYear()}年`,
         dayIndex,
       })
-      cursor.setFullYear(cursor.getFullYear() + 1)
     }
   } else {
-    const end = new Date(start.getTime() + totalDays.value * MILLISECONDS_IN_DAY)
-    const cursor = new Date(start.getFullYear(), start.getMonth(), 1)
-    while (cursor < end) {
+    for (let i = 0; i < rangeConfig.value.count; i += 1) {
+      const cursor = new Date(start.getFullYear(), start.getMonth() + i, 1)
       const dayIndex = Math.round(
         (toDayStart(cursor).getTime() - start.getTime()) / MILLISECONDS_IN_DAY
       )
@@ -181,7 +178,6 @@ const axisTicks = computed(() => {
         label: `${String(cursor.getMonth() + 1).padStart(2, '0')}月`,
         dayIndex,
       })
-      cursor.setMonth(cursor.getMonth() + 1)
     }
   }
   return ticks
