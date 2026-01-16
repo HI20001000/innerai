@@ -17,11 +17,18 @@ export const buildFollowUpStatusByDate = (submissions = [], mail, toDateKey) => 
   const summary = {}
   for (const item of submissions) {
     const related = item.related_users || []
-    if (!related.some((user) => user.mail === mail)) continue
     const dateKey = toDateKey(item.end_at)
     if (!dateKey) continue
     const followUps = Array.isArray(item?.follow_ups) ? item.follow_ups : []
     if (followUps.length === 0) continue
+    const hasRelatedUser = related.some((user) => user.mail === mail)
+    const hasAssignedFollowUp = followUps.some((followUp) =>
+      (followUp?.assignees || []).some((assignee) => assignee?.mail === mail)
+    )
+    const hasUnassignedFollowUp = followUps.some(
+      (followUp) => (followUp?.assignees || []).length === 0
+    )
+    if (!hasRelatedUser && !hasAssignedFollowUp && !hasUnassignedFollowUp) continue
     const pendingCount = countPendingForFollowUps(followUps)
     if (!summary[dateKey]) {
       summary[dateKey] = { total: 0, pending: 0 }
