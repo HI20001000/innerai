@@ -153,6 +153,18 @@ const timelineItems = computed(() => {
     .sort((a, b) => String(a.end_at || '').localeCompare(String(b.end_at || '')))
 })
 
+const getSubmissionTags = (item) => {
+  const raw = item?.tags ?? item?.tag ?? []
+  if (Array.isArray(raw)) return raw.filter(Boolean)
+  if (typeof raw === 'string') {
+    return raw
+      .split(',')
+      .map((tag) => tag.trim())
+      .filter(Boolean)
+  }
+  return []
+}
+
 const formatTimeOnly = (value) => {
   const formatted = formatDateTimeDisplay(value)
   if (!formatted) return ''
@@ -537,9 +549,14 @@ onUnmounted(() => {
               <div v-for="item in timelineItems" :key="item.id" class="time-row">
                 <span class="time">{{ formatTimeOnly(item.end_at) }}</span>
                 <div class="time-card">
-                  <h3 class="time-card-title">
-                    {{ item.client_name }}_{{ item.vendor_name }}_{{ item.product_name }}
-                  </h3>
+                  <div class="time-card-header">
+                    <h3 class="time-card-title">
+                      {{ item.client_name }}_{{ item.vendor_name }}_{{ item.product_name }}
+                    </h3>
+                    <span v-if="getSubmissionTags(item).length" class="time-card-tags">
+                      {{ getSubmissionTags(item).join('、') }}
+                    </span>
+                  </div>
                   <div v-if="item.follow_ups?.length" class="follow-up-list">
                     <div
                       v-for="(follow, index) in item.follow_ups"
@@ -985,13 +1002,24 @@ onUnmounted(() => {
   border-color: #c7d2fe;
 }
 
-.time-card h3 {
-  margin: 0 0 0.3rem;
-  font-size: 1rem;
+.time-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.3rem;
 }
 
 .time-card-title {
+  margin: 0;
+  font-size: 1rem;
   font-weight: 700;
+}
+
+.time-card-tags {
+  font-size: 0.85rem;
+  color: #64748b;
+  font-weight: 600;
 }
 
 .time-card p {
