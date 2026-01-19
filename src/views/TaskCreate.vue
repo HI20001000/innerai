@@ -664,7 +664,7 @@ onBeforeUnmount(() => {
               <div class="field-header">
                 <span class="field-title">
                   客戶
-                  <small class="required-label">必填</small>
+                  <span class="required-asterisk">*</span>
                 </span>
                 <button class="ghost-mini" type="button" @click="openModal('client')">編輯</button>
               </div>
@@ -700,7 +700,7 @@ onBeforeUnmount(() => {
               <div class="field-header">
                 <span class="field-title">
                   廠家
-                  <small class="required-label">必填</small>
+                  <span class="required-asterisk">*</span>
                 </span>
                 <button class="ghost-mini" type="button" @click="openModal('vendor')">編輯</button>
               </div>
@@ -736,7 +736,7 @@ onBeforeUnmount(() => {
             <div class="field-header">
               <span class="field-title">
                 廠家產品
-                <small class="required-label">必填</small>
+                <span class="required-asterisk">*</span>
               </span>
               <button class="ghost-mini" type="button" @click="openModal('product')">編輯</button>
             </div>
@@ -772,7 +772,7 @@ onBeforeUnmount(() => {
             <div class="field-header">
               <span class="field-title">
                 任務標籤
-                <small class="required-label">必填</small>
+                <span class="required-asterisk">*</span>
               </span>
               <button class="ghost-mini" type="button" @click="openModal('tag')">編輯</button>
             </div>
@@ -808,7 +808,7 @@ onBeforeUnmount(() => {
             <div class="field-header">
               <span class="field-title">
                 關聯用戶
-                <small class="required-label">必填</small>
+                <span class="required-asterisk">*</span>
               </span>
             </div>
             <button class="select-field" type="button" @click="openList('user')">
@@ -1177,10 +1177,11 @@ onBeforeUnmount(() => {
   color: #475569;
 }
 
-.required-label {
-  font-size: 0.75rem;
-  font-weight: 600;
+.required-asterisk {
+  font-size: 0.95rem;
+  font-weight: 700;
   color: #dc2626;
+  line-height: 1;
 }
 
 .field input,
