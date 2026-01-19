@@ -144,6 +144,7 @@ const handleRegister = async () => {
       return
     }
     authMessage.value = '註冊成功，請登入'
+    loginEmail.value = registerEmail.value
     activeTab.value = 'login'
   } catch (error) {
     console.error(error)
