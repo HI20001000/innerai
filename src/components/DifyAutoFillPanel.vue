@@ -53,20 +53,20 @@ const handleRecordsSelected = async (records) => {
     })
     const data = await response.json()
     if (!response.ok || !data?.success) {
-      setMessage(data?.message || 'Dify 處理失敗', 'error')
+      setMessage(data?.message || 'AI 處理失敗', 'error')
       return
     }
     const answer = data?.data?.answer
     const parsed = parseJsonPayload(answer)
     if (!parsed) {
-      setMessage('無法解析 Dify 回傳資料。', 'error')
+      setMessage('無法解析 AI 回傳資料。', 'error')
       return
     }
     props.onFill(parsed)
-    setMessage('Dify 自動填寫完成', 'success')
+    setMessage('AI 提取完成', 'success')
   } catch (error) {
     console.error(error)
-    setMessage('Dify 處理失敗', 'error')
+    setMessage('AI 處理失敗', 'error')
   } finally {
     isLoading.value = false
   }
@@ -75,7 +75,7 @@ const handleRecordsSelected = async (records) => {
 
 <template>
   <div class="summary-card dify-card">
-    <h2>Dify 自動填寫</h2>
+    <h2>AI提取會議記錄填寫</h2>
     <p>上傳 docx 或 txt 檔案，自動解析並填入任務欄位。</p>
     <button class="upload-button" type="button" :disabled="isLoading" @click="showModal = true">
       {{ isLoading ? '處理中...' : '選取會議記錄' }}

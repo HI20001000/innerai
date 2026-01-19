@@ -1,5 +1,5 @@
 <script setup>
-import { computed, getCurrentInstance, onMounted, ref } from 'vue'
+import { computed, getCurrentInstance, onMounted, onUnmounted, ref } from 'vue'
 import WorkspaceSidebar from '../components/WorkspaceSidebar.vue'
 import MonthlyCalendar from '../components/MonthlyCalendar.vue'
 import FollowUpSummaryModal from '../components/FollowUpSummaryModal.vue'
@@ -153,6 +153,18 @@ const timelineItems = computed(() => {
     .sort((a, b) => String(a.end_at || '').localeCompare(String(b.end_at || '')))
 })
 
+const getSubmissionTags = (item) => {
+  const raw = item?.tags ?? item?.tag ?? []
+  if (Array.isArray(raw)) return raw.filter(Boolean)
+  if (typeof raw === 'string') {
+    return raw
+      .split(',')
+      .map((tag) => tag.trim())
+      .filter(Boolean)
+  }
+  return []
+}
+
 const formatTimeOnly = (value) => {
   const formatted = formatDateTimeDisplay(value)
   if (!formatted) return ''
@@ -275,6 +287,15 @@ const toggleAssigneeMenu = (followUpId) => {
   assigneeSearch.value = ''
 }
 
+const handleTimelineOutsideClick = (event) => {
+  if (!activeStatusMenu.value && !activeAssigneeMenu.value) return
+  const target = event.target
+  if (!(target instanceof Element)) return
+  if (target.closest('.follow-up-actions')) return
+  activeStatusMenu.value = null
+  activeAssigneeMenu.value = null
+}
+
 const isAssigneeSelected = (followUp, mail) =>
   Array.isArray(followUp?.assignees) && followUp.assignees.some((user) => user.mail === mail)
 
@@ -307,8 +328,10 @@ const getFilteredRelatedUsers = (item) => {
 }
 
 const getAssigneeButtonText = (followUp) => {
-  const count = followUp?.assignees?.length || 0
-  return count > 0 ? `已選${count}人` : '選擇跟進人'
+  const assignees = followUp?.assignees || []
+  if (assignees.length === 0) return '選擇跟進人'
+  const names = assignees.map((user) => user.username || user.mail).filter(Boolean)
+  return names.length > 0 ? names.join('、') : '選擇跟進人'
 }
 
 const openStatusModal = () => {
@@ -414,6 +437,11 @@ onMounted(() => {
   loadUser()
   fetchSubmissions()
   fetchStatuses()
+  document.addEventListener('click', handleTimelineOutsideClick)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleTimelineOutsideClick)
 })
 </script>
 
@@ -438,7 +466,6 @@ onMounted(() => {
           <p class="subhead">快速掌握正在推進的項目、待辦與今日跟進事項。</p>
         </div>
         <div class="header-actions">
-          <button class="ghost-button" type="button">下載報告</button>
           <button class="primary-button" type="button">建立新任務</button>
         </div>
       </header>
@@ -522,9 +549,14 @@ onMounted(() => {
               <div v-for="item in timelineItems" :key="item.id" class="time-row">
                 <span class="time">{{ formatTimeOnly(item.end_at) }}</span>
                 <div class="time-card">
-                  <h3 class="time-card-title">
-                    {{ item.client_name }}_{{ item.vendor_name }}_{{ item.product_name }}
-                  </h3>
+                  <div class="time-card-header">
+                    <h3 class="time-card-title">
+                      {{ item.client_name }}_{{ item.vendor_name }}_{{ item.product_name }}
+                    </h3>
+                    <span v-if="getSubmissionTags(item).length" class="time-card-tags">
+                      {{ getSubmissionTags(item).join('、') }}
+                    </span>
+                  </div>
                   <div v-if="item.follow_ups?.length" class="follow-up-list">
                     <div
                       v-for="(follow, index) in item.follow_ups"
@@ -970,13 +1002,28 @@ onMounted(() => {
   border-color: #c7d2fe;
 }
 
-.time-card h3 {
-  margin: 0 0 0.3rem;
-  font-size: 1rem;
+.time-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.3rem;
 }
 
 .time-card-title {
+  margin: 0;
+  font-size: 1rem;
   font-weight: 700;
+}
+
+.time-card-tags {
+  font-size: 0.85rem;
+  color: #64748b;
+  font-weight: 600;
+  background: rgba(59, 130, 246, 0.12);
+  color: #1d4ed8;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
 }
 
 .time-card p {
