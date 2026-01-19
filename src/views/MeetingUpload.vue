@@ -135,9 +135,14 @@ const deleteOption = async (type, name) => {
   }
 }
 
+const isAllowedMeetingFile = (file) => {
+  const name = (file?.name || '').toLowerCase()
+  return name.endsWith('.txt') || name.endsWith('.docx')
+}
+
 const handleFileChange = async (event) => {
   const files = Array.from(event.target.files || [])
-  selectedFiles.value = files
+  selectedFiles.value = files.filter(isAllowedMeetingFile)
 }
 
 const getTaipeiDateTimeLocal = () => getTaipeiNowInput()
@@ -181,7 +186,7 @@ const submitMeetingRecords = async () => {
   isSubmitting.value = true
   try {
     const filesPayload = await Promise.all(
-      selectedFiles.value.map(async (file) => ({
+      selectedFiles.value.filter(isAllowedMeetingFile).map(async (file) => ({
         name: file.name,
         path: file.webkitRelativePath || file.name,
         type: file.type,
