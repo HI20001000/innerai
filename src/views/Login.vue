@@ -25,6 +25,15 @@ const parseJsonSafe = async (response) => {
   }
 }
 
+const clearAuthMessage = () => {
+  authMessage.value = ''
+}
+
+const switchTab = (tab) => {
+  activeTab.value = tab
+  clearAuthMessage()
+}
+
 const handleLogin = async () => {
   authMessage.value = ''
   if (!/^[^@]+@[^@]+\.[^@]+$/.test(loginEmail.value)) {
@@ -420,20 +429,14 @@ onUnmounted(() => {
         <button
           type="button"
           :class="['tab', { active: activeTab === 'login' }]"
-          @click="
-            activeTab = 'login'
-            authMessage = ''
-          "
+          @click="switchTab('login')"
         >
           登入
         </button>
         <button
           type="button"
           :class="['tab', { active: activeTab === 'register' }]"
-          @click="
-            activeTab = 'register'
-            authMessage = ''
-          "
+          @click="switchTab('register')"
         >
           註冊
         </button>
@@ -523,10 +526,7 @@ onUnmounted(() => {
         <button
           class="link-button"
           type="button"
-          @click="
-            activeTab = activeTab === 'login' ? 'register' : 'login'
-            authMessage = ''
-          "
+          @click="switchTab(activeTab === 'login' ? 'register' : 'login')"
         >
           {{ activeTab === 'login' ? '免費註冊' : '立即登入' }}
         </button>
