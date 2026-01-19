@@ -104,6 +104,19 @@ const getMeetings = () => {
   return product?.meetings || []
 }
 
+const findMeetingById = (items, meetingId) => {
+  for (const client of items || []) {
+    for (const vendor of client.vendors || []) {
+      for (const product of vendor.products || []) {
+        for (const meeting of product.meetings || []) {
+          if (meeting.id === meetingId) return meeting
+        }
+      }
+    }
+  }
+  return null
+}
+
 const selectClient = (clientName) => {
   activeClient.value = clientName
   activeVendor.value = ''
@@ -318,6 +331,7 @@ const generateMeetingReport = async (meeting) => {
   const auth = readAuthStorage()
   if (!auth) return
   isReportGenerating.value = true
+  const meetingId = meeting.id
   try {
     const response = await fetch(`${apiBaseUrl}/api/meeting-reports/${meeting.id}`, {
       method: 'POST',
@@ -336,6 +350,15 @@ const generateMeetingReport = async (meeting) => {
     }
     activeReport.value = meeting.report
     activeReportMeta.value = meeting
+    await fetchMeetingRecords()
+    const refreshed = findMeetingById(records.value, meetingId)
+    if (refreshed) {
+      activeMeeting.value = refreshed
+      if (refreshed.report?.content_text) {
+        activeReport.value = refreshed.report
+        activeReportMeta.value = refreshed
+      }
+    }
   } catch (error) {
     console.error(error)
     resultTitle.value = '整合失敗'
