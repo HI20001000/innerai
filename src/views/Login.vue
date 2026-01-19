@@ -412,12 +412,14 @@ onUnmounted(() => {
       <div class="hero-content">
         <div class="hero-title-row">
           <img class="logo-image" src="/src/imgs/web_icon.png" alt="InnerAI" />
-          <p class="hero-title">InnerAI</p>
+          <p class="hero-title">業務AI平台 v1.0</p>
         </div>
-        <p class="hero-subtitle">用一個清爽的入口，快速啟動你的工作空間。</p>
+        <p class="hero-subtitle">業務AI平台以「上傳會議->任務跟進」為核心的協作管理系統</p>
         <ul class="hero-list">
-          <li>單一入口，登入/註冊切換</li>
-          <li>完整 UI 結構，方便後續接 API</li>
+          <li>在「新增任務」建立任務（含跟進內容）</li>
+          <li>在「首頁」追蹤當日時間線與待辦</li>
+          <li>指派跟進人並更新狀態</li>
+          <li>在「上傳會議記錄」整理資料</li>
         </ul>
       </div>
     </aside>
