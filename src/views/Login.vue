@@ -27,7 +27,7 @@ const parseJsonSafe = async (response) => {
 
 const handleLogin = async () => {
   authMessage.value = ''
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(loginEmail.value)) {
+  if (!/^[^@]+@[^@]+\.[^@]+$/.test(loginEmail.value)) {
     authMessage.value = '請輸入有效的電子郵件格式'
     return
   }
@@ -103,7 +103,7 @@ const requestCode = async () => {
 
 const handleRegister = async () => {
   authMessage.value = ''
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(registerEmail.value)) {
+  if (!/^[^@]+@[^@]+\.[^@]+$/.test(registerEmail.value)) {
     authMessage.value = '請輸入有效的電子郵件格式'
     return
   }
@@ -441,7 +441,7 @@ onUnmounted(() => {
               v-model="loginEmail"
               type="email"
               placeholder="name@company.com"
-              pattern="[^@\\s]+@[^@\\s]+\\.[^@\\s]+"
+              pattern="[^@]+@[^@]+\\.[^@]+"
               required
             />
           </label>
@@ -476,7 +476,7 @@ onUnmounted(() => {
               v-model="registerEmail"
               type="email"
               placeholder="name@company.com"
-              pattern="[^@\\s]+@[^@\\s]+\\.[^@\\s]+"
+              pattern="[^@]+@[^@]+\\.[^@]+"
               required
             />
           </label>
