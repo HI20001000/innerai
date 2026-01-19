@@ -445,8 +445,6 @@ onUnmounted(() => {
               v-model="loginEmail"
               type="email"
               placeholder="name@company.com"
-              pattern="[^@]+@[^@]+\.[^@]+"
-              required
             />
           </label>
 
@@ -480,8 +478,6 @@ onUnmounted(() => {
               v-model="registerEmail"
               type="email"
               placeholder="name@company.com"
-              pattern="[^@]+@[^@]+\.[^@]+"
-              required
             />
           </label>
 
