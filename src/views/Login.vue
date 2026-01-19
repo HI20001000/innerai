@@ -136,8 +136,6 @@ const mouse = {
   active: false,
 }
 
-const clamp = (value, min, max) => Math.min(Math.max(value, min), max)
-
 const createParticle = (width, height, { edge = false } = {}) => {
   let baseVx = (Math.random() - 0.5) * 0.6
   let baseVy = (Math.random() - 0.5) * 0.6
@@ -209,10 +207,6 @@ onMounted(() => {
     width: 0,
     height: 0,
     ratio: window.devicePixelRatio || 1,
-    zoom: 1,
-    targetZoom: 1,
-    focusX: 0,
-    focusY: 0,
   }
 
   const particleCount = 100
@@ -236,9 +230,6 @@ onMounted(() => {
   let lastMouseY = 0
   let mouseVelocityX = 0
   let mouseVelocityY = 0
-  const minZoom = 0.9
-  const maxZoom = 1.25
-
   const handleMouseMove = (event) => {
     if (mouse.active) {
       mouseVelocityX = event.clientX - lastMouseX
@@ -250,40 +241,10 @@ onMounted(() => {
     mouse.y = event.clientY
     mouse.active = true
 
-    const rect = heroEl.getBoundingClientRect()
-    if (
-      mouse.x >= rect.left &&
-      mouse.x <= rect.right &&
-      mouse.y >= rect.top &&
-      mouse.y <= rect.bottom
-    ) {
-      state.focusX = mouse.x - rect.left
-      state.focusY = mouse.y - rect.top
-    }
-  }
-
-  const handleWheel = (event) => {
-    const rect = heroEl.getBoundingClientRect()
-    const inside =
-      event.clientX >= rect.left &&
-      event.clientX <= rect.right &&
-      event.clientY >= rect.top &&
-      event.clientY <= rect.bottom
-
-    if (!inside) {
-      return
-    }
-
-    event.preventDefault()
-    state.focusX = event.clientX - rect.left
-    state.focusY = event.clientY - rect.top
-    const delta = -Math.sign(event.deltaY) * 0.08
-    state.targetZoom = clamp(state.targetZoom + delta, minZoom, maxZoom)
   }
 
   const handleMouseLeave = () => {
     mouse.active = false
-    state.targetZoom = 1
   }
 
   const tick = () => {
@@ -348,15 +309,6 @@ onMounted(() => {
       }
     }
 
-    state.zoom += (state.targetZoom - state.zoom) * 0.08
-    const focusX = localMouse.active ? localMouse.x : state.width / 2
-    const focusY = localMouse.active ? localMouse.y : state.height / 2
-
-    ctx.save()
-    ctx.translate(focusX, focusY)
-    ctx.scale(state.zoom, state.zoom)
-    ctx.translate(-focusX, -focusY)
-
     if (localMouse.active) {
       const glowRadius = 140
       const glow = ctx.createRadialGradient(
@@ -402,15 +354,12 @@ onMounted(() => {
       ctx.fill()
     }
 
-    ctx.restore()
-
     state.animationId = window.requestAnimationFrame(tick)
   }
 
   resize()
   window.addEventListener('resize', resize)
   window.addEventListener('mousemove', handleMouseMove)
-  window.addEventListener('wheel', handleWheel, { passive: false })
   window.addEventListener('mouseleave', handleMouseLeave)
   window.addEventListener('blur', handleMouseLeave)
 
@@ -419,7 +368,6 @@ onMounted(() => {
   cleanupAnimation = () => {
     window.removeEventListener('resize', resize)
     window.removeEventListener('mousemove', handleMouseMove)
-    window.removeEventListener('wheel', handleWheel)
     window.removeEventListener('mouseleave', handleMouseLeave)
     window.removeEventListener('blur', handleMouseLeave)
     window.cancelAnimationFrame(state.animationId)
