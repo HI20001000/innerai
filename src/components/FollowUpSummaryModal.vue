@@ -253,8 +253,10 @@ const getFilteredRelatedUsers = (submission) => {
 }
 
 const getAssigneeButtonText = (followUp) => {
-  const count = followUp?.assignees?.length || 0
-  return count > 0 ? `已選${count}人` : '選擇跟進人'
+  const assignees = followUp?.assignees || []
+  if (assignees.length === 0) return '選擇跟進人'
+  const names = assignees.map((user) => user.username || user.mail).filter(Boolean)
+  return names.length > 0 ? names.join('、') : '選擇跟進人'
 }
 
 const getAssigneeText = (followUp) => {
