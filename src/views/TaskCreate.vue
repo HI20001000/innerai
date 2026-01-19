@@ -662,7 +662,10 @@ onBeforeUnmount(() => {
           <div class="field-grid">
             <div class="field select-field-wrapper">
               <div class="field-header">
-                <span>客戶</span>
+                <span class="field-title">
+                  客戶
+                  <small class="required-label">必填</small>
+                </span>
                 <button class="ghost-mini" type="button" @click="openModal('client')">編輯</button>
               </div>
               <button class="select-field" type="button" @click="openList('client')">
@@ -695,7 +698,10 @@ onBeforeUnmount(() => {
             </div>
             <div class="field select-field-wrapper">
               <div class="field-header">
-                <span>廠家</span>
+                <span class="field-title">
+                  廠家
+                  <small class="required-label">必填</small>
+                </span>
                 <button class="ghost-mini" type="button" @click="openModal('vendor')">編輯</button>
               </div>
               <button class="select-field" type="button" @click="openList('vendor')">
@@ -728,7 +734,10 @@ onBeforeUnmount(() => {
             </div>
           <div class="field select-field-wrapper">
             <div class="field-header">
-              <span>廠家產品</span>
+              <span class="field-title">
+                廠家產品
+                <small class="required-label">必填</small>
+              </span>
               <button class="ghost-mini" type="button" @click="openModal('product')">編輯</button>
             </div>
             <button class="select-field" type="button" @click="openList('product')">
@@ -761,7 +770,10 @@ onBeforeUnmount(() => {
           </div>
           <div class="field select-field-wrapper">
             <div class="field-header">
-              <span>任務標籤</span>
+              <span class="field-title">
+                任務標籤
+                <small class="required-label">必填</small>
+              </span>
               <button class="ghost-mini" type="button" @click="openModal('tag')">編輯</button>
             </div>
             <button class="select-field" type="button" @click="openList('tag')">
@@ -794,7 +806,10 @@ onBeforeUnmount(() => {
           </div>
           <div class="field select-field-wrapper">
             <div class="field-header">
-              <span>關聯用戶</span>
+              <span class="field-title">
+                關聯用戶
+                <small class="required-label">必填</small>
+              </span>
             </div>
             <button class="select-field" type="button" @click="openList('user')">
               {{
@@ -1151,9 +1166,21 @@ onBeforeUnmount(() => {
   justify-content: space-between;
 }
 
+.field-title {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+}
+
 .field span {
   font-size: 0.9rem;
   color: #475569;
+}
+
+.required-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #dc2626;
 }
 
 .field input,
