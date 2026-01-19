@@ -145,7 +145,7 @@ const ensureTables = async (connection) => {
       client_name VARCHAR(255) NOT NULL,
       vendor_name VARCHAR(255) NOT NULL,
       product_name VARCHAR(255) NOT NULL,
-      tag_name VARCHAR(255) NOT NULL,
+      tag_name VARCHAR(255) NULL,
       start_at DATETIME,
       end_at DATETIME,
       follow_up TEXT,
@@ -281,6 +281,13 @@ const ensureTables = async (connection) => {
     await connection.query('ALTER TABLE task_submissions ADD COLUMN end_at DATETIME NULL')
   } catch (error) {
     if (error?.code !== 'ER_DUP_FIELDNAME') {
+      throw error
+    }
+  }
+  try {
+    await connection.query('ALTER TABLE task_submissions MODIFY tag_name VARCHAR(255) NULL')
+  } catch (error) {
+    if (error?.code !== 'ER_BAD_FIELD_ERROR') {
       throw error
     }
   }
