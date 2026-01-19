@@ -27,6 +27,10 @@ const parseJsonSafe = async (response) => {
 
 const handleLogin = async () => {
   authMessage.value = ''
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(loginEmail.value)) {
+    authMessage.value = '請輸入有效的電子郵件格式'
+    return
+  }
   try {
     const response = await fetch(`${apiBaseUrl}/api/auth/login`, {
       method: 'POST',
@@ -99,6 +103,10 @@ const requestCode = async () => {
 
 const handleRegister = async () => {
   authMessage.value = ''
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(registerEmail.value)) {
+    authMessage.value = '請輸入有效的電子郵件格式'
+    return
+  }
   if (!registerCode.value) {
     authMessage.value = '請先輸入驗證碼'
     return
@@ -393,7 +401,6 @@ onUnmounted(() => {
         <p class="hero-subtitle">用一個清爽的入口，快速啟動你的工作空間。</p>
         <ul class="hero-list">
           <li>單一入口，登入/註冊切換</li>
-          <li>支援 Google 快速登入</li>
           <li>完整 UI 結構，方便後續接 API</li>
         </ul>
       </div>
@@ -430,7 +437,13 @@ onUnmounted(() => {
         <div class="form-grid">
           <label class="field">
             <span>電子郵件</span>
-            <input v-model="loginEmail" type="email" placeholder="name@company.com" />
+            <input
+              v-model="loginEmail"
+              type="email"
+              placeholder="name@company.com"
+              pattern="[^@\\s]+@[^@\\s]+\\.[^@\\s]+"
+              required
+            />
           </label>
 
           <label class="field">
@@ -449,14 +462,6 @@ onUnmounted(() => {
 
         <button class="primary-button" type="submit">登入帳號</button>
 
-        <div class="divider">
-          <span>或使用</span>
-        </div>
-
-        <button class="secondary-button" type="button">
-          <span class="google-icon" aria-hidden="true"></span>
-          使用 Google 登入
-        </button>
       </form>
 
       <form
@@ -467,7 +472,13 @@ onUnmounted(() => {
         <div class="form-grid">
           <label class="field">
             <span>電子郵件</span>
-            <input v-model="registerEmail" type="email" placeholder="name@company.com" />
+            <input
+              v-model="registerEmail"
+              type="email"
+              placeholder="name@company.com"
+              pattern="[^@\\s]+@[^@\\s]+\\.[^@\\s]+"
+              required
+            />
           </label>
 
           <label class="field">
@@ -667,6 +678,10 @@ onUnmounted(() => {
   background: #fff;
 }
 
+.field input::placeholder {
+  color: #94a3b8;
+}
+
 .code-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -740,34 +755,6 @@ onUnmounted(() => {
 .secondary-button:hover {
   border-color: #cbd5e1;
   box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
-}
-
-.divider {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  color: #9ca3af;
-  font-size: 0.85rem;
-}
-
-.divider::before,
-.divider::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: #e5e7eb;
-}
-
-.google-icon {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: conic-gradient(
-    #4285f4 0deg 90deg,
-    #34a853 90deg 180deg,
-    #fbbc05 180deg 270deg,
-    #ea4335 270deg 360deg
-  );
 }
 
 .switch-text {
