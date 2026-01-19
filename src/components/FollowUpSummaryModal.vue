@@ -560,7 +560,10 @@ const handleSelectFollowUp = (submission) => {
 .followup-task-tags {
   font-size: 0.85rem;
   font-weight: 600;
-  color: #64748b;
+  background: rgba(59, 130, 246, 0.12);
+  color: #1d4ed8;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
 }
 
 .followup-task-meta {

@@ -1044,6 +1044,10 @@ const ganttSubmissions = computed(() => {
   font-size: 0.85rem;
   color: #64748b;
   font-weight: 600;
+  background: rgba(59, 130, 246, 0.12);
+  color: #1d4ed8;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
 }
 
 .timeline-empty {
