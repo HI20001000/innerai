@@ -1751,9 +1751,10 @@ const registerUser = async (req, res) => {
     const salt = crypto.randomBytes(16).toString('hex')
     const passwordHash = await hashPassword(password, salt)
     const connection = await getConnection()
+    const username = email.split('@')[0] || 'hi'
     await connection.query(
       'INSERT INTO users (mail, password_hash, password_salt, icon, icon_bg, username, role) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [email, passwordHash, salt, '🙂', '#e2e8f0', 'hi', 'normal']
+      [email, passwordHash, salt, '🙂', '#e2e8f0', username, 'normal']
     )
     verificationCodes.delete(email)
     sendJson(res, 201, { message: 'User registered' })

@@ -409,7 +409,7 @@ onUnmounted(() => {
     <aside class="login-hero" ref="heroRef">
       <canvas class="hero-canvas" ref="canvasRef" aria-hidden="true"></canvas>
       <div class="hero-content">
-        <div class="logo-circle">AI</div>
+        <img class="logo-image" src="/src/imgs/web_icon.png" alt="InnerAI" />
         <p class="hero-title">InnerAI</p>
         <p class="hero-subtitle">用一個清爽的入口，快速啟動你的工作空間。</p>
         <ul class="hero-list">
@@ -572,17 +572,12 @@ onUnmounted(() => {
   z-index: 2;
 }
 
-.logo-circle {
+.logo-image {
   width: 52px;
   height: 52px;
   border-radius: 18px;
-  background: linear-gradient(135deg, #5b8cff, #7c5cff);
-  color: #fff;
-  display: grid;
-  place-items: center;
-  font-weight: 700;
-  font-size: 1.2rem;
-  box-shadow: 0 12px 28px rgba(91, 140, 255, 0.35);
+  object-fit: cover;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.35);
 }
 
 .hero-title {
