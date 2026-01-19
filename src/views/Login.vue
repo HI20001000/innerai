@@ -73,6 +73,10 @@ const requestCode = async () => {
     authMessage.value = '請先填寫密碼與確認密碼'
     return
   }
+  if (!registerPassword.value || !registerPasswordConfirm.value) {
+    authMessage.value = '請先填寫密碼與確認密碼'
+    return
+  }
   if (resendCooldown.value > 0) {
     return
   }
