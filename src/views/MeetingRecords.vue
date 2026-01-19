@@ -104,6 +104,8 @@ const getMeetings = () => {
   return product?.meetings || []
 }
 
+const hasMeetingReport = (meeting) => Boolean(meeting?.report?.content_text)
+
 const findMeetingById = (items, meetingId) => {
   for (const client of items || []) {
     for (const vendor of client.vendors || []) {
@@ -419,6 +421,19 @@ const fetchMeetingRecords = async () => {
     }
     const nextRecords = data.data || []
     records.value = nextRecords
+    if (activeMeeting.value?.id) {
+      const refreshedMeeting = findMeetingById(nextRecords, activeMeeting.value.id)
+      if (refreshedMeeting) {
+        activeMeeting.value = refreshedMeeting
+        if (hasMeetingReport(refreshedMeeting)) {
+          activeReport.value = refreshedMeeting.report
+          activeReportMeta.value = refreshedMeeting
+        } else {
+          activeReport.value = null
+          activeReportMeta.value = null
+        }
+      }
+    }
     if (!activeClient.value || !nextRecords.some((client) => client.name === activeClient.value)) {
       activeClient.value = nextRecords[0]?.name || ''
       activeVendor.value = ''
@@ -606,7 +621,7 @@ onMounted(fetchMeetingRecords)
                     🤖
                   </button>
                   <button
-                    v-if="meeting.report?.content_text"
+                    v-if="hasMeetingReport(meeting)"
                     type="button"
                     class="meeting-action wide"
                     @click.stop="activeMeeting = meeting; openMeetingReport(meeting)"
