@@ -65,8 +65,12 @@ const handleLogin = async () => {
 
 const requestCode = async () => {
   authMessage.value = ''
-  if (!registerEmail.value) {
+  if (!/^[^@]+@[^@]+\.[^@]+$/.test(registerEmail.value)) {
     authMessage.value = '請先輸入電子郵件'
+    return
+  }
+  if (!registerPassword.value || !registerPasswordConfirm.value) {
+    authMessage.value = '請先填寫密碼與確認密碼'
     return
   }
   if (resendCooldown.value > 0) {
@@ -441,7 +445,7 @@ onUnmounted(() => {
               v-model="loginEmail"
               type="email"
               placeholder="name@company.com"
-              pattern="[^@]+@[^@]+\\.[^@]+"
+              pattern="[^@]+@[^@]+\.[^@]+"
               required
             />
           </label>
@@ -476,7 +480,7 @@ onUnmounted(() => {
               v-model="registerEmail"
               type="email"
               placeholder="name@company.com"
-              pattern="[^@]+@[^@]+\\.[^@]+"
+              pattern="[^@]+@[^@]+\.[^@]+"
               required
             />
           </label>
