@@ -27,6 +27,10 @@ const parseJsonSafe = async (response) => {
 
 const handleLogin = async () => {
   authMessage.value = ''
+  if (!/^[^@]+@[^@]+\.[^@]+$/.test(loginEmail.value)) {
+    authMessage.value = '請輸入有效的電子郵件格式'
+    return
+  }
   try {
     const response = await fetch(`${apiBaseUrl}/api/auth/login`, {
       method: 'POST',
@@ -61,8 +65,12 @@ const handleLogin = async () => {
 
 const requestCode = async () => {
   authMessage.value = ''
-  if (!registerEmail.value) {
+  if (!/^[^@]+@[^@]+\.[^@]+$/.test(registerEmail.value)) {
     authMessage.value = '請先輸入電子郵件'
+    return
+  }
+  if (!registerPassword.value || !registerPasswordConfirm.value) {
+    authMessage.value = '請先填寫密碼與確認密碼'
     return
   }
   if (resendCooldown.value > 0) {
@@ -99,6 +107,10 @@ const requestCode = async () => {
 
 const handleRegister = async () => {
   authMessage.value = ''
+  if (!/^[^@]+@[^@]+\.[^@]+$/.test(registerEmail.value)) {
+    authMessage.value = '請輸入有效的電子郵件格式'
+    return
+  }
   if (!registerCode.value) {
     authMessage.value = '請先輸入驗證碼'
     return
@@ -135,8 +147,6 @@ const mouse = {
   y: 0,
   active: false,
 }
-
-const clamp = (value, min, max) => Math.min(Math.max(value, min), max)
 
 const createParticle = (width, height, { edge = false } = {}) => {
   let baseVx = (Math.random() - 0.5) * 0.6
@@ -209,10 +219,6 @@ onMounted(() => {
     width: 0,
     height: 0,
     ratio: window.devicePixelRatio || 1,
-    zoom: 1,
-    targetZoom: 1,
-    focusX: 0,
-    focusY: 0,
   }
 
   const particleCount = 100
@@ -236,9 +242,6 @@ onMounted(() => {
   let lastMouseY = 0
   let mouseVelocityX = 0
   let mouseVelocityY = 0
-  const minZoom = 0.9
-  const maxZoom = 1.25
-
   const handleMouseMove = (event) => {
     if (mouse.active) {
       mouseVelocityX = event.clientX - lastMouseX
@@ -250,40 +253,10 @@ onMounted(() => {
     mouse.y = event.clientY
     mouse.active = true
 
-    const rect = heroEl.getBoundingClientRect()
-    if (
-      mouse.x >= rect.left &&
-      mouse.x <= rect.right &&
-      mouse.y >= rect.top &&
-      mouse.y <= rect.bottom
-    ) {
-      state.focusX = mouse.x - rect.left
-      state.focusY = mouse.y - rect.top
-    }
-  }
-
-  const handleWheel = (event) => {
-    const rect = heroEl.getBoundingClientRect()
-    const inside =
-      event.clientX >= rect.left &&
-      event.clientX <= rect.right &&
-      event.clientY >= rect.top &&
-      event.clientY <= rect.bottom
-
-    if (!inside) {
-      return
-    }
-
-    event.preventDefault()
-    state.focusX = event.clientX - rect.left
-    state.focusY = event.clientY - rect.top
-    const delta = -Math.sign(event.deltaY) * 0.08
-    state.targetZoom = clamp(state.targetZoom + delta, minZoom, maxZoom)
   }
 
   const handleMouseLeave = () => {
     mouse.active = false
-    state.targetZoom = 1
   }
 
   const tick = () => {
@@ -348,15 +321,6 @@ onMounted(() => {
       }
     }
 
-    state.zoom += (state.targetZoom - state.zoom) * 0.08
-    const focusX = localMouse.active ? localMouse.x : state.width / 2
-    const focusY = localMouse.active ? localMouse.y : state.height / 2
-
-    ctx.save()
-    ctx.translate(focusX, focusY)
-    ctx.scale(state.zoom, state.zoom)
-    ctx.translate(-focusX, -focusY)
-
     if (localMouse.active) {
       const glowRadius = 140
       const glow = ctx.createRadialGradient(
@@ -402,15 +366,12 @@ onMounted(() => {
       ctx.fill()
     }
 
-    ctx.restore()
-
     state.animationId = window.requestAnimationFrame(tick)
   }
 
   resize()
   window.addEventListener('resize', resize)
   window.addEventListener('mousemove', handleMouseMove)
-  window.addEventListener('wheel', handleWheel, { passive: false })
   window.addEventListener('mouseleave', handleMouseLeave)
   window.addEventListener('blur', handleMouseLeave)
 
@@ -419,7 +380,6 @@ onMounted(() => {
   cleanupAnimation = () => {
     window.removeEventListener('resize', resize)
     window.removeEventListener('mousemove', handleMouseMove)
-    window.removeEventListener('wheel', handleWheel)
     window.removeEventListener('mouseleave', handleMouseLeave)
     window.removeEventListener('blur', handleMouseLeave)
     window.cancelAnimationFrame(state.animationId)
@@ -445,7 +405,6 @@ onUnmounted(() => {
         <p class="hero-subtitle">用一個清爽的入口，快速啟動你的工作空間。</p>
         <ul class="hero-list">
           <li>單一入口，登入/註冊切換</li>
-          <li>支援 Google 快速登入</li>
           <li>完整 UI 結構，方便後續接 API</li>
         </ul>
       </div>
@@ -482,7 +441,11 @@ onUnmounted(() => {
         <div class="form-grid">
           <label class="field">
             <span>電子郵件</span>
-            <input v-model="loginEmail" type="email" placeholder="name@company.com" />
+            <input
+              v-model="loginEmail"
+              type="email"
+              placeholder="name@company.com"
+            />
           </label>
 
           <label class="field">
@@ -501,14 +464,6 @@ onUnmounted(() => {
 
         <button class="primary-button" type="submit">登入帳號</button>
 
-        <div class="divider">
-          <span>或使用</span>
-        </div>
-
-        <button class="secondary-button" type="button">
-          <span class="google-icon" aria-hidden="true"></span>
-          使用 Google 登入
-        </button>
       </form>
 
       <form
@@ -519,7 +474,11 @@ onUnmounted(() => {
         <div class="form-grid">
           <label class="field">
             <span>電子郵件</span>
-            <input v-model="registerEmail" type="email" placeholder="name@company.com" />
+            <input
+              v-model="registerEmail"
+              type="email"
+              placeholder="name@company.com"
+            />
           </label>
 
           <label class="field">
@@ -719,6 +678,10 @@ onUnmounted(() => {
   background: #fff;
 }
 
+.field input::placeholder {
+  color: #94a3b8;
+}
+
 .code-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -792,34 +755,6 @@ onUnmounted(() => {
 .secondary-button:hover {
   border-color: #cbd5e1;
   box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
-}
-
-.divider {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  color: #9ca3af;
-  font-size: 0.85rem;
-}
-
-.divider::before,
-.divider::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: #e5e7eb;
-}
-
-.google-icon {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: conic-gradient(
-    #4285f4 0deg 90deg,
-    #34a853 90deg 180deg,
-    #fbbc05 180deg 270deg,
-    #ea4335 270deg 360deg
-  );
 }
 
 .switch-text {
