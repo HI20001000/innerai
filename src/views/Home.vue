@@ -1,5 +1,5 @@
 <script setup>
-import { computed, getCurrentInstance, onMounted, ref } from 'vue'
+import { computed, getCurrentInstance, onMounted, onUnmounted, ref } from 'vue'
 import WorkspaceSidebar from '../components/WorkspaceSidebar.vue'
 import MonthlyCalendar from '../components/MonthlyCalendar.vue'
 import FollowUpSummaryModal from '../components/FollowUpSummaryModal.vue'
@@ -275,6 +275,15 @@ const toggleAssigneeMenu = (followUpId) => {
   assigneeSearch.value = ''
 }
 
+const handleTimelineOutsideClick = (event) => {
+  if (!activeStatusMenu.value && !activeAssigneeMenu.value) return
+  const target = event.target
+  if (!(target instanceof Element)) return
+  if (target.closest('.follow-up-actions')) return
+  activeStatusMenu.value = null
+  activeAssigneeMenu.value = null
+}
+
 const isAssigneeSelected = (followUp, mail) =>
   Array.isArray(followUp?.assignees) && followUp.assignees.some((user) => user.mail === mail)
 
@@ -414,6 +423,11 @@ onMounted(() => {
   loadUser()
   fetchSubmissions()
   fetchStatuses()
+  document.addEventListener('click', handleTimelineOutsideClick)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleTimelineOutsideClick)
 })
 </script>
 
@@ -438,7 +452,6 @@ onMounted(() => {
           <p class="subhead">快速掌握正在推進的項目、待辦與今日跟進事項。</p>
         </div>
         <div class="header-actions">
-          <button class="ghost-button" type="button">下載報告</button>
           <button class="primary-button" type="button">建立新任務</button>
         </div>
       </header>
