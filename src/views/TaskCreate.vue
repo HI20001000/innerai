@@ -373,7 +373,9 @@ const addOption = async () => {
     }
     if (activeModal.value === 'tag') {
       tags.value.unshift(created.name)
-      selectedTag.value = created.name
+      if (!selectedTags.value.includes(created.name)) {
+        selectedTags.value = [...selectedTags.value, created.name]
+      }
     }
     optionMessage.value = `"${created.name}" 新增成功`
     optionMessageType.value = 'success'
@@ -410,7 +412,9 @@ const deleteOption = async (type, name) => {
     }
     if (type === 'tag') {
       tags.value = tags.value.filter((item) => item !== name)
-      if (selectedTag.value === name) selectedTag.value = ''
+      if (selectedTags.value.includes(name)) {
+        selectedTags.value = selectedTags.value.filter((tag) => tag !== name)
+      }
     }
   } catch (error) {
     console.error(error)
@@ -658,7 +662,10 @@ onBeforeUnmount(() => {
           <div class="field-grid">
             <div class="field select-field-wrapper">
               <div class="field-header">
-                <span>客戶</span>
+                <span class="field-title">
+                  客戶
+                  <span class="required-asterisk">*</span>
+                </span>
                 <button class="ghost-mini" type="button" @click="openModal('client')">編輯</button>
               </div>
               <button class="select-field" type="button" @click="openList('client')">
@@ -691,7 +698,10 @@ onBeforeUnmount(() => {
             </div>
             <div class="field select-field-wrapper">
               <div class="field-header">
-                <span>廠家</span>
+                <span class="field-title">
+                  廠家
+                  <span class="required-asterisk">*</span>
+                </span>
                 <button class="ghost-mini" type="button" @click="openModal('vendor')">編輯</button>
               </div>
               <button class="select-field" type="button" @click="openList('vendor')">
@@ -724,7 +734,10 @@ onBeforeUnmount(() => {
             </div>
           <div class="field select-field-wrapper">
             <div class="field-header">
-              <span>廠家產品</span>
+              <span class="field-title">
+                廠家產品
+                <span class="required-asterisk">*</span>
+              </span>
               <button class="ghost-mini" type="button" @click="openModal('product')">編輯</button>
             </div>
             <button class="select-field" type="button" @click="openList('product')">
@@ -757,7 +770,10 @@ onBeforeUnmount(() => {
           </div>
           <div class="field select-field-wrapper">
             <div class="field-header">
-              <span>任務標籤</span>
+              <span class="field-title">
+                任務標籤
+                <span class="required-asterisk">*</span>
+              </span>
               <button class="ghost-mini" type="button" @click="openModal('tag')">編輯</button>
             </div>
             <button class="select-field" type="button" @click="openList('tag')">
@@ -790,7 +806,10 @@ onBeforeUnmount(() => {
           </div>
           <div class="field select-field-wrapper">
             <div class="field-header">
-              <span>關聯用戶</span>
+              <span class="field-title">
+                關聯用戶
+                <span class="required-asterisk">*</span>
+              </span>
             </div>
             <button class="select-field" type="button" @click="openList('user')">
               {{
@@ -1147,9 +1166,22 @@ onBeforeUnmount(() => {
   justify-content: space-between;
 }
 
+.field-title {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+}
+
 .field span {
   font-size: 0.9rem;
   color: #475569;
+}
+
+.required-asterisk {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #dc2626;
+  line-height: 1;
 }
 
 .field input,
