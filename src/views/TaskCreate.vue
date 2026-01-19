@@ -373,7 +373,9 @@ const addOption = async () => {
     }
     if (activeModal.value === 'tag') {
       tags.value.unshift(created.name)
-      selectedTag.value = created.name
+      if (!selectedTags.value.includes(created.name)) {
+        selectedTags.value = [...selectedTags.value, created.name]
+      }
     }
     optionMessage.value = `"${created.name}" 新增成功`
     optionMessageType.value = 'success'
@@ -410,7 +412,9 @@ const deleteOption = async (type, name) => {
     }
     if (type === 'tag') {
       tags.value = tags.value.filter((item) => item !== name)
-      if (selectedTag.value === name) selectedTag.value = ''
+      if (selectedTags.value.includes(name)) {
+        selectedTags.value = selectedTags.value.filter((tag) => tag !== name)
+      }
     }
   } catch (error) {
     console.error(error)
