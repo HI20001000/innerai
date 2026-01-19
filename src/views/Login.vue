@@ -73,10 +73,6 @@ const requestCode = async () => {
     authMessage.value = '請先填寫密碼與確認密碼'
     return
   }
-  if (!registerPassword.value || !registerPasswordConfirm.value) {
-    authMessage.value = '請先填寫密碼與確認密碼'
-    return
-  }
   if (resendCooldown.value > 0) {
     return
   }
@@ -424,14 +420,20 @@ onUnmounted(() => {
         <button
           type="button"
           :class="['tab', { active: activeTab === 'login' }]"
-          @click="activeTab = 'login'"
+          @click="
+            activeTab = 'login'
+            authMessage = ''
+          "
         >
           登入
         </button>
         <button
           type="button"
           :class="['tab', { active: activeTab === 'register' }]"
-          @click="activeTab = 'register'"
+          @click="
+            activeTab = 'register'
+            authMessage = ''
+          "
         >
           註冊
         </button>
@@ -518,7 +520,14 @@ onUnmounted(() => {
 
       <p class="switch-text">
         {{ activeTab === 'login' ? '還沒有帳號？' : '已經有帳號？' }}
-        <button class="link-button" type="button" @click="activeTab = activeTab === 'login' ? 'register' : 'login'">
+        <button
+          class="link-button"
+          type="button"
+          @click="
+            activeTab = activeTab === 'login' ? 'register' : 'login'
+            authMessage = ''
+          "
+        >
           {{ activeTab === 'login' ? '免費註冊' : '立即登入' }}
         </button>
       </p>
