@@ -592,7 +592,13 @@ const ganttSubmissions = computed(() => {
                       {{ item.client_name }}_{{ item.vendor_name }}_{{ item.product_name }}
                     </h3>
                     <span v-if="getSubmissionTags(item).length" class="time-card-tags">
-                      {{ getSubmissionTags(item).join('、') }}
+                      <span
+                        v-for="tag in getSubmissionTags(item)"
+                        :key="tag"
+                        class="time-card-tag"
+                      >
+                        {{ tag }}
+                      </span>
                     </span>
                   </div>
                   <div v-if="item.follow_ups?.length" class="follow-up-list">
@@ -1041,8 +1047,13 @@ const ganttSubmissions = computed(() => {
 }
 
 .time-card-tags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.time-card-tag {
   font-size: 0.85rem;
-  color: #64748b;
   font-weight: 600;
   background: rgba(59, 130, 246, 0.12);
   color: #1d4ed8;

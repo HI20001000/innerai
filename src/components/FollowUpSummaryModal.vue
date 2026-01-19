@@ -311,7 +311,13 @@ const handleSelectFollowUp = (submission) => {
                 <div class="followup-task-header">
                   <span class="followup-task-title">{{ task.taskLabel }}</span>
                   <span v-if="task.tags?.length" class="followup-task-tags">
-                    {{ task.tags.join('、') }}
+                    <span
+                      v-for="tag in task.tags"
+                      :key="tag"
+                      class="followup-task-tag"
+                    >
+                      {{ tag }}
+                    </span>
                   </span>
                   <span class="followup-task-meta">
                     結束時間：{{ formatDateTimeDisplay(task.submission.end_at) }}
@@ -558,6 +564,12 @@ const handleSelectFollowUp = (submission) => {
 }
 
 .followup-task-tags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.followup-task-tag {
   font-size: 0.85rem;
   font-weight: 600;
   background: rgba(59, 130, 246, 0.12);
