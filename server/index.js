@@ -145,7 +145,7 @@ const ensureTables = async (connection) => {
       client_name VARCHAR(255) NOT NULL,
       vendor_name VARCHAR(255) NOT NULL,
       product_name VARCHAR(255) NOT NULL,
-      tag_name VARCHAR(255) NOT NULL,
+      tag_name VARCHAR(255) NULL,
       start_at DATETIME,
       end_at DATETIME,
       follow_up TEXT,
@@ -285,6 +285,13 @@ const ensureTables = async (connection) => {
     }
   }
   try {
+    await connection.query('ALTER TABLE task_submissions MODIFY tag_name VARCHAR(255) NULL')
+  } catch (error) {
+    if (error?.code !== 'ER_BAD_FIELD_ERROR') {
+      throw error
+    }
+  }
+  try {
     await connection.query(
       'UPDATE task_submissions SET start_at = scheduled_at WHERE start_at IS NULL'
     )
@@ -414,6 +421,18 @@ const verificationCodes = new Map()
 
 const getConnection = async () => {
   if (!dbConnection) {
+    dbConnection = await initDatabase()
+    return dbConnection
+  }
+  try {
+    await dbConnection.ping()
+  } catch (error) {
+    console.warn('Reconnecting to database after closed connection.', error?.message ?? error)
+    try {
+      await dbConnection.end()
+    } catch (closeError) {
+      console.warn('Failed to close stale database connection.', closeError?.message ?? closeError)
+    }
     dbConnection = await initDatabase()
   }
   return dbConnection
@@ -1732,9 +1751,10 @@ const registerUser = async (req, res) => {
     const salt = crypto.randomBytes(16).toString('hex')
     const passwordHash = await hashPassword(password, salt)
     const connection = await getConnection()
+    const username = email.split('@')[0] || 'hi'
     await connection.query(
       'INSERT INTO users (mail, password_hash, password_salt, icon, icon_bg, username, role) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [email, passwordHash, salt, '🙂', '#e2e8f0', 'hi', 'normal']
+      [email, passwordHash, salt, '🙂', '#e2e8f0', username, 'normal']
     )
     verificationCodes.delete(email)
     sendJson(res, 201, { message: 'User registered' })
