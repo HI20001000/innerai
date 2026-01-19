@@ -126,6 +126,18 @@ const getTaskLabel = (submission) => {
   return submission.tag || submission.tag_name || submission.label || submission.task_label || fallbackLabel
 }
 
+const getSubmissionTags = (submission) => {
+  const raw = submission?.tags ?? submission?.tag ?? submission?.tag_name ?? []
+  if (Array.isArray(raw)) return raw.filter(Boolean)
+  if (typeof raw === 'string') {
+    return raw
+      .split(',')
+      .map((tag) => tag.trim())
+      .filter(Boolean)
+  }
+  return []
+}
+
 const hierarchy = computed(() => {
   const result = new Map()
   const items = props.submissions || []
@@ -167,6 +179,7 @@ const hierarchy = computed(() => {
           taskLabel,
           submission: taskInfo.submission,
           followUps: taskInfo.followUps,
+          tags: getSubmissionTags(taskInfo.submission),
         })),
       })),
     })),
@@ -253,8 +266,10 @@ const getFilteredRelatedUsers = (submission) => {
 }
 
 const getAssigneeButtonText = (followUp) => {
-  const count = followUp?.assignees?.length || 0
-  return count > 0 ? `已選${count}人` : '選擇跟進人'
+  const assignees = followUp?.assignees || []
+  if (assignees.length === 0) return '選擇跟進人'
+  const names = assignees.map((user) => user.username || user.mail).filter(Boolean)
+  return names.length > 0 ? names.join('、') : '選擇跟進人'
 }
 
 const getAssigneeText = (followUp) => {
@@ -295,6 +310,9 @@ const handleSelectFollowUp = (submission) => {
               <div v-for="task in product.tasks" :key="task.taskLabel" class="followup-task">
                 <div class="followup-task-header">
                   <span class="followup-task-title">{{ task.taskLabel }}</span>
+                  <span v-if="task.tags?.length" class="followup-task-tags">
+                    {{ task.tags.join('、') }}
+                  </span>
                   <span class="followup-task-meta">
                     結束時間：{{ formatDateTimeDisplay(task.submission.end_at) }}
                   </span>
@@ -529,8 +547,8 @@ const handleSelectFollowUp = (submission) => {
 
 .followup-task-header {
   display: flex;
-  justify-content: space-between;
-  gap: 1rem;
+  align-items: center;
+  gap: 0.6rem;
   flex-wrap: wrap;
 }
 
@@ -539,9 +557,16 @@ const handleSelectFollowUp = (submission) => {
   color: #0f172a;
 }
 
+.followup-task-tags {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
 .followup-task-meta {
   color: #64748b;
   font-size: 0.8rem;
+  margin-left: auto;
 }
 
 .followup-list {

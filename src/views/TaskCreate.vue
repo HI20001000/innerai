@@ -335,8 +335,12 @@ const toggleFollowUpAssignee = (item, user) => {
 }
 
 const getFollowUpAssigneeLabel = (item) => {
-  const count = item.assignees?.length || 0
-  return count > 0 ? `已選${count}人` : '設定跟進人'
+  const assignees = item.assignees || []
+  if (assignees.length === 0) return '設定跟進人'
+  const assigneeNames = relatedUsers.value
+    .filter((user) => assignees.includes(user.mail))
+    .map((user) => user.username || user.mail)
+  return assigneeNames.length > 0 ? assigneeNames.join('、') : '設定跟進人'
 }
 
 const closeModal = () => {
@@ -345,6 +349,8 @@ const closeModal = () => {
   optionMessage.value = ''
   optionMessageType.value = ''
 }
+
+const requiredText = (isMissing) => (showRequiredHints.value && isMissing ? '*必填' : '*')
 
 const addOption = async () => {
   const value = newOption.value.trim()
@@ -373,7 +379,9 @@ const addOption = async () => {
     }
     if (activeModal.value === 'tag') {
       tags.value.unshift(created.name)
-      selectedTag.value = created.name
+      if (!selectedTags.value.includes(created.name)) {
+        selectedTags.value = [...selectedTags.value, created.name]
+      }
     }
     optionMessage.value = `"${created.name}" 新增成功`
     optionMessageType.value = 'success'
@@ -410,7 +418,9 @@ const deleteOption = async (type, name) => {
     }
     if (type === 'tag') {
       tags.value = tags.value.filter((item) => item !== name)
-      if (selectedTag.value === name) selectedTag.value = ''
+      if (selectedTags.value.includes(name)) {
+        selectedTags.value = selectedTags.value.filter((tag) => tag !== name)
+      }
     }
   } catch (error) {
     console.error(error)
@@ -658,13 +668,17 @@ onBeforeUnmount(() => {
           <div class="field-grid">
             <div class="field select-field-wrapper">
               <div class="field-header">
-                <span>客戶</span>
+                <span class="field-title">
+                  客戶
+                  <span class="required-asterisk">
+                    {{ requiredText(!selectedClient) }}
+                  </span>
+                </span>
                 <button class="ghost-mini" type="button" @click="openModal('client')">編輯</button>
               </div>
               <button class="select-field" type="button" @click="openList('client')">
                 {{ selectedClient || '選擇客戶' }}
               </button>
-              <p v-if="showRequiredHints && !selectedClient" class="required-hint">必填</p>
               <p
                 v-if="selectedClient && optionStatus('client', selectedClient)"
                 :class="['option-status', optionStatusClass('client', selectedClient)]"
@@ -691,13 +705,17 @@ onBeforeUnmount(() => {
             </div>
             <div class="field select-field-wrapper">
               <div class="field-header">
-                <span>廠家</span>
+                <span class="field-title">
+                  廠家
+                  <span class="required-asterisk">
+                    {{ requiredText(!selectedVendor) }}
+                  </span>
+                </span>
                 <button class="ghost-mini" type="button" @click="openModal('vendor')">編輯</button>
               </div>
               <button class="select-field" type="button" @click="openList('vendor')">
                 {{ selectedVendor || '選擇廠家' }}
               </button>
-              <p v-if="showRequiredHints && !selectedVendor" class="required-hint">必填</p>
               <p
                 v-if="selectedVendor && optionStatus('vendor', selectedVendor)"
                 :class="['option-status', optionStatusClass('vendor', selectedVendor)]"
@@ -724,13 +742,17 @@ onBeforeUnmount(() => {
             </div>
           <div class="field select-field-wrapper">
             <div class="field-header">
-              <span>廠家產品</span>
+              <span class="field-title">
+                廠家產品
+                <span class="required-asterisk">
+                  {{ requiredText(!selectedProduct) }}
+                </span>
+              </span>
               <button class="ghost-mini" type="button" @click="openModal('product')">編輯</button>
             </div>
             <button class="select-field" type="button" @click="openList('product')">
               {{ selectedProduct || '選擇產品' }}
             </button>
-            <p v-if="showRequiredHints && !selectedProduct" class="required-hint">必填</p>
             <p
               v-if="selectedProduct && optionStatus('product', selectedProduct)"
               :class="['option-status', optionStatusClass('product', selectedProduct)]"
@@ -757,13 +779,17 @@ onBeforeUnmount(() => {
           </div>
           <div class="field select-field-wrapper">
             <div class="field-header">
-              <span>任務標籤</span>
+              <span class="field-title">
+                任務標籤
+                <span class="required-asterisk">
+                  {{ requiredText(selectedTags.length === 0) }}
+                </span>
+              </span>
               <button class="ghost-mini" type="button" @click="openModal('tag')">編輯</button>
             </div>
             <button class="select-field" type="button" @click="openList('tag')">
               {{ selectedTags.length > 0 ? selectedTags.join('、') : '選擇標籤' }}
             </button>
-            <p v-if="showRequiredHints && selectedTags.length === 0" class="required-hint">必填</p>
             <div v-if="activeList === 'tag'" class="option-list">
               <input
                 v-model="searchQuery.tag"
@@ -790,7 +816,12 @@ onBeforeUnmount(() => {
           </div>
           <div class="field select-field-wrapper">
             <div class="field-header">
-              <span>關聯用戶</span>
+              <span class="field-title">
+                關聯用戶
+                <span class="required-asterisk">
+                  {{ requiredText(selectedRelatedUsers.length === 0) }}
+                </span>
+              </span>
             </div>
             <button class="select-field" type="button" @click="openList('user')">
               {{
@@ -801,9 +832,6 @@ onBeforeUnmount(() => {
                   : '選擇關聯用戶'
               }}
             </button>
-            <p v-if="showRequiredHints && selectedRelatedUsers.length === 0" class="required-hint">
-              必填
-            </p>
             <div v-if="activeList === 'user'" class="option-list">
               <input
                 v-model="searchQuery.user"
@@ -1147,9 +1175,22 @@ onBeforeUnmount(() => {
   justify-content: space-between;
 }
 
+.field-title {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+}
+
 .field span {
   font-size: 0.9rem;
   color: #475569;
+}
+
+.field .required-asterisk {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #dc2626;
+  line-height: 1;
 }
 
 .field input,
@@ -1253,13 +1294,6 @@ onBeforeUnmount(() => {
   margin: 0.35rem 0 0;
   font-size: 0.8rem;
   color: #64748b;
-}
-
-.required-hint {
-  margin: 0.35rem 0 0;
-  font-size: 0.8rem;
-  color: #dc2626;
-  font-weight: 600;
 }
 
 .follow-up-input {
