@@ -66,7 +66,11 @@ const handleLogin = async () => {
 const requestCode = async () => {
   authMessage.value = ''
   if (!/^[^@]+@[^@]+\.[^@]+$/.test(registerEmail.value)) {
-    authMessage.value = '請先輸入電子郵件'
+    authMessage.value = '請輸入有效的電子郵件格式'
+    return
+  }
+  if (!registerPassword.value || !registerPasswordConfirm.value) {
+    authMessage.value = '請先填寫密碼與確認密碼'
     return
   }
   if (!registerPassword.value || !registerPasswordConfirm.value) {
