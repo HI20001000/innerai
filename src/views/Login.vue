@@ -410,8 +410,10 @@ onUnmounted(() => {
     <aside class="login-hero" ref="heroRef">
       <canvas class="hero-canvas" ref="canvasRef" aria-hidden="true"></canvas>
       <div class="hero-content">
-        <img class="logo-image" src="/src/imgs/web_icon.png" alt="InnerAI" />
-        <p class="hero-title">InnerAI</p>
+        <div class="hero-title-row">
+          <img class="logo-image" src="/src/imgs/web_icon.png" alt="InnerAI" />
+          <p class="hero-title">InnerAI</p>
+        </div>
         <p class="hero-subtitle">用一個清爽的入口，快速啟動你的工作空間。</p>
         <ul class="hero-list">
           <li>單一入口，登入/註冊切換</li>
@@ -571,6 +573,12 @@ onUnmounted(() => {
   text-align: left;
   position: relative;
   z-index: 2;
+}
+
+.hero-title-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.85rem;
 }
 
 .logo-image {
