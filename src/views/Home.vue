@@ -452,7 +452,6 @@ onUnmounted(() => {
           <p class="subhead">快速掌握正在推進的項目、待辦與今日跟進事項。</p>
         </div>
         <div class="header-actions">
-          <button class="ghost-button" type="button">下載報告</button>
           <button class="primary-button" type="button">建立新任務</button>
         </div>
       </header>

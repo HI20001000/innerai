@@ -1177,7 +1177,7 @@ onBeforeUnmount(() => {
   color: #475569;
 }
 
-.required-asterisk {
+.field .required-asterisk {
   font-size: 0.95rem;
   font-weight: 700;
   color: #dc2626;
