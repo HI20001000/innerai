@@ -86,8 +86,10 @@ const checkMysqlHealth = async () => {
 const checkDifyHealth = async () => {
   if (!DIFY_URL) return false
   try {
-    const difyUrl = new URL(DIFY_URL)
-    const hostname = difyUrl.hostname
+    const normalized = String(DIFY_URL).trim()
+    const withoutProtocol = normalized.replace(/^https?:\/\//i, '')
+    const hostSegment = withoutProtocol.split('/')[0] || ''
+    const hostname = hostSegment.split(':')[0] || ''
     if (!hostname) return false
     await execFileAsync('ping', ['-c', '1', '-W', '1', hostname], { timeout: 3000 })
     return true
