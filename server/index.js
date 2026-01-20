@@ -4,7 +4,7 @@ import mysql from 'mysql2/promise'
 import crypto from 'node:crypto'
 import { URL } from 'node:url'
 import mammoth from 'mammoth'
-import { createHealthCheckers } from './scripts/healthChecks.js'
+import { createHealthStatusFetcher } from './scripts/healthChecks.js'
 
 const loadEnvFile = async (path) => {
   let content = ''
@@ -56,8 +56,6 @@ const TABLES = {
   product: 'products',
   tag: 'task_tags',
 }
-
-const execFileAsync = promisify(execFile)
 
 const withCors = (res) => {
   res.setHeader('Access-Control-Allow-Origin', '*')
@@ -441,7 +439,7 @@ const getConnection = async () => {
   return dbConnection
 }
 
-const { checkMysqlHealth, checkDifyHealth } = createHealthCheckers({
+const { getHealthStatus } = createHealthStatusFetcher({
   getConnection,
   difyUrl: DIFY_URL,
 })
@@ -1941,14 +1939,10 @@ const start = async () => {
     }
     const url = new URL(req.url, `http://${req.headers.host}`)
     if (url.pathname === '/api/health' && req.method === 'GET') {
-      const [mysqlOk, difyOk] = await Promise.all([checkMysqlHealth(), checkDifyHealth()])
+      const status = await getHealthStatus()
       sendJson(res, 200, {
         success: true,
-        data: {
-          backend: true,
-          mysql: mysqlOk,
-          dify: difyOk,
-        },
+        data: status,
       })
       return
     }
