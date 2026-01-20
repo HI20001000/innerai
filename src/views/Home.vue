@@ -907,10 +907,9 @@ onUnmounted(() => {
 }
 
 .connection-items {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  justify-content: flex-end;
+  display: grid;
+  gap: 0.4rem;
+  justify-items: end;
 }
 
 .connection-item {
@@ -1544,7 +1543,7 @@ onUnmounted(() => {
   }
 
   .connection-items {
-    justify-content: flex-start;
+    justify-items: flex-start;
   }
 
   .content-grid {
