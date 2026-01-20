@@ -35,6 +35,11 @@ const activeAssigneeMenu = ref(null)
 const summaryModalOpen = ref(false)
 const summaryModalFilter = ref('all')
 const summaryModalTitle = ref('任務總數')
+const connectionStatus = ref({
+  backend: null,
+  mysql: null,
+  dify: null,
+})
 
 const goToNewTask = () => {
   router?.push('/tasks/new')
@@ -105,6 +110,78 @@ const readUserProfile = () => {
     return JSON.parse(raw)
   } catch {
     return null
+  }
+}
+
+const getStatusLabel = (value) => {
+  if (value === true) return '已連線'
+  if (value === false) return '未連線'
+  return '檢查中'
+}
+
+const getStatusClass = (value) => {
+  if (value === true) return 'status-ok'
+  if (value === false) return 'status-fail'
+  return 'status-pending'
+}
+
+const readConnectionStatusKey = () => {
+  const mail = readUserMail() || 'guest'
+  return `innerai_connection_status_${mail}`
+}
+
+const loadStoredConnectionStatus = () => {
+  const key = readConnectionStatusKey()
+  const raw = window.localStorage.getItem(key)
+  if (!raw) return false
+  try {
+    const data = JSON.parse(raw)
+    connectionStatus.value = {
+      backend: data?.backend ?? null,
+      mysql: data?.mysql ?? null,
+      dify: data?.dify ?? null,
+    }
+    return true
+  } catch {
+    return false
+  }
+}
+
+const storeConnectionStatus = (data) => {
+  const key = readConnectionStatusKey()
+  window.localStorage.setItem(key, JSON.stringify(data))
+}
+
+const pingConnections = async () => {
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/health`)
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok || !data?.success) {
+      connectionStatus.value = { backend: false, mysql: false, dify: false }
+      storeConnectionStatus(connectionStatus.value)
+      return
+    }
+    const nextStatus = {
+      backend: Boolean(data?.data?.backend),
+      mysql: Boolean(data?.data?.mysql),
+      dify: Boolean(data?.data?.dify),
+    }
+    connectionStatus.value = nextStatus
+    storeConnectionStatus(nextStatus)
+  } catch (error) {
+    console.error(error)
+    const fallback = { backend: false, mysql: false, dify: false }
+    connectionStatus.value = fallback
+    storeConnectionStatus(fallback)
+  }
+}
+
+const ensureConnectionStatus = async () => {
+  const auth = readAuthStorage()
+  if (!auth) return
+  const hasStored = loadStoredConnectionStatus()
+  if (!hasStored) {
+    await pingConnections()
   }
 }
 
@@ -437,6 +514,7 @@ onMounted(() => {
   loadUser()
   fetchSubmissions()
   fetchStatuses()
+  ensureConnectionStatus()
   document.addEventListener('click', handleTimelineOutsideClick)
 })
 
@@ -464,6 +542,20 @@ onUnmounted(() => {
           <p class="eyebrow">工作面板</p>
           <h1 class="headline">{{ username }}的工作面板</h1>
           <p class="subhead">快速掌握正在推進的項目、待辦與今日跟進事項。</p>
+        </div>
+        <div class="connection-status">
+          <p class="connection-title">連線狀況</p>
+          <div class="connection-items">
+            <span class="connection-item" :class="getStatusClass(connectionStatus.backend)">
+              後端：{{ getStatusLabel(connectionStatus.backend) }}
+            </span>
+            <span class="connection-item" :class="getStatusClass(connectionStatus.mysql)">
+              MySQL：{{ getStatusLabel(connectionStatus.mysql) }}
+            </span>
+            <span class="connection-item" :class="getStatusClass(connectionStatus.dify)">
+              Dify：{{ getStatusLabel(connectionStatus.dify) }}
+            </span>
+          </div>
         </div>
       </header>
 
@@ -801,6 +893,51 @@ onUnmounted(() => {
   margin: 0;
   color: #64748b;
   max-width: 520px;
+}
+
+.connection-status {
+  display: grid;
+  justify-items: end;
+  gap: 0.35rem;
+  text-align: right;
+}
+
+.connection-title {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.connection-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.connection-item {
+  font-size: 0.8rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #475569;
+  font-weight: 600;
+}
+
+.connection-item.status-ok {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.connection-item.status-fail {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.connection-item.status-pending {
+  background: #e2e8f0;
+  color: #475569;
 }
 
 .ghost-button {
@@ -1404,6 +1541,15 @@ onUnmounted(() => {
   .home-header {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .connection-status {
+    justify-items: flex-start;
+    text-align: left;
+  }
+
+  .connection-items {
+    justify-content: flex-start;
   }
 
   .content-grid {

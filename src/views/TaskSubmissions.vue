@@ -458,8 +458,7 @@ onMounted(() => {
     </header>
 
     <section class="task-table-section">
-      <div v-if="isLoading" class="loading-state">載入中...</div>
-      <div v-else-if="submissions.length === 0" class="empty-state">
+      <div v-if="!isLoading && submissions.length === 0" class="empty-state">
         尚無提交紀錄，請先新增任務。
       </div>
       <div v-else class="table-wrapper">
@@ -803,7 +802,6 @@ onMounted(() => {
   box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
 }
 
-.loading-state,
 .empty-state {
   color: #64748b;
   font-weight: 500;

@@ -68,6 +68,32 @@ const sendJson = (res, status, payload) => {
   res.end(JSON.stringify(payload))
 }
 
+const checkMysqlHealth = async () => {
+  try {
+    const connection = await getConnection()
+    await connection.ping()
+    return true
+  } catch (error) {
+    console.warn('MySQL health check failed.', error?.message ?? error)
+    return false
+  }
+}
+
+const checkDifyHealth = async () => {
+  if (!DIFY_URL) return false
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 3000)
+  try {
+    const response = await fetch(DIFY_URL, { method: 'GET', signal: controller.signal })
+    return response.ok
+  } catch (error) {
+    console.warn('Dify health check failed.', error?.message ?? error)
+    return false
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
 const parseBody = async (req) => {
   const chunks = []
   for await (const chunk of req) {
@@ -1931,6 +1957,18 @@ const start = async () => {
       return
     }
     const url = new URL(req.url, `http://${req.headers.host}`)
+    if (url.pathname === '/api/health' && req.method === 'GET') {
+      const [mysqlOk, difyOk] = await Promise.all([checkMysqlHealth(), checkDifyHealth()])
+      sendJson(res, 200, {
+        success: true,
+        data: {
+          backend: true,
+          mysql: mysqlOk,
+          dify: difyOk,
+        },
+      })
+      return
+    }
     if (url.pathname.startsWith('/api/options/')) {
       const type = url.pathname.split('/').pop()
       if (req.method === 'GET') {
