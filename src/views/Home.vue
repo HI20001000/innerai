@@ -465,9 +465,6 @@ onUnmounted(() => {
           <h1 class="headline">{{ username }}的工作面板</h1>
           <p class="subhead">快速掌握正在推進的項目、待辦與今日跟進事項。</p>
         </div>
-        <div class="header-actions">
-          <button class="primary-button" type="button">建立新任務</button>
-        </div>
       </header>
 
       <section class="summary-grid">
@@ -804,11 +801,6 @@ onUnmounted(() => {
   margin: 0;
   color: #64748b;
   max-width: 520px;
-}
-
-.header-actions {
-  display: flex;
-  gap: 1rem;
 }
 
 .ghost-button {
@@ -1424,9 +1416,5 @@ onUnmounted(() => {
     padding: 2.5rem 6vw 3.5rem;
   }
 
-  .header-actions {
-    width: 100%;
-    flex-direction: column;
-  }
 }
 </style>
