@@ -1,4 +1,4 @@
-import { execFile } from 'node:child_process'
+import { URL } from 'node:url'
 
 const extractDifyHostname = (difyUrl) => {
   if (!difyUrl) return ''
@@ -9,19 +9,25 @@ const extractDifyHostname = (difyUrl) => {
 }
 
 const checkDifyHealth = async (difyUrl) => {
-  const hostname = extractDifyHostname(difyUrl)
-  if (!hostname) return false
+  if (!difyUrl) return false
+  let targetUrl = ''
   try {
-    await new Promise((resolve, reject) => {
-      execFile('ping', ['-c', '1', '-W', '1', hostname], { timeout: 3000 }, (error) => {
-        if (error) {
-          reject(error)
-          return
-        }
-        resolve()
-      })
-    })
-    return true
+    targetUrl = new URL(difyUrl).toString()
+  } catch {
+    const hostname = extractDifyHostname(difyUrl)
+    if (!hostname) return false
+    targetUrl = `http://${hostname}`
+  }
+  try {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 3000)
+    let response
+    try {
+      response = await fetch(targetUrl, { method: 'GET', signal: controller.signal })
+    } finally {
+      clearTimeout(timeoutId)
+    }
+    return Boolean(response)
   } catch (error) {
     console.warn('Dify health check failed.', error?.message ?? error)
     return false
