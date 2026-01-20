@@ -6,7 +6,7 @@ import { URL } from 'node:url'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import mammoth from 'mammoth'
-import { createHealthStatusFetcher } from './scripts/healthChecks.js'
+import createHealthStatusFetcher from './scripts/healthChecks.js'
 
 const loadEnvFile = async (path) => {
   let content = ''
