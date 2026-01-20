@@ -14,6 +14,9 @@ const selectedVendor = ref('')
 const selectedProduct = ref('')
 const meetingTime = ref('')
 const selectedFiles = ref([])
+const selectedFileNames = computed(() =>
+  selectedFiles.value.map((file) => file.name).filter(Boolean).join('、')
+)
 const activeList = ref(null)
 const showRequiredHints = ref(false)
 
@@ -346,7 +349,7 @@ onMounted(() => {
             </label>
             <p class="hint">請選擇包含多個會議記錄的資料夾。</p>
             <p v-if="selectedFiles.length > 0" class="file-count">
-              已選擇 {{ selectedFiles.length }} 個檔案
+              已選擇 {{ selectedFiles.length }} 個檔案：{{ selectedFileNames }}
             </p>
           </label>
         </div>
