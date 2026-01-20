@@ -119,6 +119,20 @@ const findMeetingById = (items, meetingId) => {
   return null
 }
 
+const updateMeetingReport = (meetingId, report) => {
+  for (const client of records.value || []) {
+    for (const vendor of client.vendors || []) {
+      for (const product of vendor.products || []) {
+        const meeting = product.meetings?.find((item) => item.id === meetingId)
+        if (meeting) {
+          meeting.report = report
+          return
+        }
+      }
+    }
+  }
+}
+
 const selectClient = (clientName) => {
   activeClient.value = clientName
   activeVendor.value = ''
@@ -346,21 +360,15 @@ const generateMeetingReport = async (meeting) => {
       showResult.value = true
       return
     }
-    meeting.report = {
+    const report = {
       id: meeting.report?.id || `report-${meeting.id}`,
       content_text: data.data?.content_text || '',
     }
-    activeReport.value = meeting.report
+    meeting.report = report
+    updateMeetingReport(meetingId, report)
+    activeReport.value = report
     activeReportMeta.value = meeting
-    await fetchMeetingRecords()
-    const refreshed = findMeetingById(records.value, meetingId)
-    if (refreshed) {
-      activeMeeting.value = refreshed
-      if (refreshed.report?.content_text) {
-        activeReport.value = refreshed.report
-        activeReportMeta.value = refreshed
-      }
-    }
+    activeMeeting.value = meeting
   } catch (error) {
     console.error(error)
     resultTitle.value = '整合失敗'
@@ -434,8 +442,8 @@ const fetchMeetingRecords = async () => {
         }
       }
     }
-    if (!activeClient.value || !nextRecords.some((client) => client.name === activeClient.value)) {
-      activeClient.value = nextRecords[0]?.name || ''
+    if (activeClient.value && !nextRecords.some((client) => client.name === activeClient.value)) {
+      activeClient.value = ''
       activeVendor.value = ''
       activeProduct.value = ''
       activeMeeting.value = null
