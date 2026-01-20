@@ -8,6 +8,13 @@ const extractDifyHostname = (difyUrl) => {
   return hostSegment.split(':')[0] || ''
 }
 
+const getPingArgs = (hostname) => {
+  if (process.platform === 'win32') {
+    return ['-n', '1', '-w', '1000', hostname]
+  }
+  return ['-c', '1', '-W', '1', hostname]
+}
+
 const checkDifyHealth = async (difyUrl) => {
   if (!difyUrl) return false
   let targetUrl = ''

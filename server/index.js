@@ -3,6 +3,8 @@ import http from 'node:http'
 import mysql from 'mysql2/promise'
 import crypto from 'node:crypto'
 import { URL } from 'node:url'
+import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
 import mammoth from 'mammoth'
 import { createHealthCheckers } from './scripts/healthChecks.js'
 
