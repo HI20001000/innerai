@@ -113,12 +113,6 @@ const readUserProfile = () => {
   }
 }
 
-const getStatusLabel = (value) => {
-  if (value === true) return '已連線'
-  if (value === false) return '未連線'
-  return '檢查中'
-}
-
 const getStatusClass = (value) => {
   if (value === true) return 'status-ok'
   if (value === false) return 'status-fail'
@@ -546,14 +540,17 @@ onUnmounted(() => {
         <div class="connection-status">
           <p class="connection-title">連線狀況</p>
           <div class="connection-items">
-            <span class="connection-item" :class="getStatusClass(connectionStatus.backend)">
-              後端：{{ getStatusLabel(connectionStatus.backend) }}
+            <span class="connection-item">
+              <span class="status-dot" :class="getStatusClass(connectionStatus.backend)"></span>
+              後端
             </span>
-            <span class="connection-item" :class="getStatusClass(connectionStatus.mysql)">
-              MySQL：{{ getStatusLabel(connectionStatus.mysql) }}
+            <span class="connection-item">
+              <span class="status-dot" :class="getStatusClass(connectionStatus.mysql)"></span>
+              MySQL
             </span>
-            <span class="connection-item" :class="getStatusClass(connectionStatus.dify)">
-              Dify：{{ getStatusLabel(connectionStatus.dify) }}
+            <span class="connection-item">
+              <span class="status-dot" :class="getStatusClass(connectionStatus.dify)"></span>
+              Dify
             </span>
           </div>
         </div>
@@ -912,32 +909,37 @@ onUnmounted(() => {
 .connection-items {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: 0.75rem;
   justify-content: flex-end;
 }
 
 .connection-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   font-size: 0.8rem;
-  padding: 0.2rem 0.6rem;
-  border-radius: 999px;
-  background: #f1f5f9;
   color: #475569;
   font-weight: 600;
 }
 
-.connection-item.status-ok {
-  background: #dcfce7;
-  color: #166534;
-}
-
-.connection-item.status-fail {
-  background: #fee2e2;
-  color: #991b1b;
-}
-
-.connection-item.status-pending {
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
   background: #e2e8f0;
-  color: #475569;
+  display: inline-block;
+}
+
+.status-dot.status-ok {
+  background: #22c55e;
+}
+
+.status-dot.status-fail {
+  background: #ef4444;
+}
+
+.status-dot.status-pending {
+  background: #facc15;
 }
 
 .ghost-button {
@@ -1396,13 +1398,6 @@ onUnmounted(() => {
   font-size: 0.75rem;
   color: #16a34a;
   font-weight: 600;
-}
-
-.status-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 999px;
-  display: inline-block;
 }
 
 .modal-overlay {
