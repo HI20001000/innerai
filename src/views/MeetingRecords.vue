@@ -4,7 +4,6 @@ import WorkspaceSidebar from '../components/WorkspaceSidebar.vue'
 import ResultModal from '../components/ResultModal.vue'
 import ScrollPanel from '../components/element/ScrollPanel.vue'
 import { formatDateTimeDisplay } from '../scripts/time.js'
-import { buildMeetingReportFilename, downloadMeetingReport } from '../scripts/meetingReports.js'
 import { apiBaseUrl } from '../scripts/apiBaseUrl.js'
 
 const props = defineProps({
@@ -24,8 +23,6 @@ const activePath = computed(() => router?.currentRoute?.value?.path || '')
 const records = ref([])
 const activeRecord = ref(null)
 const activeRecordMeta = ref(null)
-const activeReport = ref(null)
-const activeReportMeta = ref(null)
 const activeClient = ref('')
 const activeVendor = ref('')
 const activeProduct = ref('')
@@ -41,7 +38,6 @@ const showResult = ref(false)
 const resultTitle = ref('')
 const resultMessage = ref('')
 const isUploading = ref(false)
-const isReportGenerating = ref(false)
 const uploadInput = ref(null)
 
 const goToNewTask = () => router?.push('/tasks/new')
@@ -104,8 +100,6 @@ const getMeetings = () => {
   return product?.meetings || []
 }
 
-const hasMeetingReport = (meeting) => Boolean(meeting?.report)
-
 const findMeetingById = (items, meetingId) => {
   for (const client of items || []) {
     for (const vendor of client.vendors || []) {
@@ -117,20 +111,6 @@ const findMeetingById = (items, meetingId) => {
     }
   }
   return null
-}
-
-const updateMeetingReport = (meetingId, report) => {
-  for (const client of records.value || []) {
-    for (const vendor of client.vendors || []) {
-      for (const product of vendor.products || []) {
-        const meeting = product.meetings?.find((item) => item.id === meetingId)
-        if (meeting) {
-          meeting.report = report
-          return
-        }
-      }
-    }
-  }
 }
 
 const selectClient = (clientName) => {
@@ -165,8 +145,6 @@ const selectMeeting = (meeting) => {
   activeMeeting.value = meeting
   activeRecord.value = null
   activeRecordMeta.value = null
-  activeReport.value = null
-  activeReportMeta.value = null
 }
 
 const resetSelections = () => {
@@ -332,8 +310,6 @@ const deleteMeetingFolder = async () => {
     activeMeeting.value = null
     activeRecord.value = null
     activeRecordMeta.value = null
-    activeReport.value = null
-    activeReportMeta.value = null
   } catch (error) {
     console.error(error)
     resultTitle.value = '刪除失敗'
@@ -342,57 +318,6 @@ const deleteMeetingFolder = async () => {
   }
 }
 
-const generateMeetingReport = async (meeting) => {
-  if (!meeting) return
-  const auth = readAuthStorage()
-  if (!auth) return
-  isReportGenerating.value = true
-  const meetingId = meeting.id
-  try {
-    const response = await fetch(`${apiBaseUrl}/api/meeting-reports/${meeting.id}`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${auth.token}` },
-    })
-    const data = await response.json()
-    if (!response.ok || !data?.success) {
-      resultTitle.value = '整合失敗'
-      resultMessage.value = data?.message || '會議記錄整合失敗'
-      showResult.value = true
-      return
-    }
-    const report = {
-      id: meeting.report?.id || `report-${meeting.id}`,
-      content_text: data.data?.content_text || '',
-    }
-    meeting.report = report
-    updateMeetingReport(meetingId, report)
-    activeReport.value = report
-    activeReportMeta.value = meeting
-    activeMeeting.value = meeting
-  } catch (error) {
-    console.error(error)
-    resultTitle.value = '整合失敗'
-    resultMessage.value = '會議記錄整合失敗'
-    showResult.value = true
-  } finally {
-    isReportGenerating.value = false
-  }
-}
-
-const openMeetingReport = (meeting) => {
-  if (!meeting?.report) return
-  activeMeeting.value = meeting
-  activeReport.value = meeting.report
-  activeReportMeta.value = meeting
-  activeRecord.value = null
-  activeRecordMeta.value = null
-}
-
-const downloadReport = () => {
-  if (!activeReport.value) return
-  const filename = buildMeetingReportFilename(activeReportMeta.value?.meeting_time)
-  downloadMeetingReport(activeReport.value.content_text || '', filename)
-}
 
 const filteredVendors = computed(() => {
   const vendors = getVendors()
@@ -433,13 +358,6 @@ const fetchMeetingRecords = async () => {
       const refreshedMeeting = findMeetingById(nextRecords, activeMeeting.value.id)
       if (refreshedMeeting) {
         activeMeeting.value = refreshedMeeting
-        if (hasMeetingReport(refreshedMeeting)) {
-          activeReport.value = refreshedMeeting.report
-          activeReportMeta.value = refreshedMeeting
-        } else {
-          activeReport.value = null
-          activeReportMeta.value = null
-        }
       }
     }
     if (activeClient.value && !nextRecords.some((client) => client.name === activeClient.value)) {
@@ -619,16 +537,6 @@ onMounted(fetchMeetingRecords)
                     </button>
                   </div>
                 </button>
-                <div class="meeting-actions">
-                  <button
-                    type="button"
-                    class="meeting-action"
-                    :disabled="isReportGenerating"
-                    @click.stop="activeMeeting = meeting; activeRecord = null; activeRecordMeta = null; hasMeetingReport(meeting) ? openMeetingReport(meeting) : generateMeetingReport(meeting)"
-                  >
-                    {{ hasMeetingReport(meeting) ? '🔍' : '🤖' }}
-                  </button>
-                </div>
               </div>
             </div>
           </div>
@@ -676,46 +584,15 @@ onMounted(fetchMeetingRecords)
           <ScrollPanel height="calc(100vh - 240px)">
           <div class="panel-section">
             <div class="panel-header">
-              <h2>
-                {{
-                  activeReport
-                    ? '整合會議記錄'
-                    : activeRecord
-                      ? activeRecord.file_name
-                      : '檔案預覽'
-                }}
-              </h2>
-              <button
-                v-if="activeReport"
-                type="button"
-                class="ghost-mini"
-                @click="downloadReport"
-              >
-                下載
-              </button>
+              <h2>{{ activeRecord ? activeRecord.file_name : '檔案預覽' }}</h2>
             </div>
             <p v-if="activeRecordMeta" class="meta">
               會議時間：{{ formatDateTimeDisplay(activeRecordMeta.meeting_time) }}｜建立者：{{
                 activeRecordMeta.created_by_email
               }}｜建立時間：{{ formatDateTimeDisplay(activeRecordMeta.created_at) }}
             </p>
-            <p v-else-if="activeReportMeta" class="meta">
-              會議時間：{{ formatDateTimeDisplay(activeReportMeta.meeting_time) }}｜建立者：{{
-                activeReportMeta.created_by_email
-              }}
-            </p>
-            <div v-if="isReportGenerating" class="loading-state">
-              <span class="loading-spinner" aria-hidden="true"></span>
-              整合會議記錄中...
-            </div>
-            <pre v-else class="record-content">
-{{
-  activeReport
-    ? activeReport.content_text || '目前尚無整合內容。'
-    : activeRecord
-      ? formatContent(activeRecord)
-      : '請先選擇會議記錄。'
-}}
+            <pre class="record-content">
+{{ activeRecord ? formatContent(activeRecord) : '請先選擇會議記錄。' }}
             </pre>
           </div>
           </ScrollPanel>
