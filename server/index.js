@@ -4,6 +4,7 @@ import mysql from 'mysql2/promise'
 import crypto from 'node:crypto'
 import { URL } from 'node:url'
 import mammoth from 'mammoth'
+import { createHealthCheckers } from './scripts/healthChecks.js'
 
 const loadEnvFile = async (path) => {
   let content = ''
@@ -66,32 +67,6 @@ const sendJson = (res, status, payload) => {
   withCors(res)
   res.writeHead(status, { 'Content-Type': 'application/json' })
   res.end(JSON.stringify(payload))
-}
-
-const checkMysqlHealth = async () => {
-  try {
-    const connection = await getConnection()
-    await connection.ping()
-    return true
-  } catch (error) {
-    console.warn('MySQL health check failed.', error?.message ?? error)
-    return false
-  }
-}
-
-const checkDifyHealth = async () => {
-  if (!DIFY_URL) return false
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 3000)
-  try {
-    const response = await fetch(DIFY_URL, { method: 'GET', signal: controller.signal })
-    return response.ok
-  } catch (error) {
-    console.warn('Dify health check failed.', error?.message ?? error)
-    return false
-  } finally {
-    clearTimeout(timeout)
-  }
 }
 
 const parseBody = async (req) => {
@@ -463,6 +438,11 @@ const getConnection = async () => {
   }
   return dbConnection
 }
+
+const { checkMysqlHealth, checkDifyHealth } = createHealthCheckers({
+  getConnection,
+  difyUrl: DIFY_URL,
+})
 
 const handleGetOptions = async (type, res) => {
   const table = TABLES[type]
@@ -1471,6 +1451,7 @@ const handleGetMeetingRecords = async (req, res) => {
               meeting_time: meeting.meeting_time,
               created_by_email: meeting.created_by_email,
               created_at: meeting.created_at,
+              report: meeting.report || null,
               records: meeting.records,
             })),
           }
