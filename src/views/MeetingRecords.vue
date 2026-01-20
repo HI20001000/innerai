@@ -628,14 +628,6 @@ onMounted(fetchMeetingRecords)
                   >
                     {{ hasMeetingReport(meeting) ? '🔍' : '🤖' }}
                   </button>
-                  <button
-                    v-if="hasMeetingReport(meeting)"
-                    type="button"
-                    class="meeting-action wide"
-                    @click.stop="activeMeeting = meeting; openMeetingReport(meeting)"
-                  >
-                    檢視
-                  </button>
                 </div>
               </div>
             </div>
