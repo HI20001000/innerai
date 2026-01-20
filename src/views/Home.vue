@@ -540,15 +540,21 @@ onUnmounted(() => {
           <div class="connection-items">
             <span class="connection-item">
               後端
-              <span class="status-dot" :class="getStatusClass(connectionStatus.backend)"></span>
+              <span class="status-ring" :class="getStatusClass(connectionStatus.backend)">
+                <span class="status-dot" :class="getStatusClass(connectionStatus.backend)"></span>
+              </span>
             </span>
             <span class="connection-item">
               MySQL
-              <span class="status-dot" :class="getStatusClass(connectionStatus.mysql)"></span>
+              <span class="status-ring" :class="getStatusClass(connectionStatus.mysql)">
+                <span class="status-dot" :class="getStatusClass(connectionStatus.mysql)"></span>
+              </span>
             </span>
             <span class="connection-item">
               Dify
-              <span class="status-dot" :class="getStatusClass(connectionStatus.dify)"></span>
+              <span class="status-ring" :class="getStatusClass(connectionStatus.dify)">
+                <span class="status-dot" :class="getStatusClass(connectionStatus.dify)"></span>
+              </span>
             </span>
           </div>
         </div>
@@ -913,14 +919,35 @@ onUnmounted(() => {
 .connection-item {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.4rem;
   font-size: 0.8rem;
   color: #475569;
   font-weight: 600;
 }
 
+.status-ring {
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  border: 1.5px solid #e2e8f0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.status-ring.status-ok {
+  border-color: #bbf7d0;
+}
+
+.status-ring.status-fail {
+  border-color: #fecaca;
+}
+
+.status-ring.status-pending {
+  border-color: #fef3c7;
+}
+
 .status-dot {
-  margin-left: 0.2rem;
   width: 10px;
   height: 10px;
   border-radius: 999px;
