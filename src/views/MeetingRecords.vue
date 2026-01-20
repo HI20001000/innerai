@@ -104,7 +104,7 @@ const getMeetings = () => {
   return product?.meetings || []
 }
 
-const hasMeetingReport = (meeting) => Boolean(meeting?.report?.content_text)
+const hasMeetingReport = (meeting) => Boolean(meeting?.report?.id)
 
 const findMeetingById = (items, meetingId) => {
   for (const client of items || []) {
