@@ -4,8 +4,7 @@ import mysql from 'mysql2/promise'
 import crypto from 'node:crypto'
 import { URL } from 'node:url'
 import mammoth from 'mammoth'
-import { execFile } from 'node:child_process'
-import { promisify } from 'node:util'
+import { createHealthCheckers } from './scripts/healthChecks.js'
 
 const loadEnvFile = async (path) => {
   let content = ''
@@ -70,33 +69,6 @@ const sendJson = (res, status, payload) => {
   withCors(res)
   res.writeHead(status, { 'Content-Type': 'application/json' })
   res.end(JSON.stringify(payload))
-}
-
-const checkMysqlHealth = async () => {
-  try {
-    const connection = await getConnection()
-    await connection.ping()
-    return true
-  } catch (error) {
-    console.warn('MySQL health check failed.', error?.message ?? error)
-    return false
-  }
-}
-
-const checkDifyHealth = async () => {
-  if (!DIFY_URL) return false
-  try {
-    const normalized = String(DIFY_URL).trim()
-    const withoutProtocol = normalized.replace(/^https?:\/\//i, '')
-    const hostSegment = withoutProtocol.split('/')[0] || ''
-    const hostname = hostSegment.split(':')[0] || ''
-    if (!hostname) return false
-    await execFileAsync('ping', ['-c', '1', '-W', '1', hostname], { timeout: 3000 })
-    return true
-  } catch (error) {
-    console.warn('Dify health check failed.', error?.message ?? error)
-    return false
-  }
 }
 
 const parseBody = async (req) => {
@@ -468,6 +440,11 @@ const getConnection = async () => {
   }
   return dbConnection
 }
+
+const { checkMysqlHealth, checkDifyHealth } = createHealthCheckers({
+  getConnection,
+  difyUrl: DIFY_URL,
+})
 
 const handleGetOptions = async (type, res) => {
   const table = TABLES[type]
