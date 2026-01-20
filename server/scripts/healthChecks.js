@@ -8,12 +8,19 @@ const extractDifyHostname = (difyUrl) => {
   return hostSegment.split(':')[0] || ''
 }
 
+const getPingArgs = (hostname) => {
+  if (process.platform === 'win32') {
+    return ['-n', '1', '-w', '1000', hostname]
+  }
+  return ['-c', '1', '-W', '1', hostname]
+}
+
 const checkDifyHealth = async (difyUrl) => {
   const hostname = extractDifyHostname(difyUrl)
   if (!hostname) return false
   try {
     await new Promise((resolve, reject) => {
-      execFile('ping', ['-c', '1', '-W', '1', hostname], { timeout: 3000 }, (error) => {
+      execFile('ping', getPingArgs(hostname), { timeout: 3000 }, (error) => {
         if (error) {
           reject(error)
           return
