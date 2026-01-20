@@ -538,16 +538,16 @@ onUnmounted(() => {
         <div class="connection-status">
           <p class="connection-title">連線狀況</p>
           <div class="connection-items">
-            <span class="connection-item">
+            <span class="connection-item" :class="getStatusClass(connectionStatus.backend)">
               後端
               <span class="status-dot" :class="getStatusClass(connectionStatus.backend)"></span>
             </span>
-            <span class="connection-item">
-              MySQL
+            <span class="connection-item" :class="getStatusClass(connectionStatus.mysql)">
+              數據庫
               <span class="status-dot" :class="getStatusClass(connectionStatus.mysql)"></span>
             </span>
-            <span class="connection-item">
-              Dify
+            <span class="connection-item" :class="getStatusClass(connectionStatus.dify)">
+              AI服務
               <span class="status-dot" :class="getStatusClass(connectionStatus.dify)"></span>
             </span>
           </div>
@@ -905,22 +905,41 @@ onUnmounted(() => {
 }
 
 .connection-items {
-  display: grid;
-  gap: 0.4rem;
-  justify-items: end;
+  display: flex;
+  gap: 0.6rem;
+  justify-content: flex-end;
+  flex-wrap: wrap;
 }
 
 .connection-item {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: #e2e8f0;
   font-size: 0.8rem;
   color: #475569;
   font-weight: 600;
 }
 
+.connection-item.status-ok {
+  background: #dcfce7;
+  border-color: #bbf7d0;
+}
+
+.connection-item.status-fail {
+  background: #fee2e2;
+  border-color: #fecaca;
+}
+
+.connection-item.status-pending {
+  background: #fef9c3;
+  border-color: #fef3c7;
+}
+
 .status-dot {
-  margin-left: 0.2rem;
   width: 10px;
   height: 10px;
   border-radius: 999px;
