@@ -104,7 +104,7 @@ const getMeetings = () => {
   return product?.meetings || []
 }
 
-const hasMeetingReport = (meeting) => Boolean(meeting?.report?.content_text)
+const hasMeetingReport = (meeting) => Boolean(meeting?.report?.id)
 
 const findMeetingById = (items, meetingId) => {
   for (const client of items || []) {
@@ -624,9 +624,9 @@ onMounted(fetchMeetingRecords)
                     type="button"
                     class="meeting-action"
                     :disabled="isReportGenerating"
-                    @click.stop="activeMeeting = meeting; activeRecord = null; activeRecordMeta = null; generateMeetingReport(meeting)"
+                    @click.stop="activeMeeting = meeting; activeRecord = null; activeRecordMeta = null; hasMeetingReport(meeting) ? openMeetingReport(meeting) : generateMeetingReport(meeting)"
                   >
-                    🤖
+                    {{ hasMeetingReport(meeting) ? '🔍' : '🤖' }}
                   </button>
                   <button
                     v-if="hasMeetingReport(meeting)"
