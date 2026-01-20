@@ -339,7 +339,7 @@ const getFollowUpAssigneeLabel = (item) => {
   if (assignees.length === 0) return '設定跟進人'
   const assigneeNames = relatedUsers.value
     .filter((user) => assignees.includes(user.mail))
-    .map((user) => user.username || user.mail)
+    .map((user) => user.username || 'user')
   return assigneeNames.length > 0 ? assigneeNames.join('、') : '設定跟進人'
 }
 
@@ -823,16 +823,16 @@ onBeforeUnmount(() => {
                 </span>
               </span>
             </div>
-            <button class="select-field" type="button" @click="openList('user')">
+            <button class="select-field multi-select-field" type="button" @click="openList('user')">
               {{
                 selectedRelatedUsers.length > 0
                   ? selectedRelatedUsers
-                      .map((user) => `${user.username || ''} <${user.mail}>`)
+                      .map((user) => user.username || 'user')
                       .join(', ')
                   : '選擇關聯用戶'
               }}
             </button>
-            <div v-if="activeList === 'user'" class="option-list">
+            <div v-if="activeList === 'user'" class="option-list user-multi-options">
               <input
                 v-model="searchQuery.user"
                 class="option-search"
@@ -853,7 +853,7 @@ onBeforeUnmount(() => {
                   {{ item.icon || '🙂' }}
                 </span>
                 <span class="user-label">
-                  {{ item.username || 'user' }} &lt;{{ item.mail }}&gt;
+                  {{ item.username || 'user' }}
                 </span>
                 <span v-if="isRelatedUserSelected(item)" class="user-selected">已選</span>
               </button>
@@ -879,7 +879,7 @@ onBeforeUnmount(() => {
                 >
                   一鍵指派
                 </button>
-                <div v-if="activeQuickAssignMenu" class="option-list assignee-list">
+                <div v-if="activeQuickAssignMenu" class="option-list assignee-list user-multi-options">
                   <input
                     v-model="searchQuery.user"
                     class="option-search"
@@ -900,7 +900,7 @@ onBeforeUnmount(() => {
                       {{ user.icon || '🙂' }}
                     </span>
                     <span class="user-label">
-                      {{ user.username || 'user' }} &lt;{{ user.mail }}&gt;
+                      {{ user.username || 'user' }}
                     </span>
                   </button>
                 </div>
@@ -923,7 +923,7 @@ onBeforeUnmount(() => {
                 <div class="follow-up-assignee">
                   <button
                     type="button"
-                    class="select-field small"
+                    class="select-field small multi-select-field"
                     :disabled="selectedRelatedUsers.length === 0"
                     @click="toggleFollowUpAssigneeMenu(index)"
                   >
@@ -931,7 +931,7 @@ onBeforeUnmount(() => {
                   </button>
                   <div
                     v-if="activeFollowUpAssigneeMenu === index"
-                    class="option-list assignee-list"
+                    class="option-list assignee-list user-multi-options"
                   >
                     <input
                       v-model="searchQuery.user"
@@ -953,10 +953,10 @@ onBeforeUnmount(() => {
                         {{ user.icon || '🙂' }}
                       </span>
                       <span class="user-label">
-                        {{ user.username || 'user' }} &lt;{{ user.mail }}&gt;
+                        {{ user.username || 'user' }}
                       </span>
                       <span v-if="isFollowUpAssigneeSelected(item, user)" class="user-selected">
-                        ✓
+                        已選
                       </span>
                     </button>
                   </div>
@@ -1220,6 +1220,16 @@ onBeforeUnmount(() => {
   color: #94a3b8;
 }
 
+.multi-select-field {
+  padding: 0.45rem 0.7rem;
+  font-size: 0.85rem;
+  color: #0f172a;
+}
+
+.multi-select-field::after {
+  content: none;
+}
+
 .ghost-mini {
   border: 1px solid #e2e8f0;
   background: #fff;
@@ -1246,6 +1256,11 @@ onBeforeUnmount(() => {
   overflow: auto;
   z-index: 5;
   box-shadow: 0 18px 30px rgba(15, 23, 42, 0.12);
+}
+
+.user-multi-options {
+  max-height: 180px;
+  z-index: 10;
 }
 
 .option-search {
