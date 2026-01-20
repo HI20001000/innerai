@@ -538,19 +538,19 @@ onUnmounted(() => {
         <div class="connection-status">
           <p class="connection-title">連線狀況</p>
           <div class="connection-items">
-            <span class="connection-item">
+            <span class="connection-item" :class="getStatusClass(connectionStatus.backend)">
               後端
               <span class="status-ring" :class="getStatusClass(connectionStatus.backend)">
                 <span class="status-dot" :class="getStatusClass(connectionStatus.backend)"></span>
               </span>
             </span>
-            <span class="connection-item">
+            <span class="connection-item" :class="getStatusClass(connectionStatus.mysql)">
               MySQL
               <span class="status-ring" :class="getStatusClass(connectionStatus.mysql)">
                 <span class="status-dot" :class="getStatusClass(connectionStatus.mysql)"></span>
               </span>
             </span>
-            <span class="connection-item">
+            <span class="connection-item" :class="getStatusClass(connectionStatus.dify)">
               Dify
               <span class="status-ring" :class="getStatusClass(connectionStatus.dify)">
                 <span class="status-dot" :class="getStatusClass(connectionStatus.dify)"></span>
@@ -919,31 +919,28 @@ onUnmounted(() => {
 .connection-item {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.35rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: #e2e8f0;
   font-size: 0.8rem;
   color: #475569;
   font-weight: 600;
 }
 
-.status-ring {
-  width: 20px;
-  height: 20px;
-  border-radius: 999px;
-  border: 1.5px solid #e2e8f0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.status-ring.status-ok {
+.connection-item.status-ok {
+  background: #dcfce7;
   border-color: #bbf7d0;
 }
 
-.status-ring.status-fail {
+.connection-item.status-fail {
+  background: #fee2e2;
   border-color: #fecaca;
 }
 
-.status-ring.status-pending {
+.connection-item.status-pending {
+  background: #fef9c3;
   border-color: #fef3c7;
 }
 
