@@ -1,7 +1,4 @@
 import { execFile } from 'node:child_process'
-import { promisify } from 'node:util'
-
-const execFileAsync = promisify(execFile)
 
 const extractDifyHostname = (difyUrl) => {
   if (!difyUrl) return ''
@@ -15,7 +12,15 @@ const checkDifyHealth = async (difyUrl) => {
   const hostname = extractDifyHostname(difyUrl)
   if (!hostname) return false
   try {
-    await execFileAsync('ping', ['-c', '1', '-W', '1', hostname], { timeout: 3000 })
+    await new Promise((resolve, reject) => {
+      execFile('ping', ['-c', '1', '-W', '1', hostname], { timeout: 3000 }, (error) => {
+        if (error) {
+          reject(error)
+          return
+        }
+        resolve()
+      })
+    })
     return true
   } catch (error) {
     console.warn('Dify health check failed.', error?.message ?? error)
