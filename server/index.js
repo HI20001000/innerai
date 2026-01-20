@@ -4,6 +4,8 @@ import mysql from 'mysql2/promise'
 import crypto from 'node:crypto'
 import { URL } from 'node:url'
 import mammoth from 'mammoth'
+import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
 
 const loadEnvFile = async (path) => {
   let content = ''
@@ -56,6 +58,8 @@ const TABLES = {
   tag: 'task_tags',
 }
 
+const execFileAsync = promisify(execFile)
+
 const withCors = (res) => {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS')
@@ -81,17 +85,15 @@ const checkMysqlHealth = async () => {
 
 const checkDifyHealth = async () => {
   if (!DIFY_URL) return false
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 3000)
   try {
-    const baseUrl = new URL(DIFY_URL).origin
-    const response = await fetch(baseUrl, { method: 'GET', signal: controller.signal })
-    return response.ok
+    const difyUrl = new URL(DIFY_URL)
+    const hostname = difyUrl.hostname
+    if (!hostname) return false
+    await execFileAsync('ping', ['-c', '1', '-W', '1', hostname], { timeout: 3000 })
+    return true
   } catch (error) {
     console.warn('Dify health check failed.', error?.message ?? error)
     return false
-  } finally {
-    clearTimeout(timeout)
   }
 }
 
