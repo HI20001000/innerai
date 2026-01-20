@@ -104,7 +104,7 @@ const getMeetings = () => {
   return product?.meetings || []
 }
 
-const hasMeetingReport = (meeting) => Boolean(meeting?.report?.content_text)
+const hasMeetingReport = (meeting) => Boolean(meeting?.report?.id)
 
 const findMeetingById = (items, meetingId) => {
   for (const client of items || []) {
@@ -117,6 +117,20 @@ const findMeetingById = (items, meetingId) => {
     }
   }
   return null
+}
+
+const updateMeetingReport = (meetingId, report) => {
+  for (const client of records.value || []) {
+    for (const vendor of client.vendors || []) {
+      for (const product of vendor.products || []) {
+        const meeting = product.meetings?.find((item) => item.id === meetingId)
+        if (meeting) {
+          meeting.report = report
+          return
+        }
+      }
+    }
+  }
 }
 
 const selectClient = (clientName) => {
@@ -346,21 +360,15 @@ const generateMeetingReport = async (meeting) => {
       showResult.value = true
       return
     }
-    meeting.report = {
+    const report = {
       id: meeting.report?.id || `report-${meeting.id}`,
       content_text: data.data?.content_text || '',
     }
-    activeReport.value = meeting.report
+    meeting.report = report
+    updateMeetingReport(meetingId, report)
+    activeReport.value = report
     activeReportMeta.value = meeting
-    await fetchMeetingRecords()
-    const refreshed = findMeetingById(records.value, meetingId)
-    if (refreshed) {
-      activeMeeting.value = refreshed
-      if (refreshed.report?.content_text) {
-        activeReport.value = refreshed.report
-        activeReportMeta.value = refreshed
-      }
-    }
+    activeMeeting.value = meeting
   } catch (error) {
     console.error(error)
     resultTitle.value = '整合失敗'
@@ -434,8 +442,8 @@ const fetchMeetingRecords = async () => {
         }
       }
     }
-    if (!activeClient.value || !nextRecords.some((client) => client.name === activeClient.value)) {
-      activeClient.value = nextRecords[0]?.name || ''
+    if (activeClient.value && !nextRecords.some((client) => client.name === activeClient.value)) {
+      activeClient.value = ''
       activeVendor.value = ''
       activeProduct.value = ''
       activeMeeting.value = null
@@ -616,9 +624,9 @@ onMounted(fetchMeetingRecords)
                     type="button"
                     class="meeting-action"
                     :disabled="isReportGenerating"
-                    @click.stop="activeMeeting = meeting; activeRecord = null; activeRecordMeta = null; generateMeetingReport(meeting)"
+                    @click.stop="activeMeeting = meeting; activeRecord = null; activeRecordMeta = null; hasMeetingReport(meeting) ? openMeetingReport(meeting) : generateMeetingReport(meeting)"
                   >
-                    🤖
+                    {{ hasMeetingReport(meeting) ? '🔍' : '🤖' }}
                   </button>
                   <button
                     v-if="hasMeetingReport(meeting)"
