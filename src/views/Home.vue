@@ -541,16 +541,16 @@ onUnmounted(() => {
           <p class="connection-title">連線狀況</p>
           <div class="connection-items">
             <span class="connection-item">
-              <span class="status-dot" :class="getStatusClass(connectionStatus.backend)"></span>
               後端
+              <span class="status-dot" :class="getStatusClass(connectionStatus.backend)"></span>
             </span>
             <span class="connection-item">
-              <span class="status-dot" :class="getStatusClass(connectionStatus.mysql)"></span>
               MySQL
+              <span class="status-dot" :class="getStatusClass(connectionStatus.mysql)"></span>
             </span>
             <span class="connection-item">
-              <span class="status-dot" :class="getStatusClass(connectionStatus.dify)"></span>
               Dify
+              <span class="status-dot" :class="getStatusClass(connectionStatus.dify)"></span>
             </span>
           </div>
         </div>
@@ -915,13 +915,14 @@ onUnmounted(() => {
 .connection-item {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.35rem;
   font-size: 0.8rem;
   color: #475569;
   font-weight: 600;
 }
 
 .status-dot {
+  margin-left: 0.2rem;
   width: 10px;
   height: 10px;
   border-radius: 999px;
