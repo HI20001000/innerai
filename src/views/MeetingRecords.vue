@@ -622,11 +622,16 @@ onMounted(fetchMeetingRecords)
                 <div class="meeting-actions">
                   <button
                     type="button"
-                    class="meeting-action"
+                    class="meeting-report-button"
                     :disabled="isReportGenerating"
                     @click.stop="activeMeeting = meeting; activeRecord = null; activeRecordMeta = null; hasMeetingReport(meeting) ? openMeetingReport(meeting) : generateMeetingReport(meeting)"
                   >
-                    {{ hasMeetingReport(meeting) ? '🔍' : '🤖' }}
+                    <span
+                      v-if="isReportGenerating && activeMeeting?.id === meeting.id"
+                      class="loading-spinner"
+                      aria-hidden="true"
+                    ></span>
+                    <span v-else>{{ hasMeetingReport(meeting) ? '🔍' : '🤖' }}</span>
                   </button>
                 </div>
               </div>
@@ -1034,6 +1039,25 @@ onMounted(fetchMeetingRecords)
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+.meeting-report-button {
+  border: none;
+  background: #e2e8f0;
+  color: #475569;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.meeting-report-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .meeting-action.wide {
