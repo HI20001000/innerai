@@ -368,15 +368,7 @@ const generateMeetingReport = async (meeting) => {
     updateMeetingReport(meetingId, report)
     activeReport.value = report
     activeReportMeta.value = meeting
-    await fetchMeetingRecords()
-    const refreshed = findMeetingById(records.value, meetingId)
-    if (refreshed) {
-      activeMeeting.value = refreshed
-      if (refreshed.report?.content_text) {
-        activeReport.value = refreshed.report
-        activeReportMeta.value = refreshed
-      }
-    }
+    activeMeeting.value = meeting
   } catch (error) {
     console.error(error)
     resultTitle.value = '整合失敗'
