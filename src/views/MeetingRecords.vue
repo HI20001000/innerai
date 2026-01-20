@@ -669,7 +669,6 @@ onMounted(fetchMeetingRecords)
                 <button
                   type="button"
                   class="meeting-report-button"
-                  :class="{ active: activeMeeting?.id === meeting.id }"
                   :disabled="isReportLoading(meeting.id)"
                   @click.stop="activeMeeting = meeting; handleMeetingReportAction(meeting)"
                 >
@@ -1025,10 +1024,10 @@ onMounted(fetchMeetingRecords)
 
 .meeting-report-button {
   border: none;
-  background: #e2e8f0;
-  width: 40px;
-  height: 40px;
-  border-radius: 14px;
+  background: #e5e7eb;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
   font-size: 1.1rem;
   cursor: pointer;
   display: inline-flex;
@@ -1039,7 +1038,7 @@ onMounted(fetchMeetingRecords)
 }
 
 .meeting-report-button:hover {
-  background: #cbd5f5;
+  background: #d1d5db;
   transform: translateY(-1px);
 }
 
@@ -1047,11 +1046,6 @@ onMounted(fetchMeetingRecords)
   opacity: 0.6;
   cursor: not-allowed;
   transform: none;
-}
-
-.meeting-report-button.active {
-  background: #111827;
-  color: #fff;
 }
 
 .meeting-card {
