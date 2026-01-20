@@ -1479,6 +1479,17 @@ onUnmounted(() => {
   gap: 0.4rem;
 }
 
+.ghost-mini {
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  padding: 0.2rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+}
+
 .color-input {
   width: 40px;
   height: 36px;
