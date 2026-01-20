@@ -77,3 +77,4 @@ const createHealthStatusFetcher = ({ getConnection, difyUrl }) => {
 }
 
 export { createHealthCheckers, createHealthStatusFetcher, extractDifyHostname }
+export default createHealthStatusFetcher
