@@ -173,8 +173,10 @@ const pingConnections = async () => {
 const ensureConnectionStatus = async () => {
   const auth = readAuthStorage()
   if (!auth) return
-  loadStoredConnectionStatus()
-  await pingConnections()
+  const hasStored = loadStoredConnectionStatus()
+  if (!hasStored) {
+    await pingConnections()
+  }
 }
 
 const fetchSubmissions = async () => {

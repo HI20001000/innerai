@@ -57,6 +57,8 @@ const TABLES = {
   tag: 'task_tags',
 }
 
+const execFileAsync = promisify(execFile)
+
 const withCors = (res) => {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS')
