@@ -58,4 +58,23 @@ const createHealthCheckers = ({ getConnection, difyUrl }) => {
   return { checkMysqlHealth, checkDifyHealth: checkDifyHealthBound }
 }
 
-export { createHealthCheckers, extractDifyHostname }
+const createHealthStatusFetcher = ({ getConnection, difyUrl }) => {
+  const { checkMysqlHealth, checkDifyHealth } = createHealthCheckers({
+    getConnection,
+    difyUrl,
+  })
+
+  const getHealthStatus = async () => {
+    const [mysqlOk, difyOk] = await Promise.all([checkMysqlHealth(), checkDifyHealth()])
+    return {
+      backend: true,
+      mysql: mysqlOk,
+      dify: difyOk,
+    }
+  }
+
+  return { getHealthStatus }
+}
+
+export { createHealthCheckers, createHealthStatusFetcher, extractDifyHostname }
+export default createHealthStatusFetcher
