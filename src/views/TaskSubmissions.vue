@@ -24,6 +24,7 @@ const followUpInput = ref('')
 const followUpItems = ref([])
 const editingFollowUpIndex = ref(null)
 const followUpEditValue = ref('')
+const activeFollowUpAssigneeMenu = ref(null)
 const editForm = ref({
   client: '',
   vendor: '',
@@ -172,6 +173,15 @@ const getFilteredOptions = (type) => {
   return source.filter((item) => item.toLowerCase().includes(query))
 }
 
+const getFilteredRelatedUsers = () => {
+  const query = searchQuery.user?.trim().toLowerCase() ?? ''
+  const source = selectedRelatedUsers.value
+  if (!query) return source
+  return source.filter((item) =>
+    `${item.username || ''}${item.mail || ''}`.toLowerCase().includes(query)
+  )
+}
+
 const toggleTag = (tag) => {
   if (selectedTags.value.includes(tag)) {
     selectedTags.value = selectedTags.value.filter((item) => item !== tag)
@@ -187,11 +197,20 @@ const removeTag = (tag) => {
 const isRelatedUserSelected = (item) =>
   selectedRelatedUsers.value.some((user) => user.mail === item.mail)
 
+const cleanupFollowUpAssignees = () => {
+  const allowedMails = new Set(selectedRelatedUsers.value.map((user) => user.mail))
+  followUpItems.value = followUpItems.value.map((item) => ({
+    ...item,
+    assignees: (item.assignees || []).filter((mail) => allowedMails.has(mail)),
+  }))
+}
+
 const toggleRelatedUser = (item) => {
   if (isRelatedUserSelected(item)) {
     selectedRelatedUsers.value = selectedRelatedUsers.value.filter(
       (user) => user.mail !== item.mail
     )
+    cleanupFollowUpAssignees()
     return
   }
   selectedRelatedUsers.value = [...selectedRelatedUsers.value, item]
@@ -200,7 +219,13 @@ const toggleRelatedUser = (item) => {
 const addFollowUpItem = () => {
   const value = followUpInput.value.trim()
   if (!value) return
-  followUpItems.value = [...followUpItems.value, value]
+  followUpItems.value = [
+    ...followUpItems.value,
+    {
+      content: value,
+      assignees: [],
+    },
+  ]
   followUpInput.value = ''
 }
 
@@ -214,17 +239,53 @@ const removeFollowUpItem = (index) => {
 
 const editFollowUpItem = (item, index) => {
   editingFollowUpIndex.value = index
-  followUpEditValue.value = item
+  followUpEditValue.value = item.content
 }
 
 const confirmFollowUpEdit = () => {
   const value = followUpEditValue.value.trim()
   if (!value || editingFollowUpIndex.value === null) return
-  followUpItems.value = followUpItems.value.map((item, index) =>
-    index === editingFollowUpIndex.value ? value : item
-  )
+  followUpItems.value = followUpItems.value.map((item, index) => {
+    if (index !== editingFollowUpIndex.value) return item
+    return {
+      ...item,
+      content: value,
+    }
+  })
   editingFollowUpIndex.value = null
   followUpEditValue.value = ''
+}
+
+const toggleFollowUpAssigneeMenu = (index) => {
+  activeFollowUpAssigneeMenu.value =
+    activeFollowUpAssigneeMenu.value === index ? null : index
+  searchQuery.user = ''
+}
+
+const isFollowUpAssigneeSelected = (item, user) => (item.assignees || []).includes(user.mail)
+
+const toggleFollowUpAssignee = (item, user) => {
+  if (!user?.mail) return
+  followUpItems.value = followUpItems.value.map((followUpItem) => {
+    if (followUpItem !== item) return followUpItem
+    const assignees = followUpItem.assignees || []
+    const nextAssignees = assignees.includes(user.mail)
+      ? assignees.filter((mail) => mail !== user.mail)
+      : [...assignees, user.mail]
+    return {
+      ...followUpItem,
+      assignees: nextAssignees,
+    }
+  })
+}
+
+const getFollowUpAssigneeLabel = (item) => {
+  const assignees = item.assignees || []
+  if (assignees.length === 0) return '設定跟進人'
+  const assigneeNames = relatedUsers.value
+    .filter((user) => assignees.includes(user.mail))
+    .map((user) => user.username || user.mail)
+  return assigneeNames.length > 0 ? assigneeNames.join('、') : '設定跟進人'
 }
 
 const startEdit = (submission) => {
@@ -235,13 +296,26 @@ const startEdit = (submission) => {
     : []
   followUpItems.value = Array.isArray(submission.follow_ups)
     ? submission.follow_ups
-        .map((entry) => (typeof entry === 'string' ? entry : entry?.content))
-        .filter(Boolean)
+        .map((entry) => {
+          if (!entry) return null
+          if (typeof entry === 'string') {
+            return {
+              content: entry,
+              assignees: [],
+            }
+          }
+          return {
+            content: entry.content || '',
+            assignees: Array.isArray(entry.assignees) ? entry.assignees : [],
+          }
+        })
+        .filter((entry) => entry?.content)
     : []
   followUpInput.value = ''
   editingFollowUpIndex.value = null
   followUpEditValue.value = ''
   activeList.value = null
+  activeFollowUpAssigneeMenu.value = null
   searchQuery.tag = ''
   searchQuery.user = ''
   editForm.value = {
@@ -256,12 +330,16 @@ const startEdit = (submission) => {
 const cancelEdit = () => {
   editingId.value = null
   activeList.value = null
+  activeFollowUpAssigneeMenu.value = null
 }
 
 const saveEdit = async (id) => {
   const tagItems = selectedTags.value
   const relatedUserMails = selectedRelatedUsers.value.map((user) => user.mail)
-  const followUpPayload = followUpItems.value
+  const followUpPayload = followUpItems.value.map((item) => ({
+    content: item.content,
+    assignees: Array.isArray(item.assignees) ? item.assignees : [],
+  }))
   if (
     !editForm.value.client?.trim() ||
     !editForm.value.vendor?.trim() ||
@@ -485,31 +563,76 @@ onMounted(() => {
                         新增
                       </button>
                     </div>
-                    <div v-if="followUpItems.length > 0" class="follow-up-list">
+                    <div v-if="followUpItems.length > 0" class="follow-up-list follow-up-edit-list">
                       <div
                         v-for="(entry, index) in followUpItems"
-                        :key="`${entry}-${index}`"
-                        class="follow-up-item"
+                        :key="`${entry.content}-${index}`"
+                        class="follow-up-row"
                       >
-                        <template v-if="editingFollowUpIndex === index">
-                          <input v-model="followUpEditValue" type="text" class="follow-up-edit-input" />
-                        </template>
-                        <span v-else>{{ entry }}</span>
-                        <div class="follow-up-actions">
+                        <div class="follow-up-assignee">
                           <button
                             type="button"
-                            class="chip-edit"
-                            @click="
-                              editingFollowUpIndex === index
-                                ? confirmFollowUpEdit()
-                                : editFollowUpItem(entry, index)
-                            "
+                            class="select-field small"
+                            :disabled="selectedRelatedUsers.length === 0"
+                            @click="toggleFollowUpAssigneeMenu(index)"
                           >
-                            {{ editingFollowUpIndex === index ? '確認' : '✎' }}
+                            {{ getFollowUpAssigneeLabel(entry) }}
                           </button>
-                          <button type="button" class="chip-remove" @click="removeFollowUpItem(index)">
-                            ×
-                          </button>
+                          <div
+                            v-if="activeFollowUpAssigneeMenu === index"
+                            class="option-list assignee-list"
+                          >
+                            <input
+                              v-model="searchQuery.user"
+                              class="option-search"
+                              type="text"
+                              placeholder="搜尋用戶"
+                            />
+                            <button
+                              v-for="user in getFilteredRelatedUsers()"
+                              :key="user.mail"
+                              type="button"
+                              class="option-item user-option"
+                              @click="toggleFollowUpAssignee(entry, user)"
+                            >
+                              <span
+                                class="user-avatar"
+                                :style="{ backgroundColor: user.icon_bg || '#e2e8f0' }"
+                              >
+                                {{ user.icon || '🙂' }}
+                              </span>
+                              <span class="user-label">{{ user.username || 'user' }}</span>
+                              <span v-if="isFollowUpAssigneeSelected(entry, user)" class="user-selected">
+                                ✓
+                              </span>
+                            </button>
+                          </div>
+                        </div>
+                        <div class="follow-up-item">
+                          <template v-if="editingFollowUpIndex === index">
+                            <input
+                              v-model="followUpEditValue"
+                              type="text"
+                              class="follow-up-edit-input"
+                            />
+                          </template>
+                          <span v-else class="follow-up-content">{{ entry.content }}</span>
+                          <div class="follow-up-actions">
+                            <button
+                              type="button"
+                              class="chip-edit"
+                              @click="
+                                editingFollowUpIndex === index
+                                  ? confirmFollowUpEdit()
+                                  : editFollowUpItem(entry, index)
+                              "
+                            >
+                              {{ editingFollowUpIndex === index ? '確認' : '✎' }}
+                            </button>
+                            <button type="button" class="chip-remove" @click="removeFollowUpItem(index)">
+                              ×
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -532,9 +655,7 @@ onMounted(() => {
                     <button class="select-field" type="button" @click="openList('user')">
                       {{
                         selectedRelatedUsers.length > 0
-                          ? selectedRelatedUsers
-                              .map((user) => `${user.username || ''} <${user.mail}>`)
-                              .join(', ')
+                          ? selectedRelatedUsers.map((user) => user.username || 'user').join(', ')
                           : '選擇關聯用戶'
                       }}
                     </button>
@@ -558,9 +679,7 @@ onMounted(() => {
                         >
                           {{ user.icon || '🙂' }}
                         </span>
-                        <span class="user-label">
-                          {{ user.username || 'user' }} &lt;{{ user.mail }}&gt;
-                        </span>
+                        <span class="user-label">{{ user.username || 'user' }}</span>
                         <span v-if="isRelatedUserSelected(user)" class="user-selected">已選</span>
                       </button>
                     </div>
@@ -679,6 +798,12 @@ onMounted(() => {
   color: #0f172a;
 }
 
+.follow-up-edit-list {
+  padding-left: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
 .task-table-section {
   background: #fff;
   padding: 1.5rem;
@@ -741,6 +866,12 @@ onMounted(() => {
   font-size: 0.85rem;
   text-align: left;
   cursor: pointer;
+}
+
+.select-field.small {
+  padding: 0.35rem 0.55rem;
+  font-size: 0.8rem;
+  min-width: 110px;
 }
 
 .option-list {
@@ -863,6 +994,27 @@ onMounted(() => {
   padding: 0.35rem 0.5rem;
   border-radius: 10px;
   background: #f8fafc;
+}
+
+.follow-up-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.follow-up-assignee {
+  position: relative;
+}
+
+.follow-up-content {
+  flex: 1;
+  color: #0f172a;
+}
+
+.follow-up-assignee .option-list {
+  width: max-content;
+  min-width: 320px;
+  right: auto;
 }
 
 .follow-up-actions {
