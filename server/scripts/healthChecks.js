@@ -36,7 +36,7 @@ const checkDifyHealth = async (difyUrl) => {
     }
     return Boolean(response)
   } catch (error) {
-    console.warn('Dify health check failed.', error?.message ?? error)
+    // console.warn('Dify health check failed.', error?.message ?? error)
     return false
   }
 }
@@ -48,7 +48,7 @@ const createHealthCheckers = ({ getConnection, difyUrl }) => {
       await connection.ping()
       return true
     } catch (error) {
-      console.warn('MySQL health check failed.', error?.message ?? error)
+      // console.warn('MySQL health check failed.', error?.message ?? error)
       return false
     }
   }

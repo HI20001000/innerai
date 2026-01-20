@@ -412,7 +412,7 @@ onUnmounted(() => {
       <div class="hero-content">
         <div class="hero-title-row">
           <img class="logo-image" src="/src/imgs/web_icon.png" alt="InnerAI" />
-          <p class="hero-title">AI業務_工作平台_v1.1</p>
+          <p class="hero-title">AI業務_工作平台_v1.0</p>
         </div>
         <p class="hero-subtitle">以「任務、會議、跟進」為核心的協作管理系統，整合以下能力：</p>
         <ul class="hero-list">

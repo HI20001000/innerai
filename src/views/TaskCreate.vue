@@ -1253,7 +1253,8 @@ onBeforeUnmount(() => {
   display: grid;
   gap: 0.3rem;
   max-height: 160px;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
   z-index: 5;
   box-shadow: 0 18px 30px rgba(15, 23, 42, 0.12);
 }
@@ -1459,6 +1460,10 @@ onBeforeUnmount(() => {
   font-size: 0.75rem;
   color: #16a34a;
   font-weight: 600;
+}
+
+.field .user-selected {
+  color: #16a34a;
 }
 
 .field textarea {
