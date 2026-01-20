@@ -6,7 +6,7 @@ import { URL } from 'node:url'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import mammoth from 'mammoth'
-import { createHealthCheckers } from './scripts/healthChecks.js'
+import { createHealthStatusFetcher } from './scripts/healthChecks.js'
 
 const loadEnvFile = async (path) => {
   let content = ''
@@ -441,7 +441,7 @@ const getConnection = async () => {
   return dbConnection
 }
 
-const { checkMysqlHealth, checkDifyHealth } = createHealthCheckers({
+const { getHealthStatus } = createHealthStatusFetcher({
   getConnection,
   difyUrl: DIFY_URL,
 })
@@ -1941,14 +1941,10 @@ const start = async () => {
     }
     const url = new URL(req.url, `http://${req.headers.host}`)
     if (url.pathname === '/api/health' && req.method === 'GET') {
-      const [mysqlOk, difyOk] = await Promise.all([checkMysqlHealth(), checkDifyHealth()])
+      const status = await getHealthStatus()
       sendJson(res, 200, {
         success: true,
-        data: {
-          backend: true,
-          mysql: mysqlOk,
-          dify: difyOk,
-        },
+        data: status,
       })
       return
     }
