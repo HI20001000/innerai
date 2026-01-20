@@ -39,6 +39,9 @@ const resultTitle = ref('')
 const resultMessage = ref('')
 const isUploading = ref(false)
 const uploadInput = ref(null)
+const activeReport = ref(null)
+const activeReportMeta = ref(null)
+const reportLoadingIds = ref(new Set())
 
 const goToNewTask = () => router?.push('/tasks/new')
 const goToTaskList = () => router?.push('/tasks/view')
@@ -72,6 +75,28 @@ const formatContent = (record) => {
   if (record?.content_text) return record.content_text
   return '目前僅支援文字與 Word（.txt／.docx）預覽。'
 }
+
+const formatReportContent = (report) => {
+  if (report?.content_text) return report.content_text
+  return '尚無會議報告內容。'
+}
+
+const previewTitle = computed(() => {
+  if (activeReport.value) return '會議報告'
+  if (activeRecord.value) return activeRecord.value.file_name
+  return '檔案預覽'
+})
+
+const previewMeta = computed(() => {
+  if (activeReportMeta.value) return activeReportMeta.value
+  return activeRecordMeta.value
+})
+
+const previewContent = computed(() => {
+  if (activeReport.value) return formatReportContent(activeReport.value)
+  if (activeRecord.value) return formatContent(activeRecord.value)
+  return '請先選擇會議記錄。'
+})
 
 const filteredClients = computed(() => {
   const query = searchQuery.value.client.trim().toLowerCase()
@@ -120,6 +145,8 @@ const selectClient = (clientName) => {
   activeMeeting.value = null
   activeRecord.value = null
   activeRecordMeta.value = null
+  activeReport.value = null
+  activeReportMeta.value = null
 }
 
 const selectVendor = (vendorName) => {
@@ -128,6 +155,8 @@ const selectVendor = (vendorName) => {
   activeMeeting.value = null
   activeRecord.value = null
   activeRecordMeta.value = null
+  activeReport.value = null
+  activeReportMeta.value = null
 }
 
 const selectProduct = (productName) => {
@@ -139,12 +168,16 @@ const selectProduct = (productName) => {
   activeMeeting.value = null
   activeRecord.value = null
   activeRecordMeta.value = null
+  activeReport.value = null
+  activeReportMeta.value = null
 }
 
 const selectMeeting = (meeting) => {
   activeMeeting.value = meeting
   activeRecord.value = null
   activeRecordMeta.value = null
+  activeReport.value = null
+  activeReportMeta.value = null
 }
 
 const resetSelections = () => {
@@ -154,6 +187,8 @@ const resetSelections = () => {
   activeMeeting.value = null
   activeRecord.value = null
   activeRecordMeta.value = null
+  activeReport.value = null
+  activeReportMeta.value = null
   searchQuery.value.client = ''
   searchQuery.value.vendor = ''
   searchQuery.value.product = ''
@@ -179,6 +214,32 @@ const fileToBase64 = (file) =>
 const useSelectedMeeting = () => {
   if (!props.onSelectRecords || !activeMeeting.value) return
   props.onSelectRecords(activeMeeting.value.records || [])
+}
+
+const setActiveRecord = (record, meeting) => {
+  activeRecord.value = record
+  activeRecordMeta.value = meeting || activeMeeting.value
+  activeReport.value = null
+  activeReportMeta.value = null
+}
+
+const setActiveReport = (meeting, report) => {
+  activeReport.value = report
+  activeReportMeta.value = meeting
+  activeRecord.value = null
+  activeRecordMeta.value = null
+}
+
+const isReportLoading = (meetingId) => reportLoadingIds.value.has(meetingId)
+
+const setReportLoading = (meetingId, isLoading) => {
+  const next = new Set(reportLoadingIds.value)
+  if (isLoading) {
+    next.add(meetingId)
+  } else {
+    next.delete(meetingId)
+  }
+  reportLoadingIds.value = next
 }
 
 const openList = (type) => {
@@ -252,6 +313,66 @@ const handleUploadChange = async (event) => {
   }
 }
 
+const handleGenerateMeetingReport = async (meeting) => {
+  if (!meeting || isReportLoading(meeting.id)) return
+  const auth = readAuthStorage()
+  if (!auth) {
+    resultTitle.value = '無法產生報告'
+    resultMessage.value = '請先登入'
+    showResult.value = true
+    return
+  }
+  setReportLoading(meeting.id, true)
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/meeting-reports/${meeting.id}`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${auth.token}`,
+      },
+    })
+    const data = await parseJsonSafe(response)
+    if (!response.ok || !data?.success) {
+      resultTitle.value = '報告產生失敗'
+      resultMessage.value = data?.message || '無法產生會議報告'
+      showResult.value = true
+      return
+    }
+    const contentText = data?.data?.content_text || ''
+    meeting.report = {
+      ...(meeting.report || {}),
+      content_text: contentText,
+      created_at: meeting.report?.created_at || new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }
+    setActiveReport(meeting, meeting.report)
+  } catch (error) {
+    console.error(error)
+    resultTitle.value = '報告產生失敗'
+    resultMessage.value = '無法產生會議報告'
+    showResult.value = true
+  } finally {
+    setReportLoading(meeting.id, false)
+  }
+}
+
+const handlePreviewMeetingReport = (meeting) => {
+  if (!meeting?.report?.content_text) {
+    resultTitle.value = '尚無報告'
+    resultMessage.value = '請先產生會議報告'
+    showResult.value = true
+    return
+  }
+  setActiveReport(meeting, meeting.report)
+}
+
+const handleMeetingReportAction = (meeting) => {
+  if (meeting?.report?.content_text) {
+    handlePreviewMeetingReport(meeting)
+  } else {
+    handleGenerateMeetingReport(meeting)
+  }
+}
+
 const deleteMeetingRecord = async (record) => {
   if (!record) return
   const auth = readAuthStorage()
@@ -310,6 +431,8 @@ const deleteMeetingFolder = async () => {
     activeMeeting.value = null
     activeRecord.value = null
     activeRecordMeta.value = null
+    activeReport.value = null
+    activeReportMeta.value = null
   } catch (error) {
     console.error(error)
     resultTitle.value = '刪除失敗'
@@ -358,6 +481,10 @@ const fetchMeetingRecords = async () => {
       const refreshedMeeting = findMeetingById(nextRecords, activeMeeting.value.id)
       if (refreshedMeeting) {
         activeMeeting.value = refreshedMeeting
+        if (activeReport.value) {
+          activeReport.value = refreshedMeeting.report || null
+          activeReportMeta.value = refreshedMeeting
+        }
       }
     }
     if (activeClient.value && !nextRecords.some((client) => client.name === activeClient.value)) {
@@ -367,6 +494,8 @@ const fetchMeetingRecords = async () => {
       activeMeeting.value = null
       activeRecord.value = null
       activeRecordMeta.value = null
+      activeReport.value = null
+      activeReportMeta.value = null
     }
   } catch (error) {
     console.error(error)
@@ -524,18 +653,30 @@ onMounted(fetchMeetingRecords)
                       type="button"
                       class="meeting-action"
                       :disabled="isUploading"
-                      @click.stop="activeMeeting = meeting; activeRecord = null; activeRecordMeta = null; triggerUpload()"
+                      @click.stop="activeMeeting = meeting; activeRecord = null; activeRecordMeta = null; activeReport = null; activeReportMeta = null; triggerUpload()"
                     >
                       ＋
                     </button>
                     <button
                       type="button"
                       class="meeting-action"
-                      @click.stop="activeMeeting = meeting; activeRecord = null; activeRecordMeta = null; deleteMeetingFolder()"
+                      @click.stop="activeMeeting = meeting; activeRecord = null; activeRecordMeta = null; activeReport = null; activeReportMeta = null; deleteMeetingFolder()"
                     >
                       −
                     </button>
                   </div>
+                </button>
+                <button
+                  type="button"
+                  class="meeting-report-button"
+                  :class="{ active: activeMeeting?.id === meeting.id }"
+                  :disabled="isReportLoading(meeting.id)"
+                  @click.stop="activeMeeting = meeting; handleMeetingReportAction(meeting)"
+                >
+                  <span v-if="isReportLoading(meeting.id)" class="loading-spinner"></span>
+                  <span v-else aria-hidden="true">
+                    {{ meeting.report?.content_text ? '🔍' : '🤖' }}
+                  </span>
                 </button>
               </div>
             </div>
@@ -554,7 +695,7 @@ onMounted(fetchMeetingRecords)
                 <button
                   type="button"
                   class="record-button"
-                  @click="activeRecord = record; activeRecordMeta = activeMeeting"
+                  @click="setActiveRecord(record, activeMeeting)"
                 >
                   <div class="record-title">
                     <strong>{{ record.file_name }}</strong>
@@ -584,15 +725,15 @@ onMounted(fetchMeetingRecords)
           <ScrollPanel height="calc(100vh - 240px)">
           <div class="panel-section">
             <div class="panel-header">
-              <h2>{{ activeRecord ? activeRecord.file_name : '檔案預覽' }}</h2>
+              <h2>{{ previewTitle }}</h2>
             </div>
-            <p v-if="activeRecordMeta" class="meta">
-              會議時間：{{ formatDateTimeDisplay(activeRecordMeta.meeting_time) }}｜建立者：{{
-                activeRecordMeta.created_by_email
-              }}｜建立時間：{{ formatDateTimeDisplay(activeRecordMeta.created_at) }}
+            <p v-if="previewMeta" class="meta">
+              會議時間：{{ formatDateTimeDisplay(previewMeta.meeting_time) }}｜建立者：{{
+                previewMeta.created_by_email
+              }}｜建立時間：{{ formatDateTimeDisplay(previewMeta.created_at) }}
             </p>
             <pre class="record-content">
-{{ activeRecord ? formatContent(activeRecord) : '請先選擇會議記錄。' }}
+{{ previewContent }}
             </pre>
           </div>
           </ScrollPanel>
@@ -880,6 +1021,37 @@ onMounted(fetchMeetingRecords)
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.6rem;
   align-items: center;
+}
+
+.meeting-report-button {
+  border: none;
+  background: #e2e8f0;
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
+  font-size: 1.1rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #0f172a;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.meeting-report-button:hover {
+  background: #cbd5f5;
+  transform: translateY(-1px);
+}
+
+.meeting-report-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.meeting-report-button.active {
+  background: #111827;
+  color: #fff;
 }
 
 .meeting-card {

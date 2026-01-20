@@ -1471,6 +1471,7 @@ const handleGetMeetingRecords = async (req, res) => {
               meeting_time: meeting.meeting_time,
               created_by_email: meeting.created_by_email,
               created_at: meeting.created_at,
+              report: meeting.report || null,
               records: meeting.records,
             })),
           }
