@@ -545,13 +545,13 @@ onUnmounted(() => {
               </span>
             </span>
             <span class="connection-item" :class="getStatusClass(connectionStatus.mysql)">
-              MySQL
+              數據庫
               <span class="status-ring" :class="getStatusClass(connectionStatus.mysql)">
                 <span class="status-dot" :class="getStatusClass(connectionStatus.mysql)"></span>
               </span>
             </span>
             <span class="connection-item" :class="getStatusClass(connectionStatus.dify)">
-              Dify
+              AI服務
               <span class="status-ring" :class="getStatusClass(connectionStatus.dify)">
                 <span class="status-dot" :class="getStatusClass(connectionStatus.dify)"></span>
               </span>
@@ -911,9 +911,8 @@ onUnmounted(() => {
 }
 
 .connection-items {
-  display: grid;
-  gap: 0.4rem;
-  justify-items: end;
+  display: flex;
+  gap: 1rem;
 }
 
 .connection-item {
