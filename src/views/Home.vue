@@ -26,7 +26,6 @@ const statusInput = ref('')
 const statusColor = ref('#fde68a')
 const defaultStatusColors = ['#fca5a5', '#fde68a', '#86efac']
 const showColorPicker = ref(false)
-const editingStatusId = ref(null)
 const statusMessage = ref('')
 const statusMessageType = ref('')
 const isTimelineLoading = ref(false)
@@ -408,7 +407,6 @@ const openStatusModal = () => {
   statusInput.value = ''
   statusColor.value = '#fde68a'
   showColorPicker.value = false
-  editingStatusId.value = null
   statusMessage.value = ''
   statusMessageType.value = ''
 }
@@ -417,16 +415,6 @@ const closeStatusModal = () => {
   statusModalOpen.value = false
   statusInput.value = ''
   statusColor.value = '#fde68a'
-  showColorPicker.value = false
-  editingStatusId.value = null
-  statusMessage.value = ''
-  statusMessageType.value = ''
-}
-
-const startEditStatus = (status) => {
-  editingStatusId.value = status.id
-  statusInput.value = status.name
-  statusColor.value = status.bg_color || '#e2e8f0'
   showColorPicker.value = false
   statusMessage.value = ''
   statusMessageType.value = ''
@@ -438,11 +426,8 @@ const addStatus = async () => {
   const auth = readAuthStorage()
   if (!auth) return
   try {
-    const endpoint = editingStatusId.value
-      ? `${apiBaseUrl}/api/follow-up-statuses/${editingStatusId.value}`
-      : `${apiBaseUrl}/api/follow-up-statuses`
     const response = await fetch(`${apiBaseUrl}/api/follow-up-statuses`, {
-      method: editingStatusId.value ? 'PUT' : 'POST',
+      method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${auth.token}`,
@@ -455,20 +440,12 @@ const addStatus = async () => {
       statusMessageType.value = 'error'
       return
     }
-    if (editingStatusId.value) {
-      followUpStatuses.value = followUpStatuses.value.map((item) =>
-        item.id === data.data.id ? data.data : item
-      )
-      statusMessage.value = `"${data.data.name}" 已更新`
-    } else {
-      followUpStatuses.value = [...followUpStatuses.value, data.data]
-      statusMessage.value = `"${data.data.name}" 新增成功`
-    }
+    followUpStatuses.value = [...followUpStatuses.value, data.data]
+    statusMessage.value = `"${data.data.name}" 新增成功`
     statusMessageType.value = 'success'
     statusInput.value = ''
     statusColor.value = '#fde68a'
     showColorPicker.value = false
-    editingStatusId.value = null
   } catch (error) {
     console.error(error)
     statusMessage.value = '新增失敗'
@@ -805,7 +782,6 @@ onUnmounted(() => {
               <span>{{ status.name }}</span>
             </div>
             <div class="modal-actions-inline">
-              <button type="button" class="ghost-mini" @click="startEditStatus(status)">編輯</button>
               <button type="button" class="danger-text" @click="deleteStatus(status)">刪除</button>
             </div>
           </div>
@@ -837,9 +813,7 @@ onUnmounted(() => {
               class="color-input"
             />
           </div>
-          <button type="button" class="primary-button" @click="addStatus">
-            {{ editingStatusId ? '更新' : '新增' }}
-          </button>
+          <button type="button" class="primary-button" @click="addStatus">新增</button>
         </div>
         <p v-if="statusMessage" :class="['modal-message', statusMessageType]">
           {{ statusMessage }}
