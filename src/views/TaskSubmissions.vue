@@ -455,9 +455,6 @@ onMounted(() => {
         <h1 class="headline">任務提交清單</h1>
         <p class="subhead">檢視、編輯或刪除已提交的任務資料。</p>
       </div>
-      <div class="header-actions">
-        <button class="primary-button" type="button" @click="goToNewTask">新增任務</button>
-      </div>
     </header>
 
     <section class="task-table-section">
@@ -755,11 +752,6 @@ onMounted(() => {
   margin: 0;
   color: #64748b;
   max-width: 520px;
-}
-
-.header-actions {
-  display: flex;
-  gap: 1rem;
 }
 
 .primary-button {
