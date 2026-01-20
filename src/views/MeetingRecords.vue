@@ -104,7 +104,7 @@ const getMeetings = () => {
   return product?.meetings || []
 }
 
-const hasMeetingReport = (meeting) => Boolean(meeting?.report?.id)
+const hasMeetingReport = (meeting) => Boolean(meeting?.report)
 
 const findMeetingById = (items, meetingId) => {
   for (const client of items || []) {
@@ -380,7 +380,7 @@ const generateMeetingReport = async (meeting) => {
 }
 
 const openMeetingReport = (meeting) => {
-  if (!meeting?.report?.content_text) return
+  if (!meeting?.report) return
   activeMeeting.value = meeting
   activeReport.value = meeting.report
   activeReportMeta.value = meeting
@@ -709,7 +709,13 @@ onMounted(fetchMeetingRecords)
               整合會議記錄中...
             </div>
             <pre v-else class="record-content">
-{{ activeReport ? activeReport.content_text : activeRecord ? formatContent(activeRecord) : '請先選擇會議記錄。' }}
+{{
+  activeReport
+    ? activeReport.content_text || '目前尚無整合內容。'
+    : activeRecord
+      ? formatContent(activeRecord)
+      : '請先選擇會議記錄。'
+}}
             </pre>
           </div>
           </ScrollPanel>
