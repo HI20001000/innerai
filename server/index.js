@@ -84,7 +84,8 @@ const checkDifyHealth = async () => {
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 3000)
   try {
-    const response = await fetch(DIFY_URL, { method: 'GET', signal: controller.signal })
+    const baseUrl = new URL(DIFY_URL).origin
+    const response = await fetch(baseUrl, { method: 'GET', signal: controller.signal })
     return response.ok
   } catch (error) {
     console.warn('Dify health check failed.', error?.message ?? error)
