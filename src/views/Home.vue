@@ -540,15 +540,21 @@ onUnmounted(() => {
           <div class="connection-items">
             <span class="connection-item" :class="getStatusClass(connectionStatus.backend)">
               後端
-              <span class="status-dot" :class="getStatusClass(connectionStatus.backend)"></span>
+              <span class="status-ring" :class="getStatusClass(connectionStatus.backend)">
+                <span class="status-dot" :class="getStatusClass(connectionStatus.backend)"></span>
+              </span>
             </span>
             <span class="connection-item" :class="getStatusClass(connectionStatus.mysql)">
               MySQL
-              <span class="status-dot" :class="getStatusClass(connectionStatus.mysql)"></span>
+              <span class="status-ring" :class="getStatusClass(connectionStatus.mysql)">
+                <span class="status-dot" :class="getStatusClass(connectionStatus.mysql)"></span>
+              </span>
             </span>
             <span class="connection-item" :class="getStatusClass(connectionStatus.dify)">
               Dify
-              <span class="status-dot" :class="getStatusClass(connectionStatus.dify)"></span>
+              <span class="status-ring" :class="getStatusClass(connectionStatus.dify)">
+                <span class="status-dot" :class="getStatusClass(connectionStatus.dify)"></span>
+              </span>
             </span>
           </div>
         </div>
