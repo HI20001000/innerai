@@ -249,7 +249,7 @@ const removeFollowUpItem = (index) => {
 
 const editFollowUpItem = (item, index) => {
   editingFollowUpIndex.value = index
-  followUpEditValue.value = item.content
+  followUpEditValue.value = normalizeFollowUpContent(item.content)
 }
 
 const confirmFollowUpEdit = () => {
@@ -259,7 +259,7 @@ const confirmFollowUpEdit = () => {
     if (index !== editingFollowUpIndex.value) return item
     return {
       ...item,
-      content: value,
+      content: normalizeFollowUpContent(value),
     }
   })
   editingFollowUpIndex.value = null
@@ -436,7 +436,10 @@ const saveDraft = () => {
     selectedRelatedUsers: selectedRelatedUsers.value,
     selectedStartAt: selectedStartAt.value,
     selectedEndAt: selectedEndAt.value,
-    followUpItems: followUpItems.value,
+    followUpItems: followUpItems.value.map((item) => ({
+      ...item,
+      content: normalizeFollowUpContent(item.content),
+    })),
   }
   window.localStorage.setItem(draftKey, JSON.stringify(payload))
   showDraftSaved.value = true
@@ -983,7 +986,9 @@ onBeforeUnmount(() => {
                   <template v-if="editingFollowUpIndex === index">
                     <input v-model="followUpEditValue" type="text" class="follow-up-edit-input" />
                   </template>
-                  <span v-else class="follow-up-content">{{ item.content }}</span>
+                  <span v-else class="follow-up-content">
+                    {{ normalizeFollowUpContent(item.content) }}
+                  </span>
                   <div class="follow-up-actions">
                     <button
                       type="button"

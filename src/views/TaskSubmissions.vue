@@ -250,7 +250,7 @@ const removeFollowUpItem = (index) => {
 
 const editFollowUpItem = (item, index) => {
   editingFollowUpIndex.value = index
-  followUpEditValue.value = item.content
+  followUpEditValue.value = normalizeFollowUpContent(item.content)
 }
 
 const confirmFollowUpEdit = () => {
@@ -260,7 +260,7 @@ const confirmFollowUpEdit = () => {
     if (index !== editingFollowUpIndex.value) return item
     return {
       ...item,
-      content: value,
+      content: normalizeFollowUpContent(value),
     }
   })
   editingFollowUpIndex.value = null
@@ -625,7 +625,9 @@ onMounted(() => {
                               class="follow-up-edit-input"
                             />
                           </template>
-                          <span v-else class="follow-up-content">{{ entry.content }}</span>
+                          <span v-else class="follow-up-content">
+                            {{ normalizeFollowUpContent(entry.content) }}
+                          </span>
                           <div class="follow-up-actions">
                             <button
                               type="button"
