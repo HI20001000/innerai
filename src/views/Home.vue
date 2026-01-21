@@ -7,6 +7,7 @@ import UserOptionItem from '../components/UserOptionItem.vue'
 import { formatDateTimeDisplay, toDateKey, getTaipeiTodayKey } from '../scripts/time.js'
 import { apiBaseUrl } from '../scripts/apiBaseUrl.js'
 import { countPendingFollowUps } from '../scripts/followUps.js'
+import { filterUserOptions, normalizeUserOptions } from '../scripts/user-options/index.js'
 import {
   buildFollowUpItems,
   buildStatusNameById,
@@ -338,7 +339,9 @@ const updateFollowUpAssignees = async (followUp, assignees, relatedUsers = []) =
   })
   const data = await response.json()
   if (!response.ok || !data?.success) return
-  const selected = relatedUsers.filter((user) => assignees.includes(user.mail))
+  const selected = normalizeUserOptions(relatedUsers).filter((user) =>
+    assignees.includes(user.mail)
+  )
   followUp.assignees = selected
 }
 
@@ -387,13 +390,7 @@ const filteredStatuses = computed(() => {
 
 const getFilteredRelatedUsers = (item) => {
   const relatedUsers = Array.isArray(item?.related_users) ? item.related_users : []
-  const query = assigneeSearch.value.trim().toLowerCase()
-  if (!query) return relatedUsers
-  return relatedUsers.filter((user) => {
-    const name = String(user.username || '').toLowerCase()
-    const mail = String(user.mail || '').toLowerCase()
-    return name.includes(query) || mail.includes(query)
-  })
+  return filterUserOptions(relatedUsers, assigneeSearch.value)
 }
 
 const getAssigneeButtonText = (followUp) => {

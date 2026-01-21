@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { formatDateTimeDisplay, toDateKey } from '../scripts/time.js'
 import { apiBaseUrl } from '../scripts/apiBaseUrl.js'
 import UserOptionItem from './UserOptionItem.vue'
+import { filterUserOptions, normalizeUserOptions } from '../scripts/user-options/index.js'
 
 const props = defineProps({
   open: {
@@ -223,7 +224,9 @@ const updateFollowUpAssignees = async (followUp, assignees, relatedUsers) => {
   })
   const data = await response.json()
   if (!response.ok || !data?.success) return
-  followUp.assignees = relatedUsers.filter((user) => assignees.includes(user.mail))
+  followUp.assignees = normalizeUserOptions(relatedUsers).filter((user) =>
+    assignees.includes(user.mail)
+  )
 }
 
 const toggleAssignee = async (followUp, user, relatedUsers) => {
@@ -256,13 +259,7 @@ const filteredStatuses = computed(() => {
 
 const getFilteredRelatedUsers = (submission) => {
   const relatedUsers = Array.isArray(submission?.related_users) ? submission.related_users : []
-  const query = assigneeSearch.value.trim().toLowerCase()
-  if (!query) return relatedUsers
-  return relatedUsers.filter((user) => {
-    const name = String(user.username || '').toLowerCase()
-    const mail = String(user.mail || '').toLowerCase()
-    return name.includes(query) || mail.includes(query)
-  })
+  return filterUserOptions(relatedUsers, assigneeSearch.value)
 }
 
 const getAssigneeButtonText = (followUp) => {
