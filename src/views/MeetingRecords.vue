@@ -648,7 +648,7 @@ onMounted(fetchMeetingRecords)
                       <span class="meeting-count">{{ meeting.records.length }} 份記錄</span>
                     </span>
                   </div>
-                  <div class="meeting-actions">
+                  <div v-if="!props.embedded" class="meeting-actions">
                     <button
                       type="button"
                       class="meeting-action"
@@ -701,7 +701,12 @@ onMounted(fetchMeetingRecords)
                     <span class="record-path">{{ record.file_path }}</span>
                   </div>
                 </button>
-                <button type="button" class="record-action" @click.stop="deleteMeetingRecord(record)">
+                <button
+                  v-if="!props.embedded"
+                  type="button"
+                  class="record-action"
+                  @click.stop="deleteMeetingRecord(record)"
+                >
                   −
                 </button>
               </div>
