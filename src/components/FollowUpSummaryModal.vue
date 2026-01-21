@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { formatDateTimeDisplay, toDateKey } from '../scripts/time.js'
 import { apiBaseUrl } from '../scripts/apiBaseUrl.js'
-
+import UserOptionItem from './UserOptionItem.vue'
 
 const props = defineProps({
   open: {
@@ -391,26 +391,12 @@ const handleSelectFollowUp = (submission) => {
                               type="text"
                               placeholder="搜尋用戶"
                             />
-                            <button
+                            <UserOptionItem
                               v-for="user in getFilteredRelatedUsers(task.submission)"
                               :key="user.mail"
-                              type="button"
-                              class="option-item user-option"
-                              @click="toggleAssignee(followUp, user, task.submission.related_users || [])"
-                            >
-                              <span
-                                class="user-avatar"
-                                :style="{ backgroundColor: user.icon_bg || '#e2e8f0' }"
-                              >
-                                {{ user.icon || '🙂' }}
-                              </span>
-                              <span class="user-label">
-                                {{ user.username || 'user' }} &lt;{{ user.mail }}&gt;
-                              </span>
-                              <span v-if="isAssigneeSelected(followUp, user.mail)" class="user-selected">
-                                已選
-                              </span>
-                            </button>
+                              :selected="isAssigneeSelected(followUp, user.mail)"
+                              @select="toggleAssignee(followUp, user, task.submission.related_users || [])"
+                            />
                           </div>
                         </div>
                       </div>
