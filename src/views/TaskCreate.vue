@@ -5,6 +5,7 @@ import ResultModal from '../components/ResultModal.vue'
 import DifyAutoFillPanel from '../components/DifyAutoFillPanel.vue'
 import ScrollPanel from '../components/element/ScrollPanel.vue'
 import { apiBaseUrl } from '../scripts/apiBaseUrl.js'
+import { normalizeFollowUpContent } from '../scripts/followUpUtils.js'
 
 const clients = ref([])
 const vendors = ref([])

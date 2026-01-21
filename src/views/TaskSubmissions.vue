@@ -3,6 +3,7 @@ import { computed, getCurrentInstance, onMounted, reactive, ref } from 'vue'
 import WorkspaceSidebar from '../components/WorkspaceSidebar.vue'
 import ResultModal from '../components/ResultModal.vue'
 import RelatedUsersTooltip from '../components/RelatedUsersTooltip.vue'
+import { normalizeFollowUpContent } from '../scripts/followUpUtils.js'
 import { formatDateTimeDisplay, formatDateTimeInput } from '../scripts/time.js'
 import {
   deleteTaskSubmission,
@@ -79,28 +80,6 @@ const readAuthStorage = () => {
   } catch {
     return null
   }
-}
-
-const normalizeFollowUpContent = (value) => {
-  if (typeof value === 'string') return value
-  if (typeof value === 'number') return String(value)
-  if (value && typeof value === 'object') {
-    if (typeof value.content === 'string') return value.content
-    if (typeof value.text === 'string') return value.text
-    if (typeof value.title === 'string') return value.title
-  }
-  return ''
-}
-
-const normalizeFollowUpContent = (value) => {
-  if (typeof value === 'string') return value
-  if (typeof value === 'number') return String(value)
-  if (value && typeof value === 'object') {
-    if (typeof value.content === 'string') return value.content
-    if (typeof value.text === 'string') return value.text
-    if (typeof value.title === 'string') return value.title
-  }
-  return ''
 }
 
 const getRelatedUsers = (item) => item.related_users || []
