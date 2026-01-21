@@ -5,6 +5,7 @@ import ResultModal from '../components/ResultModal.vue'
 import DifyAutoFillPanel from '../components/DifyAutoFillPanel.vue'
 import ScrollPanel from '../components/element/ScrollPanel.vue'
 import { apiBaseUrl } from '../scripts/apiBaseUrl.js'
+import { normalizeFollowUpContent } from '../scripts/followUpUtils.js'
 
 const clients = ref([])
 const vendors = ref([])
@@ -249,7 +250,7 @@ const removeFollowUpItem = (index) => {
 
 const editFollowUpItem = (item, index) => {
   editingFollowUpIndex.value = index
-  followUpEditValue.value = item.content
+  followUpEditValue.value = normalizeFollowUpContent(item.content)
 }
 
 const confirmFollowUpEdit = () => {
@@ -259,7 +260,7 @@ const confirmFollowUpEdit = () => {
     if (index !== editingFollowUpIndex.value) return item
     return {
       ...item,
-      content: value,
+      content: normalizeFollowUpContent(value),
     }
   })
   editingFollowUpIndex.value = null
@@ -436,7 +437,10 @@ const saveDraft = () => {
     selectedRelatedUsers: selectedRelatedUsers.value,
     selectedStartAt: selectedStartAt.value,
     selectedEndAt: selectedEndAt.value,
-    followUpItems: followUpItems.value,
+    followUpItems: followUpItems.value.map((item) => ({
+      ...item,
+      content: normalizeFollowUpContent(item.content),
+    })),
   }
   window.localStorage.setItem(draftKey, JSON.stringify(payload))
   showDraftSaved.value = true
@@ -556,9 +560,14 @@ const applyAutoFill = (payload) => {
         }
         if (typeof item === 'object' && item?.content) {
           return {
-            content: item.content,
+            content: normalizeFollowUpContent(item.content),
             assignees: Array.isArray(item.assignees) ? item.assignees : [],
           }
+        }
+        if (typeof item === 'object') {
+          const content = normalizeFollowUpContent(item)
+          if (!content) return null
+          return { content, assignees: [] }
         }
         return null
       })
@@ -584,8 +593,10 @@ const loadDraft = () => {
             return { content: item, assignees: [] }
           }
           if (item && typeof item === 'object') {
+            const content = normalizeFollowUpContent(item.content ?? item)
+            if (!content) return null
             return {
-              content: item.content || '',
+              content,
               assignees: Array.isArray(item.assignees) ? item.assignees : [],
             }
           }
@@ -965,7 +976,9 @@ onBeforeUnmount(() => {
                   <template v-if="editingFollowUpIndex === index">
                     <input v-model="followUpEditValue" type="text" class="follow-up-edit-input" />
                   </template>
-                  <span v-else class="follow-up-content">{{ item.content }}</span>
+                  <span v-else class="follow-up-content">
+                    {{ normalizeFollowUpContent(item.content) }}
+                  </span>
                   <div class="follow-up-actions">
                     <button
                       type="button"
