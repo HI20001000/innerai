@@ -398,6 +398,12 @@ const getFilteredRelatedUsers = (item) => {
 const getAssigneeButtonText = (followUp) => {
   const assignees = followUp?.assignees || []
   if (assignees.length === 0) return '選擇跟進人'
+  if (assignees.length > 1) {
+    const names = assignees
+      .map((user) => user.username || 'user')
+      .filter(Boolean)
+    return names.length > 0 ? names.join('、') : '選擇跟進人'
+  }
   const names = assignees.map((user) => user.username || user.mail).filter(Boolean)
   return names.length > 0 ? names.join('、') : '選擇跟進人'
 }
