@@ -221,10 +221,10 @@ const calendarSubmissions = computed(() => {
 
 const timelineTitle = computed(() => {
   const date = selectedDate.value
-  if (!date) return '時間線'
+  if (!date) return ''
   const [year, month, day] = date.split('-')
-  if (!year || !month || !day) return '時間線'
-  return `${year}年${month}月${day}日時間線`
+  if (!year || !month || !day) return ''
+  return `${year}年${month}月${day}日`
 })
 
 const headerTitle = computed(() => '儀表盤')

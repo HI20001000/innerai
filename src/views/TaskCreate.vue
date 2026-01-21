@@ -6,6 +6,7 @@ import DifyAutoFillPanel from '../components/DifyAutoFillPanel.vue'
 import ScrollPanel from '../components/element/ScrollPanel.vue'
 import { apiBaseUrl } from '../scripts/apiBaseUrl.js'
 import { normalizeFollowUpContent as normalizeFollowUpText } from '../scripts/followUpUtils.js'
+import { filterUserOptions, normalizeUserOptions } from '../scripts/user-options/index.js'
 
 const clients = ref([])
 const vendors = ref([])
@@ -106,7 +107,7 @@ const fetchUsers = async () => {
     throw new Error('Failed to load users')
   }
   const data = await response.json()
-  relatedUsers.value = data?.data ?? []
+  relatedUsers.value = normalizeUserOptions(data?.data ?? [])
 }
 
 const relatedUsers = ref([])
@@ -187,20 +188,13 @@ const getFilteredOptions = (type) => {
             : relatedUsers.value
   if (!query) return source
   if (type === 'user') {
-    return source.filter((item) =>
-      `${item.username || ''}${item.mail || ''}`.toLowerCase().includes(query)
-    )
+    return filterUserOptions(source, query)
   }
   return source.filter((item) => item.toLowerCase().includes(query))
 }
 
 const getFilteredRelatedUsers = () => {
-  const query = searchQuery.user?.trim().toLowerCase() ?? ''
-  const source = selectedRelatedUsers.value
-  if (!query) return source
-  return source.filter((item) =>
-    `${item.username || ''}${item.mail || ''}`.toLowerCase().includes(query)
-  )
+  return filterUserOptions(selectedRelatedUsers.value, searchQuery.user)
 }
 
 const selectOption = (type, item) => {
@@ -595,7 +589,7 @@ const loadDraft = () => {
     selectedVendor.value = payload.selectedVendor ?? ''
     selectedProduct.value = payload.selectedProduct ?? ''
     selectedTags.value = payload.selectedTags ?? []
-    selectedRelatedUsers.value = payload.selectedRelatedUsers ?? []
+    selectedRelatedUsers.value = normalizeUserOptions(payload.selectedRelatedUsers ?? [])
     selectedStartAt.value = payload.selectedStartAt ?? ''
     selectedEndAt.value = payload.selectedEndAt ?? ''
     followUpItems.value = Array.isArray(payload.followUpItems)
