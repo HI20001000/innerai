@@ -3,8 +3,15 @@ import { computed, getCurrentInstance, onMounted, reactive, ref } from 'vue'
 import WorkspaceSidebar from '../components/WorkspaceSidebar.vue'
 import ResultModal from '../components/ResultModal.vue'
 import RelatedUsersTooltip from '../components/RelatedUsersTooltip.vue'
+import { normalizeFollowUpContent as normalizeFollowUpText } from '../scripts/followUpUtils.js'
 import { formatDateTimeDisplay, formatDateTimeInput } from '../scripts/time.js'
-import { apiBaseUrl } from '../scripts/apiBaseUrl.js'
+import {
+  deleteTaskSubmission,
+  fetchTagOptions as fetchTagOptionsRequest,
+  fetchTaskSubmissions,
+  fetchUsers as fetchUsersRequest,
+  updateTaskSubmission,
+} from '../scripts/taskSubmissions.js'
 
 const router = getCurrentInstance().appContext.config.globalProperties.$router
 const activePath = computed(() => router?.currentRoute?.value?.path || '')
@@ -75,22 +82,11 @@ const readAuthStorage = () => {
   }
 }
 
-const parseJsonSafe = async (response) => {
-  try {
-    return await response.json()
-  } catch {
-    return {}
-  }
-}
-
 const getRelatedUsers = (item) => item.related_users || []
 
 const fetchTagOptions = async () => {
   try {
-    const response = await fetch(`${apiBaseUrl}/api/options/tag`)
-    if (!response.ok) return
-    const data = await response.json()
-    tagOptions.value = Array.isArray(data) ? data : []
+    tagOptions.value = await fetchTagOptionsRequest()
   } catch (error) {
     console.error(error)
   }
@@ -100,13 +96,9 @@ const fetchUsers = async () => {
   const auth = readAuthStorage()
   if (!auth) return
   try {
-    const response = await fetch(`${apiBaseUrl}/api/users`, {
-      headers: { Authorization: `Bearer ${auth.token}` },
-    })
-    if (!response.ok) return
-    const data = await response.json()
-    if (!data?.success) return
-    relatedUsers.value = data.data || []
+    const result = await fetchUsersRequest(auth.token)
+    if (!result?.success) return
+    relatedUsers.value = result.data || []
   } catch (error) {
     console.error(error)
   }
@@ -122,13 +114,7 @@ const fetchSubmissions = async () => {
   }
   isLoading.value = true
   try {
-    const response = await fetch(`${apiBaseUrl}/api/task-submissions`, {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${auth.token}`,
-      },
-    })
-    const data = await parseJsonSafe(response)
+    const { response, data } = await fetchTaskSubmissions(auth.token)
     if (!response.ok || !data?.success) {
       resultTitle.value = '讀取失敗'
       resultMessage.value = data?.message || '無法讀取任務資料'
@@ -239,7 +225,7 @@ const removeFollowUpItem = (index) => {
 
 const editFollowUpItem = (item, index) => {
   editingFollowUpIndex.value = index
-  followUpEditValue.value = item.content
+  followUpEditValue.value = normalizeFollowUpText(item.content)
 }
 
 const confirmFollowUpEdit = () => {
@@ -249,7 +235,7 @@ const confirmFollowUpEdit = () => {
     if (index !== editingFollowUpIndex.value) return item
     return {
       ...item,
-      content: value,
+      content: normalizeFollowUpText(value),
     }
   })
   editingFollowUpIndex.value = null
@@ -304,8 +290,10 @@ const startEdit = (submission) => {
               assignees: [],
             }
           }
+          const content = normalizeFollowUpText(entry.content ?? entry)
+          if (!content) return null
           return {
-            content: entry.content || '',
+            content,
             assignees: Array.isArray(entry.assignees) ? entry.assignees : [],
           }
         })
@@ -366,15 +354,7 @@ const saveEdit = async (id) => {
       follow_up: followUpPayload,
       related_user_mail: relatedUserMails,
     }
-    const response = await fetch(`${apiBaseUrl}/api/task-submissions/${id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${auth.token}`,
-      },
-      body: JSON.stringify(payload),
-    })
-    const data = await parseJsonSafe(response)
+    const { response, data } = await updateTaskSubmission(id, auth.token, payload)
     if (!response.ok || !data?.success) {
       resultTitle.value = '更新失敗'
       resultMessage.value = data?.message || '任務更新失敗'
@@ -404,13 +384,7 @@ const deleteSubmission = async (id) => {
     return
   }
   try {
-    const response = await fetch(`${apiBaseUrl}/api/task-submissions/${id}`, {
-      method: 'DELETE',
-      headers: {
-        Authorization: `Bearer ${auth.token}`,
-      },
-    })
-    const data = await parseJsonSafe(response)
+    const { response, data } = await deleteTaskSubmission(id, auth.token)
     if (!response.ok || !data?.success) {
       resultTitle.value = '刪除失敗'
       resultMessage.value = data?.message || '任務刪除失敗'
@@ -612,7 +586,9 @@ onMounted(() => {
                               class="follow-up-edit-input"
                             />
                           </template>
-                          <span v-else class="follow-up-content">{{ entry.content }}</span>
+                          <span v-else class="follow-up-content">
+                            {{ normalizeFollowUpText(entry.content) }}
+                          </span>
                           <div class="follow-up-actions">
                             <button
                               type="button"
@@ -637,7 +613,7 @@ onMounted(() => {
                 <template v-else>
                   <ul v-if="item.follow_ups?.length" class="follow-up-list">
                     <li v-for="entry in item.follow_ups" :key="entry.id || entry">
-                      {{ typeof entry === 'string' ? entry : entry.content }}
+                      {{ normalizeFollowUpText(entry) }}
                     </li>
                   </ul>
                   <span v-else>-</span>
