@@ -3,7 +3,7 @@ import { computed, getCurrentInstance, onMounted, reactive, ref } from 'vue'
 import WorkspaceSidebar from '../components/WorkspaceSidebar.vue'
 import ResultModal from '../components/ResultModal.vue'
 import RelatedUsersTooltip from '../components/RelatedUsersTooltip.vue'
-import { normalizeFollowUpContent } from '../scripts/followUpUtils.js'
+import { normalizeFollowUpContent as normalizeFollowUpText } from '../scripts/followUpUtils.js'
 import { formatDateTimeDisplay, formatDateTimeInput } from '../scripts/time.js'
 import {
   deleteTaskSubmission,
@@ -225,7 +225,7 @@ const removeFollowUpItem = (index) => {
 
 const editFollowUpItem = (item, index) => {
   editingFollowUpIndex.value = index
-  followUpEditValue.value = normalizeFollowUpContent(item.content)
+  followUpEditValue.value = normalizeFollowUpText(item.content)
 }
 
 const confirmFollowUpEdit = () => {
@@ -235,7 +235,7 @@ const confirmFollowUpEdit = () => {
     if (index !== editingFollowUpIndex.value) return item
     return {
       ...item,
-      content: normalizeFollowUpContent(value),
+      content: normalizeFollowUpText(value),
     }
   })
   editingFollowUpIndex.value = null
@@ -290,7 +290,7 @@ const startEdit = (submission) => {
               assignees: [],
             }
           }
-          const content = normalizeFollowUpContent(entry.content ?? entry)
+          const content = normalizeFollowUpText(entry.content ?? entry)
           if (!content) return null
           return {
             content,
@@ -587,7 +587,7 @@ onMounted(() => {
                             />
                           </template>
                           <span v-else class="follow-up-content">
-                            {{ normalizeFollowUpContent(entry.content) }}
+                            {{ normalizeFollowUpText(entry.content) }}
                           </span>
                           <div class="follow-up-actions">
                             <button
@@ -613,7 +613,7 @@ onMounted(() => {
                 <template v-else>
                   <ul v-if="item.follow_ups?.length" class="follow-up-list">
                     <li v-for="entry in item.follow_ups" :key="entry.id || entry">
-                      {{ normalizeFollowUpContent(entry) }}
+                      {{ normalizeFollowUpText(entry) }}
                     </li>
                   </ul>
                   <span v-else>-</span>

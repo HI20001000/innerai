@@ -5,7 +5,7 @@ import ResultModal from '../components/ResultModal.vue'
 import DifyAutoFillPanel from '../components/DifyAutoFillPanel.vue'
 import ScrollPanel from '../components/element/ScrollPanel.vue'
 import { apiBaseUrl } from '../scripts/apiBaseUrl.js'
-import { normalizeFollowUpContent } from '../scripts/followUpUtils.js'
+import { normalizeFollowUpContent as normalizeFollowUpText } from '../scripts/followUpUtils.js'
 
 const clients = ref([])
 const vendors = ref([])
@@ -250,7 +250,7 @@ const removeFollowUpItem = (index) => {
 
 const editFollowUpItem = (item, index) => {
   editingFollowUpIndex.value = index
-  followUpEditValue.value = normalizeFollowUpContent(item.content)
+  followUpEditValue.value = normalizeFollowUpText(item.content)
 }
 
 const confirmFollowUpEdit = () => {
@@ -260,7 +260,7 @@ const confirmFollowUpEdit = () => {
     if (index !== editingFollowUpIndex.value) return item
     return {
       ...item,
-      content: normalizeFollowUpContent(value),
+      content: normalizeFollowUpText(value),
     }
   })
   editingFollowUpIndex.value = null
@@ -439,7 +439,7 @@ const saveDraft = () => {
     selectedEndAt: selectedEndAt.value,
     followUpItems: followUpItems.value.map((item) => ({
       ...item,
-      content: normalizeFollowUpContent(item.content),
+      content: normalizeFollowUpText(item.content),
     })),
   }
   window.localStorage.setItem(draftKey, JSON.stringify(payload))
@@ -571,12 +571,12 @@ const applyAutoFill = (payload) => {
         }
         if (typeof item === 'object' && item?.content) {
           return {
-            content: normalizeFollowUpContent(item.content),
+            content: normalizeFollowUpText(item.content),
             assignees: Array.isArray(item.assignees) ? item.assignees : [],
           }
         }
         if (typeof item === 'object') {
-          const content = normalizeFollowUpContent(item)
+          const content = normalizeFollowUpText(item)
           if (!content) return null
           return { content, assignees: [] }
         }
@@ -604,7 +604,7 @@ const loadDraft = () => {
             return { content: item, assignees: [] }
           }
           if (item && typeof item === 'object') {
-            const content = normalizeFollowUpContent(item.content ?? item)
+            const content = normalizeFollowUpText(item.content ?? item)
             if (!content) return null
             return {
               content,
@@ -988,7 +988,7 @@ onBeforeUnmount(() => {
                     <input v-model="followUpEditValue" type="text" class="follow-up-edit-input" />
                   </template>
                   <span v-else class="follow-up-content">
-                    {{ normalizeFollowUpContent(item.content) }}
+                    {{ normalizeFollowUpText(item.content) }}
                   </span>
                   <div class="follow-up-actions">
                     <button
