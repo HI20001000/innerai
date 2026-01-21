@@ -50,14 +50,9 @@ const goToTaskList = () => {
   router?.push('/tasks/view')
 }
 
-const goToMeetingUpload = () => {
-  router?.push('/meetings/upload')
-}
-
 const goToMeetingRecords = () => {
   router?.push('/meetings')
 }
-
 const goToUserDashboard = () => {
   router?.push('/users/dashboard')
 }
@@ -501,7 +496,6 @@ onUnmounted(() => {
     <WorkspaceSidebar
       :on-create-task="goToNewTask"
       :on-view-tasks="goToTaskList"
-      :on-upload-meeting="goToMeetingUpload"
       :on-view-meetings="goToMeetingRecords"
       :on-view-user-dashboard="goToUserDashboard"
       :on-go-home="goToHome"
@@ -1027,9 +1021,13 @@ onUnmounted(() => {
 }
 
 .content-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 1.8rem;
+  display: flex;
+  gap: 1.5rem;
+  width: 100%;
+}
+
+.content-grid > .panel {
+  flex: 1 1 0;
 }
 
 .panel {
@@ -1037,7 +1035,8 @@ onUnmounted(() => {
   border-radius: 24px;
   padding: 2rem;
   box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 1.6rem;
 }
 
