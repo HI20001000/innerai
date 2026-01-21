@@ -4,7 +4,13 @@ import WorkspaceSidebar from '../components/WorkspaceSidebar.vue'
 import ResultModal from '../components/ResultModal.vue'
 import RelatedUsersTooltip from '../components/RelatedUsersTooltip.vue'
 import { formatDateTimeDisplay, formatDateTimeInput } from '../scripts/time.js'
-import { apiBaseUrl } from '../scripts/apiBaseUrl.js'
+import {
+  deleteTaskSubmission,
+  fetchTagOptions as fetchTagOptionsRequest,
+  fetchTaskSubmissions,
+  fetchUsers as fetchUsersRequest,
+  updateTaskSubmission,
+} from '../scripts/taskSubmissions.js'
 
 const router = getCurrentInstance().appContext.config.globalProperties.$router
 const activePath = computed(() => router?.currentRoute?.value?.path || '')
@@ -75,12 +81,15 @@ const readAuthStorage = () => {
   }
 }
 
-const parseJsonSafe = async (response) => {
-  try {
-    return await response.json()
-  } catch {
-    return {}
+const normalizeFollowUpContent = (value) => {
+  if (typeof value === 'string') return value
+  if (typeof value === 'number') return String(value)
+  if (value && typeof value === 'object') {
+    if (typeof value.content === 'string') return value.content
+    if (typeof value.text === 'string') return value.text
+    if (typeof value.title === 'string') return value.title
   }
+  return ''
 }
 
 const normalizeFollowUpContent = (value) => {
@@ -98,10 +107,7 @@ const getRelatedUsers = (item) => item.related_users || []
 
 const fetchTagOptions = async () => {
   try {
-    const response = await fetch(`${apiBaseUrl}/api/options/tag`)
-    if (!response.ok) return
-    const data = await response.json()
-    tagOptions.value = Array.isArray(data) ? data : []
+    tagOptions.value = await fetchTagOptionsRequest()
   } catch (error) {
     console.error(error)
   }
@@ -111,13 +117,9 @@ const fetchUsers = async () => {
   const auth = readAuthStorage()
   if (!auth) return
   try {
-    const response = await fetch(`${apiBaseUrl}/api/users`, {
-      headers: { Authorization: `Bearer ${auth.token}` },
-    })
-    if (!response.ok) return
-    const data = await response.json()
-    if (!data?.success) return
-    relatedUsers.value = data.data || []
+    const result = await fetchUsersRequest(auth.token)
+    if (!result?.success) return
+    relatedUsers.value = result.data || []
   } catch (error) {
     console.error(error)
   }
@@ -133,13 +135,7 @@ const fetchSubmissions = async () => {
   }
   isLoading.value = true
   try {
-    const response = await fetch(`${apiBaseUrl}/api/task-submissions`, {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${auth.token}`,
-      },
-    })
-    const data = await parseJsonSafe(response)
+    const { response, data } = await fetchTaskSubmissions(auth.token)
     if (!response.ok || !data?.success) {
       resultTitle.value = '讀取失敗'
       resultMessage.value = data?.message || '無法讀取任務資料'
@@ -379,15 +375,7 @@ const saveEdit = async (id) => {
       follow_up: followUpPayload,
       related_user_mail: relatedUserMails,
     }
-    const response = await fetch(`${apiBaseUrl}/api/task-submissions/${id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${auth.token}`,
-      },
-      body: JSON.stringify(payload),
-    })
-    const data = await parseJsonSafe(response)
+    const { response, data } = await updateTaskSubmission(id, auth.token, payload)
     if (!response.ok || !data?.success) {
       resultTitle.value = '更新失敗'
       resultMessage.value = data?.message || '任務更新失敗'
@@ -417,13 +405,7 @@ const deleteSubmission = async (id) => {
     return
   }
   try {
-    const response = await fetch(`${apiBaseUrl}/api/task-submissions/${id}`, {
-      method: 'DELETE',
-      headers: {
-        Authorization: `Bearer ${auth.token}`,
-      },
-    })
-    const data = await parseJsonSafe(response)
+    const { response, data } = await deleteTaskSubmission(id, auth.token)
     if (!response.ok || !data?.success) {
       resultTitle.value = '刪除失敗'
       resultMessage.value = data?.message || '任務刪除失敗'
