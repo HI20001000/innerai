@@ -3,6 +3,7 @@ import { computed, getCurrentInstance, onMounted, onUnmounted, ref } from 'vue'
 import WorkspaceSidebar from '../components/WorkspaceSidebar.vue'
 import MonthlyCalendar from '../components/MonthlyCalendar.vue'
 import FollowUpSummaryModal from '../components/FollowUpSummaryModal.vue'
+import UserOptionItem from '../components/UserOptionItem.vue'
 import { formatDateTimeDisplay, toDateKey, getTaipeiTodayKey } from '../scripts/time.js'
 import { apiBaseUrl } from '../scripts/apiBaseUrl.js'
 import { countPendingFollowUps } from '../scripts/followUps.js'
@@ -732,26 +733,12 @@ onUnmounted(() => {
                               type="text"
                               placeholder="搜尋用戶"
                             />
-                            <button
+                            <UserOptionItem
                               v-for="user in getFilteredRelatedUsers(item)"
                               :key="user.mail"
-                              type="button"
-                              class="option-item user-option"
-                              @click="toggleAssignee(follow, user, item.related_users)"
-                            >
-                              <span
-                                class="user-avatar"
-                                :style="{ backgroundColor: user.icon_bg || '#e2e8f0' }"
-                              >
-                                {{ user.icon || '🙂' }}
-                              </span>
-                              <span class="user-label">
-                                {{ user.username || 'user' }}
-                              </span>
-                              <span v-if="isAssigneeSelected(follow, user.mail)" class="user-selected">
-                                已選
-                              </span>
-                            </button>
+                              :selected="isAssigneeSelected(follow, user.mail)"
+                              @select="toggleAssignee(follow, user, item.related_users)"
+                            />
                           </div>
                         </div>
                       </div>
