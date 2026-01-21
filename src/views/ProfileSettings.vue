@@ -3,7 +3,7 @@
     <WorkspaceSidebar
       :on-create-task="goToNewTask"
       :on-view-tasks="goToTaskList"
-      :on-upload-meeting="goToMeetingUpload"
+      :on-view-meetings="goToMeetingRecords"
       :on-view-user-dashboard="goToUserDashboard"
       :on-go-home="goToHome"
       :on-go-profile="goToProfile"
@@ -156,7 +156,7 @@ const userEmail = ref('')
 const goToHome = () => router?.push('/home')
 const goToNewTask = () => router?.push('/tasks/new')
 const goToTaskList = () => router?.push('/tasks/view')
-const goToMeetingUpload = () => router?.push('/meetings/upload')
+const goToMeetingRecords = () => router?.push('/meetings')
 const goToUserDashboard = () => router?.push('/users/dashboard')
 const goToProfile = () => router?.push('/settings')
 

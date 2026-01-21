@@ -11,7 +11,7 @@ const goToNewTask = () => router?.push('/tasks/new')
 const goToTaskList = () => router?.push('/tasks/view')
 const goToHome = () => router?.push('/home')
 const goToProfile = () => router?.push('/settings')
-const goToMeetingUpload = () => router?.push('/meetings/upload')
+const goToMeetingRecords = () => router?.push('/meetings')
 const goToUserDashboard = () => router?.push('/users/dashboard')
 
 const submitFromHeader = () => {
@@ -27,7 +27,7 @@ const submitFromHeader = () => {
       :on-go-home="goToHome"
       :on-go-profile="goToProfile"
       :active-path="activePath"
-      :on-upload-meeting="goToMeetingUpload"
+      :on-view-meetings="goToMeetingRecords"
       :on-view-user-dashboard="goToUserDashboard"
     />
     <header class="meeting-header">
