@@ -1035,7 +1035,8 @@ onUnmounted(() => {
   border-radius: 24px;
   padding: 2rem;
   box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 1.6rem;
 }
 
