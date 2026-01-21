@@ -33,16 +33,6 @@
       </button>
       <button
         class="sidebar-button"
-        :class="{ active: activePath === '/meetings/upload' }"
-        type="button"
-        aria-label="上傳會議記錄"
-        @click="onUploadMeeting"
-      >
-        <span class="sidebar-glyph">⬆</span>
-        會議記錄
-      </button>
-      <button
-        class="sidebar-button"
         :class="{ active: activePath === '/meetings' }"
         type="button"
         aria-label="檢視會議記錄"
@@ -89,7 +79,6 @@ const {
   onGoHome,
   onGoProfile,
   onViewTasks,
-  onUploadMeeting,
   onViewMeetings,
   onViewUserDashboard,
   activePath,
@@ -99,10 +88,6 @@ const {
     default: () => {},
   },
   onViewTasks: {
-    type: Function,
-    default: () => {},
-  },
-  onUploadMeeting: {
     type: Function,
     default: () => {},
   },
