@@ -1021,9 +1021,13 @@ onUnmounted(() => {
 }
 
 .content-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.9fr);
+  display: flex;
   gap: 1.5rem;
+  width: 100%;
+}
+
+.content-grid > .panel {
+  flex: 1 1 0;
 }
 
 .panel {
