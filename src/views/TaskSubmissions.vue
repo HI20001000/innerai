@@ -83,6 +83,17 @@ const parseJsonSafe = async (response) => {
   }
 }
 
+const normalizeFollowUpContent = (value) => {
+  if (typeof value === 'string') return value
+  if (typeof value === 'number') return String(value)
+  if (value && typeof value === 'object') {
+    if (typeof value.content === 'string') return value.content
+    if (typeof value.text === 'string') return value.text
+    if (typeof value.title === 'string') return value.title
+  }
+  return ''
+}
+
 const getRelatedUsers = (item) => item.related_users || []
 
 const fetchTagOptions = async () => {
@@ -239,7 +250,7 @@ const removeFollowUpItem = (index) => {
 
 const editFollowUpItem = (item, index) => {
   editingFollowUpIndex.value = index
-  followUpEditValue.value = item.content
+  followUpEditValue.value = normalizeFollowUpContent(item.content)
 }
 
 const confirmFollowUpEdit = () => {
@@ -249,7 +260,7 @@ const confirmFollowUpEdit = () => {
     if (index !== editingFollowUpIndex.value) return item
     return {
       ...item,
-      content: value,
+      content: normalizeFollowUpContent(value),
     }
   })
   editingFollowUpIndex.value = null
@@ -304,8 +315,10 @@ const startEdit = (submission) => {
               assignees: [],
             }
           }
+          const content = normalizeFollowUpContent(entry.content ?? entry)
+          if (!content) return null
           return {
-            content: entry.content || '',
+            content,
             assignees: Array.isArray(entry.assignees) ? entry.assignees : [],
           }
         })
@@ -612,7 +625,9 @@ onMounted(() => {
                               class="follow-up-edit-input"
                             />
                           </template>
-                          <span v-else class="follow-up-content">{{ entry.content }}</span>
+                          <span v-else class="follow-up-content">
+                            {{ normalizeFollowUpContent(entry.content) }}
+                          </span>
                           <div class="follow-up-actions">
                             <button
                               type="button"
@@ -637,7 +652,7 @@ onMounted(() => {
                 <template v-else>
                   <ul v-if="item.follow_ups?.length" class="follow-up-list">
                     <li v-for="entry in item.follow_ups" :key="entry.id || entry">
-                      {{ typeof entry === 'string' ? entry : entry.content }}
+                      {{ normalizeFollowUpContent(entry) }}
                     </li>
                   </ul>
                   <span v-else>-</span>
