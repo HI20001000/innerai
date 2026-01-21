@@ -405,7 +405,7 @@ const handleSelectFollowUp = (submission) => {
                                 {{ user.icon || '🙂' }}
                               </span>
                               <span class="user-label">
-                                {{ user.username || 'user' }} &lt;{{ user.mail }}&gt;
+                                {{ user.username || 'user' }}
                               </span>
                               <span v-if="isAssigneeSelected(followUp, user.mail)" class="user-selected">
                                 已選
