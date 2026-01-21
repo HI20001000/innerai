@@ -532,9 +532,10 @@ const handleSelectFollowUp = (submission) => {
 .followup-task {
   border: 1px solid #e2e8f0;
   border-radius: 16px;
-  padding: 1rem;
+  padding: 1rem 1.2rem;
   display: grid;
-  gap: 0.9rem;
+  gap: 0.6rem;
+  background: #f8fafc;
 }
 
 .followup-task-header {
@@ -542,10 +543,12 @@ const handleSelectFollowUp = (submission) => {
   align-items: center;
   gap: 0.6rem;
   flex-wrap: wrap;
+  margin-bottom: 0.3rem;
 }
 
 .followup-task-title {
-  font-weight: 600;
+  font-size: 1rem;
+  font-weight: 700;
   color: #0f172a;
 }
 
@@ -566,7 +569,7 @@ const handleSelectFollowUp = (submission) => {
 
 .followup-task-meta {
   color: #64748b;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   margin-left: auto;
 }
 
