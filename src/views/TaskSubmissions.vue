@@ -83,6 +83,17 @@ const parseJsonSafe = async (response) => {
   }
 }
 
+const normalizeFollowUpContent = (value) => {
+  if (typeof value === 'string') return value
+  if (typeof value === 'number') return String(value)
+  if (value && typeof value === 'object') {
+    if (typeof value.content === 'string') return value.content
+    if (typeof value.text === 'string') return value.text
+    if (typeof value.title === 'string') return value.title
+  }
+  return ''
+}
+
 const getRelatedUsers = (item) => item.related_users || []
 
 const fetchTagOptions = async () => {
@@ -304,8 +315,10 @@ const startEdit = (submission) => {
               assignees: [],
             }
           }
+          const content = normalizeFollowUpContent(entry.content ?? entry)
+          if (!content) return null
           return {
-            content: entry.content || '',
+            content,
             assignees: Array.isArray(entry.assignees) ? entry.assignees : [],
           }
         })
@@ -637,7 +650,7 @@ onMounted(() => {
                 <template v-else>
                   <ul v-if="item.follow_ups?.length" class="follow-up-list">
                     <li v-for="entry in item.follow_ups" :key="entry.id || entry">
-                      {{ typeof entry === 'string' ? entry : entry.content }}
+                      {{ normalizeFollowUpContent(entry) }}
                     </li>
                   </ul>
                   <span v-else>-</span>
