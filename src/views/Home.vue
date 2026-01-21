@@ -733,6 +733,7 @@ onUnmounted(() => {
                             <UserOptionItem
                               v-for="user in getFilteredRelatedUsers(item)"
                               :key="user.mail"
+                              :user="user"
                               :selected="isAssigneeSelected(follow, user.mail)"
                               @select="toggleAssignee(follow, user, item.related_users)"
                             />

@@ -391,6 +391,7 @@ const handleSelectFollowUp = (submission) => {
                             <UserOptionItem
                               v-for="user in getFilteredRelatedUsers(task.submission)"
                               :key="user.mail"
+                              :user="user"
                               :selected="isAssigneeSelected(followUp, user.mail)"
                               @select="toggleAssignee(followUp, user, task.submission.related_users || [])"
                             />
