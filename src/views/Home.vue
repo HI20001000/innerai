@@ -54,10 +54,6 @@ const goToMeetingUpload = () => {
   router?.push('/meetings/upload')
 }
 
-const goToMeetingRecords = () => {
-  router?.push('/meetings')
-}
-
 const goToUserDashboard = () => {
   router?.push('/users/dashboard')
 }
@@ -502,7 +498,6 @@ onUnmounted(() => {
       :on-create-task="goToNewTask"
       :on-view-tasks="goToTaskList"
       :on-upload-meeting="goToMeetingUpload"
-      :on-view-meetings="goToMeetingRecords"
       :on-view-user-dashboard="goToUserDashboard"
       :on-go-home="goToHome"
       :on-go-profile="goToProfile"

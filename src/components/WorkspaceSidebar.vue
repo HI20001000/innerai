@@ -43,16 +43,6 @@
       </button>
       <button
         class="sidebar-button"
-        :class="{ active: activePath === '/meetings' }"
-        type="button"
-        aria-label="檢視會議記錄"
-        @click="onViewMeetings"
-      >
-        <span class="sidebar-glyph">📄</span>
-        記錄檢視
-      </button>
-      <button
-        class="sidebar-button"
         :class="{ active: activePath === '/users/dashboard' }"
         type="button"
         aria-label="儀表盤"
@@ -90,7 +80,6 @@ const {
   onGoProfile,
   onViewTasks,
   onUploadMeeting,
-  onViewMeetings,
   onViewUserDashboard,
   activePath,
 } = defineProps({
@@ -103,10 +92,6 @@ const {
     default: () => {},
   },
   onUploadMeeting: {
-    type: Function,
-    default: () => {},
-  },
-  onViewMeetings: {
     type: Function,
     default: () => {},
   },
