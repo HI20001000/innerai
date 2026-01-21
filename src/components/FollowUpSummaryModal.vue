@@ -2,7 +2,8 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { formatDateTimeDisplay, toDateKey } from '../scripts/time.js'
 import { apiBaseUrl } from '../scripts/apiBaseUrl.js'
-
+import UserOptionItem from './UserOptionItem.vue'
+import { filterUserOptions, normalizeUserOptions } from '../scripts/user-options/index.js'
 
 const props = defineProps({
   open: {
@@ -223,7 +224,9 @@ const updateFollowUpAssignees = async (followUp, assignees, relatedUsers) => {
   })
   const data = await response.json()
   if (!response.ok || !data?.success) return
-  followUp.assignees = relatedUsers.filter((user) => assignees.includes(user.mail))
+  followUp.assignees = normalizeUserOptions(relatedUsers).filter((user) =>
+    assignees.includes(user.mail)
+  )
 }
 
 const toggleAssignee = async (followUp, user, relatedUsers) => {
@@ -256,13 +259,7 @@ const filteredStatuses = computed(() => {
 
 const getFilteredRelatedUsers = (submission) => {
   const relatedUsers = Array.isArray(submission?.related_users) ? submission.related_users : []
-  const query = assigneeSearch.value.trim().toLowerCase()
-  if (!query) return relatedUsers
-  return relatedUsers.filter((user) => {
-    const name = String(user.username || '').toLowerCase()
-    const mail = String(user.mail || '').toLowerCase()
-    return name.includes(query) || mail.includes(query)
-  })
+  return filterUserOptions(relatedUsers, assigneeSearch.value)
 }
 
 const getAssigneeButtonText = (followUp) => {
@@ -391,26 +388,12 @@ const handleSelectFollowUp = (submission) => {
                               type="text"
                               placeholder="搜尋用戶"
                             />
-                            <button
+                            <UserOptionItem
                               v-for="user in getFilteredRelatedUsers(task.submission)"
                               :key="user.mail"
-                              type="button"
-                              class="option-item user-option"
-                              @click="toggleAssignee(followUp, user, task.submission.related_users || [])"
-                            >
-                              <span
-                                class="user-avatar"
-                                :style="{ backgroundColor: user.icon_bg || '#e2e8f0' }"
-                              >
-                                {{ user.icon || '🙂' }}
-                              </span>
-                              <span class="user-label">
-                                {{ user.username || 'user' }} &lt;{{ user.mail }}&gt;
-                              </span>
-                              <span v-if="isAssigneeSelected(followUp, user.mail)" class="user-selected">
-                                已選
-                              </span>
-                            </button>
+                              :selected="isAssigneeSelected(followUp, user.mail)"
+                              @select="toggleAssignee(followUp, user, task.submission.related_users || [])"
+                            />
                           </div>
                         </div>
                       </div>
@@ -546,9 +529,10 @@ const handleSelectFollowUp = (submission) => {
 .followup-task {
   border: 1px solid #e2e8f0;
   border-radius: 16px;
-  padding: 1rem;
+  padding: 1rem 1.2rem;
   display: grid;
-  gap: 0.9rem;
+  gap: 0.6rem;
+  background: #f8fafc;
 }
 
 .followup-task-header {
@@ -556,10 +540,12 @@ const handleSelectFollowUp = (submission) => {
   align-items: center;
   gap: 0.6rem;
   flex-wrap: wrap;
+  margin-bottom: 0.3rem;
 }
 
 .followup-task-title {
-  font-weight: 600;
+  font-size: 1rem;
+  font-weight: 700;
   color: #0f172a;
 }
 
@@ -580,7 +566,7 @@ const handleSelectFollowUp = (submission) => {
 
 .followup-task-meta {
   color: #64748b;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   margin-left: auto;
 }
 

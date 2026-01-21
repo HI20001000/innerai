@@ -3,9 +3,11 @@ import { computed, getCurrentInstance, onMounted, onUnmounted, ref } from 'vue'
 import WorkspaceSidebar from '../components/WorkspaceSidebar.vue'
 import MonthlyCalendar from '../components/MonthlyCalendar.vue'
 import FollowUpSummaryModal from '../components/FollowUpSummaryModal.vue'
+import UserOptionItem from '../components/UserOptionItem.vue'
 import { formatDateTimeDisplay, toDateKey, getTaipeiTodayKey } from '../scripts/time.js'
 import { apiBaseUrl } from '../scripts/apiBaseUrl.js'
 import { countPendingFollowUps } from '../scripts/followUps.js'
+import { filterUserOptions, normalizeUserOptions } from '../scripts/user-options/index.js'
 import {
   buildFollowUpItems,
   buildStatusNameById,
@@ -337,7 +339,9 @@ const updateFollowUpAssignees = async (followUp, assignees, relatedUsers = []) =
   })
   const data = await response.json()
   if (!response.ok || !data?.success) return
-  const selected = relatedUsers.filter((user) => assignees.includes(user.mail))
+  const selected = normalizeUserOptions(relatedUsers).filter((user) =>
+    assignees.includes(user.mail)
+  )
   followUp.assignees = selected
 }
 
@@ -386,18 +390,18 @@ const filteredStatuses = computed(() => {
 
 const getFilteredRelatedUsers = (item) => {
   const relatedUsers = Array.isArray(item?.related_users) ? item.related_users : []
-  const query = assigneeSearch.value.trim().toLowerCase()
-  if (!query) return relatedUsers
-  return relatedUsers.filter((user) => {
-    const name = String(user.username || '').toLowerCase()
-    const mail = String(user.mail || '').toLowerCase()
-    return name.includes(query) || mail.includes(query)
-  })
+  return filterUserOptions(relatedUsers, assigneeSearch.value)
 }
 
 const getAssigneeButtonText = (followUp) => {
   const assignees = followUp?.assignees || []
   if (assignees.length === 0) return '選擇跟進人'
+  if (assignees.length > 1) {
+    const names = assignees
+      .map((user) => user.username || 'user')
+      .filter(Boolean)
+    return names.length > 0 ? names.join('、') : '選擇跟進人'
+  }
   const names = assignees.map((user) => user.username || user.mail).filter(Boolean)
   return names.length > 0 ? names.join('、') : '選擇跟進人'
 }
@@ -726,26 +730,12 @@ onUnmounted(() => {
                               type="text"
                               placeholder="搜尋用戶"
                             />
-                            <button
+                            <UserOptionItem
                               v-for="user in getFilteredRelatedUsers(item)"
                               :key="user.mail"
-                              type="button"
-                              class="option-item user-option"
-                              @click="toggleAssignee(follow, user, item.related_users)"
-                            >
-                              <span
-                                class="user-avatar"
-                                :style="{ backgroundColor: user.icon_bg || '#e2e8f0' }"
-                              >
-                                {{ user.icon || '🙂' }}
-                              </span>
-                              <span class="user-label">
-                                {{ user.username || 'user' }} &lt;{{ user.mail }}&gt;
-                              </span>
-                              <span v-if="isAssigneeSelected(follow, user.mail)" class="user-selected">
-                                已選
-                              </span>
-                            </button>
+                              :selected="isAssigneeSelected(follow, user.mail)"
+                              @select="toggleAssignee(follow, user, item.related_users)"
+                            />
                           </div>
                         </div>
                       </div>

@@ -5,6 +5,7 @@ import ResultModal from '../components/ResultModal.vue'
 import RelatedUsersTooltip from '../components/RelatedUsersTooltip.vue'
 import { normalizeFollowUpContent as normalizeFollowUpText } from '../scripts/followUpUtils.js'
 import { formatDateTimeDisplay, formatDateTimeInput } from '../scripts/time.js'
+import { filterUserOptions, normalizeUserOptions } from '../scripts/user-options/index.js'
 import {
   deleteTaskSubmission,
   fetchTagOptions as fetchTagOptionsRequest,
@@ -98,7 +99,7 @@ const fetchUsers = async () => {
   try {
     const result = await fetchUsersRequest(auth.token)
     if (!result?.success) return
-    relatedUsers.value = result.data || []
+    relatedUsers.value = normalizeUserOptions(result.data || [])
   } catch (error) {
     console.error(error)
   }
@@ -152,20 +153,13 @@ const getFilteredOptions = (type) => {
   const source = type === 'tag' ? tagOptions.value : relatedUsers.value
   if (!query) return source
   if (type === 'user') {
-    return source.filter((item) =>
-      `${item.username || ''}${item.mail || ''}`.toLowerCase().includes(query)
-    )
+    return filterUserOptions(source, query)
   }
   return source.filter((item) => item.toLowerCase().includes(query))
 }
 
 const getFilteredRelatedUsers = () => {
-  const query = searchQuery.user?.trim().toLowerCase() ?? ''
-  const source = selectedRelatedUsers.value
-  if (!query) return source
-  return source.filter((item) =>
-    `${item.username || ''}${item.mail || ''}`.toLowerCase().includes(query)
-  )
+  return filterUserOptions(selectedRelatedUsers.value, searchQuery.user)
 }
 
 const toggleTag = (tag) => {
@@ -277,9 +271,9 @@ const getFollowUpAssigneeLabel = (item) => {
 const startEdit = (submission) => {
   editingId.value = submission.id
   selectedTags.value = Array.isArray(submission.tags) ? submission.tags : []
-  selectedRelatedUsers.value = Array.isArray(submission.related_users)
-    ? submission.related_users
-    : []
+  selectedRelatedUsers.value = normalizeUserOptions(
+    Array.isArray(submission.related_users) ? submission.related_users : []
+  )
   followUpItems.value = Array.isArray(submission.follow_ups)
     ? submission.follow_ups
         .map((entry) => {
