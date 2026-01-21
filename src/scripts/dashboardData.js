@@ -1,7 +1,6 @@
 import { toDateKey } from './time.js'
 
 const COMPLETED_STATUS = '已完成'
-const INCOMPLETE_STATUS = '未完成'
 
 export const buildStatusNameById = (statuses = []) =>
   new Map(statuses.map((status) => [status.id, status.name]))
@@ -57,12 +56,12 @@ export const buildSummaryCounts = (followUpItems = [], referenceDate = new Date(
   const now = referenceDate instanceof Date ? referenceDate : new Date(referenceDate)
   const totalCount = followUpItems.length
   const completedCount = followUpItems.filter((item) => item.status === COMPLETED_STATUS).length
-  const incompleteCount = followUpItems.filter(
-    (item) => item.status === INCOMPLETE_STATUS || isOverdueFollowUp(item, now)
-  ).length
+  const incompleteCount = followUpItems.filter((item) => {
+    if (item.status === COMPLETED_STATUS) return false
+    return isOverdueFollowUp(item, now)
+  }).length
   const inProgressCount = followUpItems.filter((item) => {
     if (item.status === COMPLETED_STATUS) return false
-    if (item.status === INCOMPLETE_STATUS) return false
     if (isOverdueFollowUp(item, now)) return false
     return true
   }).length
