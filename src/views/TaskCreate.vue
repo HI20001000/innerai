@@ -462,6 +462,17 @@ const parseJsonSafe = async (response) => {
   }
 }
 
+const normalizeFollowUpContent = (value) => {
+  if (typeof value === 'string') return value
+  if (typeof value === 'number') return String(value)
+  if (value && typeof value === 'object') {
+    if (typeof value.content === 'string') return value.content
+    if (typeof value.text === 'string') return value.text
+    if (typeof value.title === 'string') return value.title
+  }
+  return ''
+}
+
 const submitTask = async () => {
   if (isSubmitting.value) return
   const payload = {
@@ -556,9 +567,14 @@ const applyAutoFill = (payload) => {
         }
         if (typeof item === 'object' && item?.content) {
           return {
-            content: item.content,
+            content: normalizeFollowUpContent(item.content),
             assignees: Array.isArray(item.assignees) ? item.assignees : [],
           }
+        }
+        if (typeof item === 'object') {
+          const content = normalizeFollowUpContent(item)
+          if (!content) return null
+          return { content, assignees: [] }
         }
         return null
       })
@@ -584,8 +600,10 @@ const loadDraft = () => {
             return { content: item, assignees: [] }
           }
           if (item && typeof item === 'object') {
+            const content = normalizeFollowUpContent(item.content ?? item)
+            if (!content) return null
             return {
-              content: item.content || '',
+              content,
               assignees: Array.isArray(item.assignees) ? item.assignees : [],
             }
           }
