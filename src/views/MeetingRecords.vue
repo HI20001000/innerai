@@ -730,6 +730,16 @@ onMounted(fetchMeetingRecords)
           <div class="panel-section">
             <div class="panel-header">
               <h2>{{ previewTitle }}</h2>
+              <div v-if="activeReport" class="panel-actions">
+                <button
+                  class="ghost-mini"
+                  type="button"
+                  :disabled="!activeReportMeta || isReportLoading(activeReportMeta.id)"
+                  @click="handleGenerateMeetingReport(activeReportMeta)"
+                >
+                  重新生成
+                </button>
+              </div>
             </div>
             <p v-if="previewMeta" class="meta">
               會議時間：{{ formatDateTimeDisplay(previewMeta.meeting_time) }}｜建立者：{{
