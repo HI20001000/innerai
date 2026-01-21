@@ -569,9 +569,7 @@ onMounted(fetchMeetingRecords)
     </header>
 
     <section class="meeting-list">
-      <div v-if="isLoading" class="loading-state">載入中...</div>
-      <div v-else-if="records.length === 0" class="empty-state">尚無會議記錄</div>
-      <div v-else class="split-layout">
+      <div class="split-layout">
         <aside class="selection-panel">
           <ScrollPanel height="calc(100vh - 240px)">
           <div class="panel-section">
