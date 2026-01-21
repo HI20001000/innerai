@@ -2,6 +2,7 @@
 import { computed, getCurrentInstance, onMounted, ref } from 'vue'
 import WorkspaceSidebar from '../components/WorkspaceSidebar.vue'
 import ResultModal from '../components/ResultModal.vue'
+import MeetingUploadForm from '../components/MeetingUploadForm.vue'
 import ScrollPanel from '../components/element/ScrollPanel.vue'
 import { formatDateTimeDisplay } from '../scripts/time.js'
 import { apiBaseUrl } from '../scripts/apiBaseUrl.js'
@@ -42,11 +43,16 @@ const uploadInput = ref(null)
 const activeReport = ref(null)
 const activeReportMeta = ref(null)
 const reportLoadingIds = ref(new Set())
+const showUploadPanel = ref(false)
+const uploadPrefill = ref({
+  client: '',
+  vendor: '',
+  product: '',
+})
 
 const goToNewTask = () => router?.push('/tasks/new')
 const goToTaskList = () => router?.push('/tasks/view')
 const goToMeetingUpload = () => router?.push('/meetings/upload')
-const goToMeetingRecords = () => router?.push('/meetings')
 const goToHome = () => router?.push('/home')
 const goToProfile = () => router?.push('/settings')
 const goToUserDashboard = () => router?.push('/users/dashboard')
@@ -147,6 +153,7 @@ const selectClient = (clientName) => {
   activeRecordMeta.value = null
   activeReport.value = null
   activeReportMeta.value = null
+  showUploadPanel.value = false
 }
 
 const selectVendor = (vendorName) => {
@@ -157,6 +164,7 @@ const selectVendor = (vendorName) => {
   activeRecordMeta.value = null
   activeReport.value = null
   activeReportMeta.value = null
+  showUploadPanel.value = false
 }
 
 const selectProduct = (productName) => {
@@ -170,6 +178,7 @@ const selectProduct = (productName) => {
   activeRecordMeta.value = null
   activeReport.value = null
   activeReportMeta.value = null
+  showUploadPanel.value = false
 }
 
 const selectMeeting = (meeting) => {
@@ -178,6 +187,7 @@ const selectMeeting = (meeting) => {
   activeRecordMeta.value = null
   activeReport.value = null
   activeReportMeta.value = null
+  showUploadPanel.value = false
 }
 
 const resetSelections = () => {
@@ -189,6 +199,7 @@ const resetSelections = () => {
   activeRecordMeta.value = null
   activeReport.value = null
   activeReportMeta.value = null
+  showUploadPanel.value = false
   searchQuery.value.client = ''
   searchQuery.value.vendor = ''
   searchQuery.value.product = ''
@@ -221,6 +232,7 @@ const setActiveRecord = (record, meeting) => {
   activeRecordMeta.value = meeting || activeMeeting.value
   activeReport.value = null
   activeReportMeta.value = null
+  showUploadPanel.value = false
 }
 
 const setActiveReport = (meeting, report) => {
@@ -228,6 +240,7 @@ const setActiveReport = (meeting, report) => {
   activeReportMeta.value = meeting
   activeRecord.value = null
   activeRecordMeta.value = null
+  showUploadPanel.value = false
 }
 
 const isReportLoading = (meetingId) => reportLoadingIds.value.has(meetingId)
@@ -371,6 +384,28 @@ const handleMeetingReportAction = (meeting) => {
   } else {
     handleGenerateMeetingReport(meeting)
   }
+}
+
+const openUploadPanel = () => {
+  uploadPrefill.value = {
+    client: activeClient.value || '',
+    vendor: activeVendor.value || '',
+    product: activeProduct.value || '',
+  }
+  showUploadPanel.value = true
+  activeRecord.value = null
+  activeRecordMeta.value = null
+  activeReport.value = null
+  activeReportMeta.value = null
+}
+
+const closeUploadPanel = () => {
+  showUploadPanel.value = false
+}
+
+const handleUploadSuccess = async () => {
+  await fetchMeetingRecords()
+  showUploadPanel.value = false
 }
 
 const deleteMeetingRecord = async (record) => {
@@ -517,7 +552,6 @@ onMounted(fetchMeetingRecords)
       :on-create-task="goToNewTask"
       :on-view-tasks="goToTaskList"
       :on-upload-meeting="goToMeetingUpload"
-      :on-view-meetings="goToMeetingRecords"
       :on-view-user-dashboard="goToUserDashboard"
       :on-go-home="goToHome"
       :on-go-profile="goToProfile"
@@ -533,9 +567,7 @@ onMounted(fetchMeetingRecords)
     </header>
 
     <section class="meeting-list">
-      <div v-if="isLoading" class="loading-state">載入中...</div>
-      <div v-else-if="records.length === 0" class="empty-state">尚無會議記錄</div>
-      <div v-else class="split-layout">
+      <div class="split-layout">
         <aside class="selection-panel">
           <ScrollPanel height="calc(100vh - 240px)">
           <div class="panel-section">
@@ -544,7 +576,7 @@ onMounted(fetchMeetingRecords)
                 <h2>客戶</h2>
               </div>
               <div>
-                <button class="ghost-mini" type="button" @click="goToMeetingUpload">
+                <button class="ghost-mini" type="button" @click="openUploadPanel">
                   編輯
                 </button>
                 <button class="ghost-mini" type="button" @click="resetSelections">
@@ -729,16 +761,45 @@ onMounted(fetchMeetingRecords)
           <ScrollPanel height="calc(100vh - 240px)">
           <div class="panel-section">
             <div class="panel-header">
-              <h2>{{ previewTitle }}</h2>
+              <h2>{{ showUploadPanel ? '上傳會議記錄' : previewTitle }}</h2>
+              <div class="panel-actions">
+                <button
+                  v-if="showUploadPanel"
+                  class="ghost-mini"
+                  type="button"
+                  @click="closeUploadPanel"
+                >
+                  返回預覽
+                </button>
+                <button
+                  v-else-if="activeReport"
+                  class="ghost-mini"
+                  type="button"
+                  :disabled="!activeReportMeta || isReportLoading(activeReportMeta.id)"
+                  @click="handleGenerateMeetingReport(activeReportMeta)"
+                >
+                  重新生成
+                </button>
+              </div>
             </div>
-            <p v-if="previewMeta" class="meta">
-              會議時間：{{ formatDateTimeDisplay(previewMeta.meeting_time) }}｜建立者：{{
-                previewMeta.created_by_email
-              }}｜建立時間：{{ formatDateTimeDisplay(previewMeta.created_at) }}
-            </p>
-            <pre class="record-content">
+            <MeetingUploadForm
+              v-if="showUploadPanel"
+              compact
+              :initial-client="uploadPrefill.client"
+              :initial-vendor="uploadPrefill.vendor"
+              :initial-product="uploadPrefill.product"
+              @uploaded="handleUploadSuccess"
+            />
+            <template v-else>
+              <p v-if="previewMeta" class="meta">
+                會議時間：{{ formatDateTimeDisplay(previewMeta.meeting_time) }}｜建立者：{{
+                  previewMeta.created_by_email
+                }}｜建立時間：{{ formatDateTimeDisplay(previewMeta.created_at) }}
+              </p>
+              <pre class="record-content">
 {{ previewContent }}
-            </pre>
+              </pre>
+            </template>
           </div>
           </ScrollPanel>
         </aside>
