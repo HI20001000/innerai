@@ -201,22 +201,7 @@ onUnmounted(() => {
 }
 
 .sidebar-button.active {
-  background: #1d4ed8;
-  box-shadow: 0 16px 28px rgba(29, 78, 216, 0.5);
-}
-
-.sidebar-button.active {
-  background: #1d4ed8;
-  box-shadow: 0 16px 28px rgba(29, 78, 216, 0.5);
-}
-
-.sidebar-button.active {
-  background: #1d4ed8;
-  box-shadow: 0 16px 28px rgba(29, 78, 216, 0.5);
-}
-
-.sidebar-button.active {
-  background: #1d4ed8;
+  background: rgba(29, 79, 216, 0.8);
   box-shadow: 0 16px 28px rgba(29, 78, 216, 0.5);
 }
 
@@ -251,7 +236,7 @@ onUnmounted(() => {
 }
 
 .profile-button.active {
-  background: #1d4ed8;
+  background: rgba(29, 79, 216, 0.5);
 }
 
 .profile-button.active .profile-avatar {
