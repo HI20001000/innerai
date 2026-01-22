@@ -45,6 +45,18 @@ const vendorFilter = ref('')
 const productFilter = ref('')
 const activeFilterMenu = ref(null)
 
+const currentUserMail = computed(() => readUserProfile()?.mail?.toLowerCase() || '')
+
+const relatedSubmissions = computed(() => {
+  const items = props.submissions || []
+  const mail = currentUserMail.value
+  if (!mail) return []
+  return items.filter((submission) => {
+    const relatedUsers = Array.isArray(submission?.related_users) ? submission.related_users : []
+    return relatedUsers.some((user) => user?.mail?.toLowerCase() === mail)
+  })
+})
+
 const readAuthStorage = () => {
   const raw = window.localStorage.getItem('innerai_auth')
   if (!raw) return null
@@ -145,7 +157,7 @@ const getSubmissionTags = (submission) => {
 
 const hierarchy = computed(() => {
   const result = new Map()
-  const items = props.submissions || []
+  const items = relatedSubmissions.value
   const clientQuery = clientFilter.value.trim().toLowerCase()
   const vendorQuery = vendorFilter.value.trim().toLowerCase()
   const productQuery = productFilter.value.trim().toLowerCase()
@@ -198,19 +210,19 @@ const hierarchy = computed(() => {
 })
 
 const clientOptions = computed(() => {
-  const items = props.submissions || []
+  const items = relatedSubmissions.value
   const names = items.map((submission) => submission.client_name || '客戶')
   return Array.from(new Set(names)).sort()
 })
 
 const vendorOptions = computed(() => {
-  const items = props.submissions || []
+  const items = relatedSubmissions.value
   const names = items.map((submission) => submission.vendor_name || '廠家')
   return Array.from(new Set(names)).sort()
 })
 
 const productOptions = computed(() => {
-  const items = props.submissions || []
+  const items = relatedSubmissions.value
   const names = items.map((submission) => submission.product_name || '產品')
   return Array.from(new Set(names)).sort()
 })
