@@ -560,6 +560,9 @@ const ganttSubmissions = computed(() => {
         :title="summaryModalTitle"
         :status-filter="summaryModalFilter"
         :submissions="activeSubmissions"
+        :include-overdue-incomplete="true"
+        :reference-date="new Date()"
+        :user-scoped="false"
         @close="closeSummaryModal"
         @select-date="handleSummarySelectDate"
       />

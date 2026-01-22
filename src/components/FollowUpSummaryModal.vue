@@ -30,6 +30,10 @@ const props = defineProps({
     type: [String, Date],
     default: '',
   },
+  userScoped: {
+    type: Boolean,
+    default: true,
+  },
 })
 
 const emit = defineEmits(['close', 'select-date'])
@@ -40,6 +44,23 @@ const activeStatusMenu = ref(null)
 const activeAssigneeMenu = ref(null)
 const statusSearch = ref('')
 const assigneeSearch = ref('')
+const clientFilter = ref('')
+const vendorFilter = ref('')
+const productFilter = ref('')
+const activeFilterMenu = ref(null)
+
+const currentUserMail = computed(() => readUserProfile()?.mail?.toLowerCase() || '')
+
+const scopedSubmissions = computed(() => {
+  const items = props.submissions || []
+  if (!props.userScoped) return items
+  const mail = currentUserMail.value
+  if (!mail) return []
+  return items.filter((submission) => {
+    const relatedUsers = Array.isArray(submission?.related_users) ? submission.related_users : []
+    return relatedUsers.some((user) => user?.mail?.toLowerCase() === mail)
+  })
+})
 
 const readAuthStorage = () => {
   const raw = window.localStorage.getItem('innerai_auth')
@@ -106,10 +127,14 @@ const isOverdue = (submission) => {
 const matchesStatusFilter = (followUp, submission) => {
   if (!followUp) return false
   const statusName = followUp.status_name || '進行中'
-  if (props.statusFilter === 'completed') return statusName === '已完成'
   if (props.statusFilter === 'incomplete') {
-    return statusName === '未完成' || isOverdue(submission)
+    if (statusName === '已完成') return false
+    if (props.includeOverdueIncomplete) {
+      return isOverdue(submission)
+    }
+    return statusName === '未完成'
   }
+  if (props.statusFilter === 'completed') return statusName === '已完成'
   if (props.statusFilter === 'in_progress') {
     if (isOverdue(submission)) return false
     return statusName !== '已完成' && statusName !== '未完成'
@@ -141,14 +166,20 @@ const getSubmissionTags = (submission) => {
 
 const hierarchy = computed(() => {
   const result = new Map()
-  const items = props.submissions || []
+  const items = scopedSubmissions.value
+  const clientQuery = clientFilter.value.trim().toLowerCase()
+  const vendorQuery = vendorFilter.value.trim().toLowerCase()
+  const productQuery = productFilter.value.trim().toLowerCase()
   items.forEach((submission) => {
-    const followUps = Array.isArray(submission.follow_ups) ? submission.follow_ups : []
-    const filtered = followUps.filter((followUp) => matchesStatusFilter(followUp, submission))
-    if (filtered.length === 0) return
     const clientName = submission.client_name || '客戶'
     const vendorName = submission.vendor_name || '廠家'
     const productName = submission.product_name || '產品'
+    if (clientQuery && !clientName.toLowerCase().includes(clientQuery)) return
+    if (vendorQuery && !vendorName.toLowerCase().includes(vendorQuery)) return
+    if (productQuery && !productName.toLowerCase().includes(productQuery)) return
+    const followUps = Array.isArray(submission.follow_ups) ? submission.follow_ups : []
+    const filtered = followUps.filter((followUp) => matchesStatusFilter(followUp, submission))
+    if (filtered.length === 0) return
     const taskLabel = getTaskLabel(submission)
     if (!result.has(clientName)) {
       result.set(clientName, new Map())
@@ -186,6 +217,47 @@ const hierarchy = computed(() => {
     })),
   }))
 })
+
+const clientOptions = computed(() => {
+  const items = scopedSubmissions.value
+  const names = items.map((submission) => submission.client_name || '客戶')
+  return Array.from(new Set(names)).sort()
+})
+
+const vendorOptions = computed(() => {
+  const items = scopedSubmissions.value
+  const names = items.map((submission) => submission.vendor_name || '廠家')
+  return Array.from(new Set(names)).sort()
+})
+
+const productOptions = computed(() => {
+  const items = scopedSubmissions.value
+  const names = items.map((submission) => submission.product_name || '產品')
+  return Array.from(new Set(names)).sort()
+})
+
+const getFilteredOptions = (options, query) => {
+  const normalized = query.trim().toLowerCase()
+  if (!normalized) return options
+  return options.filter((item) => item.toLowerCase().includes(normalized))
+}
+
+const openFilterMenu = (menu) => {
+  activeFilterMenu.value = menu
+}
+
+const closeFilterMenu = () => {
+  window.setTimeout(() => {
+    activeFilterMenu.value = null
+  }, 100)
+}
+
+const selectFilterOption = (target, value) => {
+  if (target === 'client') clientFilter.value = value
+  if (target === 'vendor') vendorFilter.value = value
+  if (target === 'product') productFilter.value = value
+  activeFilterMenu.value = null
+}
 
 const updateFollowUpStatus = async (followUp, status) => {
   const auth = readAuthStorage()
@@ -295,15 +367,92 @@ const handleSelectFollowUp = (submission) => {
         </div>
         <button type="button" class="followup-modal-close" @click="emit('close')">✕</button>
       </header>
+      <div class="followup-modal-filters">
+        <label class="followup-filter-field">
+          <span class="followup-filter-label">客戶</span>
+          <input
+            v-model="clientFilter"
+            class="followup-filter-input"
+            type="text"
+            placeholder="搜尋客戶"
+            @focus="openFilterMenu('client')"
+            @input="openFilterMenu('client')"
+            @blur="closeFilterMenu"
+          />
+          <div
+            v-if="activeFilterMenu === 'client'"
+            class="followup-filter-menu"
+          >
+            <button
+              v-for="option in getFilteredOptions(clientOptions, clientFilter)"
+              :key="option"
+              type="button"
+              class="followup-filter-option"
+              @mousedown.prevent="selectFilterOption('client', option)"
+            >
+              {{ option }}
+            </button>
+          </div>
+        </label>
+        <label class="followup-filter-field">
+          <span class="followup-filter-label">廠家</span>
+          <input
+            v-model="vendorFilter"
+            class="followup-filter-input"
+            type="text"
+            placeholder="搜尋廠家"
+            @focus="openFilterMenu('vendor')"
+            @input="openFilterMenu('vendor')"
+            @blur="closeFilterMenu"
+          />
+          <div
+            v-if="activeFilterMenu === 'vendor'"
+            class="followup-filter-menu"
+          >
+            <button
+              v-for="option in getFilteredOptions(vendorOptions, vendorFilter)"
+              :key="option"
+              type="button"
+              class="followup-filter-option"
+              @mousedown.prevent="selectFilterOption('vendor', option)"
+            >
+              {{ option }}
+            </button>
+          </div>
+        </label>
+        <label class="followup-filter-field">
+          <span class="followup-filter-label">廠家產品</span>
+          <input
+            v-model="productFilter"
+            class="followup-filter-input"
+            type="text"
+            placeholder="搜尋產品"
+            @focus="openFilterMenu('product')"
+            @input="openFilterMenu('product')"
+            @blur="closeFilterMenu"
+          />
+          <div
+            v-if="activeFilterMenu === 'product'"
+            class="followup-filter-menu"
+          >
+            <button
+              v-for="option in getFilteredOptions(productOptions, productFilter)"
+              :key="option"
+              type="button"
+              class="followup-filter-option"
+              @mousedown.prevent="selectFilterOption('product', option)"
+            >
+              {{ option }}
+            </button>
+          </div>
+        </label>
+      </div>
       <div v-if="isLoading" class="followup-modal-empty">載入狀態中...</div>
       <div v-else-if="hierarchy.length === 0" class="followup-modal-empty">目前沒有符合條件的跟進任務。</div>
       <div v-else class="followup-modal-body">
-        <div v-for="client in hierarchy" :key="client.clientName" class="followup-level">
-          <h4 class="followup-level-title">{{ client.clientName }}</h4>
-          <div v-for="vendor in client.vendors" :key="vendor.vendorName" class="followup-level">
-            <h5 class="followup-level-subtitle">{{ vendor.vendorName }}</h5>
-            <div v-for="product in vendor.products" :key="product.productName" class="followup-level">
-              <h6 class="followup-level-product">{{ product.productName }}</h6>
+        <template v-for="client in hierarchy" :key="client.clientName">
+          <template v-for="vendor in client.vendors" :key="vendor.vendorName">
+            <template v-for="product in vendor.products" :key="product.productName">
               <div v-for="task in product.tasks" :key="task.taskLabel" class="followup-task">
                 <div class="followup-task-header">
                   <span class="followup-task-title">{{ task.taskLabel }}</span>
@@ -406,9 +555,9 @@ const handleSelectFollowUp = (submission) => {
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
-        </div>
+            </template>
+          </template>
+        </template>
       </div>
     </div>
   </div>
@@ -476,6 +625,69 @@ const handleSelectFollowUp = (submission) => {
   gap: 1rem;
 }
 
+.followup-modal-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.8rem;
+}
+
+.followup-filter-field {
+  position: relative;
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  color: #475569;
+}
+
+.followup-filter-label {
+  font-weight: 600;
+}
+
+.followup-filter-input {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.9rem;
+  color: #0f172a;
+  background: #fff;
+}
+
+.followup-filter-input:focus {
+  outline: 2px solid rgba(59, 130, 246, 0.4);
+  border-color: #3b82f6;
+}
+
+.followup-filter-menu {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  left: 0;
+  right: 0;
+  max-height: 220px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
+  padding: 0.3rem;
+  z-index: 5;
+}
+
+.followup-filter-option {
+  width: 100%;
+  border: none;
+  background: transparent;
+  text-align: left;
+  padding: 0.45rem 0.6rem;
+  border-radius: 8px;
+  color: #0f172a;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.followup-filter-option:hover {
+  background: #f1f5f9;
+}
+
 .followup-modal-eyebrow {
   margin: 0;
   color: #94a3b8;
@@ -504,27 +716,9 @@ const handleSelectFollowUp = (submission) => {
   padding: 2rem 0;
 }
 
-.followup-level {
+.followup-modal-body {
   display: grid;
-  gap: 0.8rem;
-}
-
-.followup-level-title {
-  margin: 0;
-  font-size: 1.05rem;
-  color: #0f172a;
-}
-
-.followup-level-subtitle {
-  margin: 0;
-  font-size: 0.95rem;
-  color: #1f2937;
-}
-
-.followup-level-product {
-  margin: 0;
-  font-size: 0.9rem;
-  color: #334155;
+  gap: 1rem;
 }
 
 .followup-task {
@@ -532,7 +726,7 @@ const handleSelectFollowUp = (submission) => {
   border-radius: 16px;
   padding: 1rem 1.2rem;
   display: grid;
-  gap: 0.6rem;
+  gap: 0.8rem;
   background: #f8fafc;
 }
 
