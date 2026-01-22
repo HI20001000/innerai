@@ -29,7 +29,7 @@
         @click="onViewTasks"
       >
         <span class="sidebar-glyph">◎</span>
-        檢視任務
+        任務總覽
       </button>
       <button
         class="sidebar-button"
@@ -39,7 +39,7 @@
         @click="onViewMeetings"
       >
         <span class="sidebar-glyph">📄</span>
-        記錄檢視
+        會議記錄
       </button>
       <button
         class="sidebar-button"
