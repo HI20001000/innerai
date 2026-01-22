@@ -299,11 +299,8 @@ const handleSelectFollowUp = (submission) => {
       <div v-else-if="hierarchy.length === 0" class="followup-modal-empty">目前沒有符合條件的跟進任務。</div>
       <div v-else class="followup-modal-body">
         <div v-for="client in hierarchy" :key="client.clientName" class="followup-level">
-          <h4 class="followup-level-title">{{ client.clientName }}</h4>
           <div v-for="vendor in client.vendors" :key="vendor.vendorName" class="followup-level">
-            <h5 class="followup-level-subtitle">{{ vendor.vendorName }}</h5>
             <div v-for="product in vendor.products" :key="product.productName" class="followup-level">
-              <h6 class="followup-level-product">{{ product.productName }}</h6>
               <div v-for="task in product.tasks" :key="task.taskLabel" class="followup-task">
                 <div class="followup-task-header">
                   <span class="followup-task-title">{{ task.taskLabel }}</span>
@@ -507,24 +504,6 @@ const handleSelectFollowUp = (submission) => {
 .followup-level {
   display: grid;
   gap: 0.8rem;
-}
-
-.followup-level-title {
-  margin: 0;
-  font-size: 1.05rem;
-  color: #0f172a;
-}
-
-.followup-level-subtitle {
-  margin: 0;
-  font-size: 0.95rem;
-  color: #1f2937;
-}
-
-.followup-level-product {
-  margin: 0;
-  font-size: 0.9rem;
-  color: #334155;
 }
 
 .followup-task {
