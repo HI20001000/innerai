@@ -707,6 +707,11 @@ const handleSelectFollowUp = (submission) => {
   display: grid;
   gap: 0.8rem;
   background: #f8fafc;
+  margin-bottom: 1rem;
+}
+
+.followup-task:last-child {
+  margin-bottom: 0;
 }
 
 .followup-task-header {
