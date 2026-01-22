@@ -30,6 +30,10 @@ const props = defineProps({
     type: [String, Date],
     default: '',
   },
+  userScoped: {
+    type: Boolean,
+    default: true,
+  },
 })
 
 const emit = defineEmits(['close', 'select-date'])
@@ -47,8 +51,9 @@ const activeFilterMenu = ref(null)
 
 const currentUserMail = computed(() => readUserProfile()?.mail?.toLowerCase() || '')
 
-const relatedSubmissions = computed(() => {
+const scopedSubmissions = computed(() => {
   const items = props.submissions || []
+  if (!props.userScoped) return items
   const mail = currentUserMail.value
   if (!mail) return []
   return items.filter((submission) => {
@@ -124,7 +129,10 @@ const matchesStatusFilter = (followUp, submission) => {
   const statusName = followUp.status_name || '進行中'
   if (props.statusFilter === 'incomplete') {
     if (statusName === '已完成') return false
-    return statusName === '未完成' || isOverdue(submission)
+    if (props.includeOverdueIncomplete) {
+      return isOverdue(submission)
+    }
+    return statusName === '未完成'
   }
   if (props.statusFilter === 'completed') return statusName === '已完成'
   if (props.statusFilter === 'in_progress') {
@@ -158,7 +166,7 @@ const getSubmissionTags = (submission) => {
 
 const hierarchy = computed(() => {
   const result = new Map()
-  const items = relatedSubmissions.value
+  const items = scopedSubmissions.value
   const clientQuery = clientFilter.value.trim().toLowerCase()
   const vendorQuery = vendorFilter.value.trim().toLowerCase()
   const productQuery = productFilter.value.trim().toLowerCase()
@@ -211,19 +219,19 @@ const hierarchy = computed(() => {
 })
 
 const clientOptions = computed(() => {
-  const items = relatedSubmissions.value
+  const items = scopedSubmissions.value
   const names = items.map((submission) => submission.client_name || '客戶')
   return Array.from(new Set(names)).sort()
 })
 
 const vendorOptions = computed(() => {
-  const items = relatedSubmissions.value
+  const items = scopedSubmissions.value
   const names = items.map((submission) => submission.vendor_name || '廠家')
   return Array.from(new Set(names)).sort()
 })
 
 const productOptions = computed(() => {
-  const items = relatedSubmissions.value
+  const items = scopedSubmissions.value
   const names = items.map((submission) => submission.product_name || '產品')
   return Array.from(new Set(names)).sort()
 })
