@@ -40,6 +40,9 @@ const activeStatusMenu = ref(null)
 const activeAssigneeMenu = ref(null)
 const statusSearch = ref('')
 const assigneeSearch = ref('')
+const clientFilter = ref('')
+const vendorFilter = ref('')
+const productFilter = ref('')
 
 const readAuthStorage = () => {
   const raw = window.localStorage.getItem('innerai_auth')
@@ -142,13 +145,19 @@ const getSubmissionTags = (submission) => {
 const hierarchy = computed(() => {
   const result = new Map()
   const items = props.submissions || []
+  const clientQuery = clientFilter.value.trim().toLowerCase()
+  const vendorQuery = vendorFilter.value.trim().toLowerCase()
+  const productQuery = productFilter.value.trim().toLowerCase()
   items.forEach((submission) => {
-    const followUps = Array.isArray(submission.follow_ups) ? submission.follow_ups : []
-    const filtered = followUps.filter((followUp) => matchesStatusFilter(followUp, submission))
-    if (filtered.length === 0) return
     const clientName = submission.client_name || '客戶'
     const vendorName = submission.vendor_name || '廠家'
     const productName = submission.product_name || '產品'
+    if (clientQuery && !clientName.toLowerCase().includes(clientQuery)) return
+    if (vendorQuery && !vendorName.toLowerCase().includes(vendorQuery)) return
+    if (productQuery && !productName.toLowerCase().includes(productQuery)) return
+    const followUps = Array.isArray(submission.follow_ups) ? submission.follow_ups : []
+    const filtered = followUps.filter((followUp) => matchesStatusFilter(followUp, submission))
+    if (filtered.length === 0) return
     const taskLabel = getTaskLabel(submission)
     if (!result.has(clientName)) {
       result.set(clientName, new Map())
@@ -295,15 +304,41 @@ const handleSelectFollowUp = (submission) => {
         </div>
         <button type="button" class="followup-modal-close" @click="emit('close')">✕</button>
       </header>
+      <div class="followup-modal-filters">
+        <label class="followup-filter-field">
+          <span class="followup-filter-label">客戶</span>
+          <input
+            v-model="clientFilter"
+            class="followup-filter-input"
+            type="text"
+            placeholder="搜尋客戶"
+          />
+        </label>
+        <label class="followup-filter-field">
+          <span class="followup-filter-label">廠家</span>
+          <input
+            v-model="vendorFilter"
+            class="followup-filter-input"
+            type="text"
+            placeholder="搜尋廠家"
+          />
+        </label>
+        <label class="followup-filter-field">
+          <span class="followup-filter-label">廠家產品</span>
+          <input
+            v-model="productFilter"
+            class="followup-filter-input"
+            type="text"
+            placeholder="搜尋產品"
+          />
+        </label>
+      </div>
       <div v-if="isLoading" class="followup-modal-empty">載入狀態中...</div>
       <div v-else-if="hierarchy.length === 0" class="followup-modal-empty">目前沒有符合條件的跟進任務。</div>
       <div v-else class="followup-modal-body">
-        <div v-for="client in hierarchy" :key="client.clientName" class="followup-level">
-          <h4 class="followup-level-title">{{ client.clientName }}</h4>
-          <div v-for="vendor in client.vendors" :key="vendor.vendorName" class="followup-level">
-            <h5 class="followup-level-subtitle">{{ vendor.vendorName }}</h5>
-            <div v-for="product in vendor.products" :key="product.productName" class="followup-level">
-              <h6 class="followup-level-product">{{ product.productName }}</h6>
+        <template v-for="client in hierarchy" :key="client.clientName">
+          <template v-for="vendor in client.vendors" :key="vendor.vendorName">
+            <template v-for="product in vendor.products" :key="product.productName">
               <div v-for="task in product.tasks" :key="task.taskLabel" class="followup-task">
                 <div class="followup-task-header">
                   <span class="followup-task-title">{{ task.taskLabel }}</span>
@@ -406,9 +441,9 @@ const handleSelectFollowUp = (submission) => {
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
-        </div>
+            </template>
+          </template>
+        </template>
       </div>
     </div>
   </div>
@@ -476,6 +511,37 @@ const handleSelectFollowUp = (submission) => {
   gap: 1rem;
 }
 
+.followup-modal-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.8rem;
+}
+
+.followup-filter-field {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  color: #475569;
+}
+
+.followup-filter-label {
+  font-weight: 600;
+}
+
+.followup-filter-input {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.9rem;
+  color: #0f172a;
+  background: #fff;
+}
+
+.followup-filter-input:focus {
+  outline: 2px solid rgba(59, 130, 246, 0.4);
+  border-color: #3b82f6;
+}
+
 .followup-modal-eyebrow {
   margin: 0;
   color: #94a3b8;
@@ -504,27 +570,9 @@ const handleSelectFollowUp = (submission) => {
   padding: 2rem 0;
 }
 
-.followup-level {
+.followup-modal-body {
   display: grid;
-  gap: 0.8rem;
-}
-
-.followup-level-title {
-  margin: 0;
-  font-size: 1.05rem;
-  color: #0f172a;
-}
-
-.followup-level-subtitle {
-  margin: 0;
-  font-size: 0.95rem;
-  color: #1f2937;
-}
-
-.followup-level-product {
-  margin: 0;
-  font-size: 0.9rem;
-  color: #334155;
+  gap: 1rem;
 }
 
 .followup-task {
@@ -532,7 +580,7 @@ const handleSelectFollowUp = (submission) => {
   border-radius: 16px;
   padding: 1rem 1.2rem;
   display: grid;
-  gap: 0.6rem;
+  gap: 0.8rem;
   background: #f8fafc;
 }
 
