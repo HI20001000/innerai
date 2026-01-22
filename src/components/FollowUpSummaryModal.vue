@@ -43,6 +43,7 @@ const assigneeSearch = ref('')
 const clientFilter = ref('')
 const vendorFilter = ref('')
 const productFilter = ref('')
+const activeFilterMenu = ref(null)
 
 const readAuthStorage = () => {
   const raw = window.localStorage.getItem('innerai_auth')
@@ -196,6 +197,47 @@ const hierarchy = computed(() => {
   }))
 })
 
+const clientOptions = computed(() => {
+  const items = props.submissions || []
+  const names = items.map((submission) => submission.client_name || '客戶')
+  return Array.from(new Set(names)).sort()
+})
+
+const vendorOptions = computed(() => {
+  const items = props.submissions || []
+  const names = items.map((submission) => submission.vendor_name || '廠家')
+  return Array.from(new Set(names)).sort()
+})
+
+const productOptions = computed(() => {
+  const items = props.submissions || []
+  const names = items.map((submission) => submission.product_name || '產品')
+  return Array.from(new Set(names)).sort()
+})
+
+const getFilteredOptions = (options, query) => {
+  const normalized = query.trim().toLowerCase()
+  if (!normalized) return options
+  return options.filter((item) => item.toLowerCase().includes(normalized))
+}
+
+const openFilterMenu = (menu) => {
+  activeFilterMenu.value = menu
+}
+
+const closeFilterMenu = () => {
+  window.setTimeout(() => {
+    activeFilterMenu.value = null
+  }, 100)
+}
+
+const selectFilterOption = (target, value) => {
+  if (target === 'client') clientFilter.value = value
+  if (target === 'vendor') vendorFilter.value = value
+  if (target === 'product') productFilter.value = value
+  activeFilterMenu.value = null
+}
+
 const updateFollowUpStatus = async (followUp, status) => {
   const auth = readAuthStorage()
   if (!auth || !followUp) return
@@ -312,7 +354,24 @@ const handleSelectFollowUp = (submission) => {
             class="followup-filter-input"
             type="text"
             placeholder="搜尋客戶"
+            @focus="openFilterMenu('client')"
+            @input="openFilterMenu('client')"
+            @blur="closeFilterMenu"
           />
+          <div
+            v-if="activeFilterMenu === 'client'"
+            class="followup-filter-menu"
+          >
+            <button
+              v-for="option in getFilteredOptions(clientOptions, clientFilter)"
+              :key="option"
+              type="button"
+              class="followup-filter-option"
+              @mousedown.prevent="selectFilterOption('client', option)"
+            >
+              {{ option }}
+            </button>
+          </div>
         </label>
         <label class="followup-filter-field">
           <span class="followup-filter-label">廠家</span>
@@ -321,7 +380,24 @@ const handleSelectFollowUp = (submission) => {
             class="followup-filter-input"
             type="text"
             placeholder="搜尋廠家"
+            @focus="openFilterMenu('vendor')"
+            @input="openFilterMenu('vendor')"
+            @blur="closeFilterMenu"
           />
+          <div
+            v-if="activeFilterMenu === 'vendor'"
+            class="followup-filter-menu"
+          >
+            <button
+              v-for="option in getFilteredOptions(vendorOptions, vendorFilter)"
+              :key="option"
+              type="button"
+              class="followup-filter-option"
+              @mousedown.prevent="selectFilterOption('vendor', option)"
+            >
+              {{ option }}
+            </button>
+          </div>
         </label>
         <label class="followup-filter-field">
           <span class="followup-filter-label">廠家產品</span>
@@ -330,7 +406,24 @@ const handleSelectFollowUp = (submission) => {
             class="followup-filter-input"
             type="text"
             placeholder="搜尋產品"
+            @focus="openFilterMenu('product')"
+            @input="openFilterMenu('product')"
+            @blur="closeFilterMenu"
           />
+          <div
+            v-if="activeFilterMenu === 'product'"
+            class="followup-filter-menu"
+          >
+            <button
+              v-for="option in getFilteredOptions(productOptions, productFilter)"
+              :key="option"
+              type="button"
+              class="followup-filter-option"
+              @mousedown.prevent="selectFilterOption('product', option)"
+            >
+              {{ option }}
+            </button>
+          </div>
         </label>
       </div>
       <div v-if="isLoading" class="followup-modal-empty">載入狀態中...</div>
@@ -518,6 +611,7 @@ const handleSelectFollowUp = (submission) => {
 }
 
 .followup-filter-field {
+  position: relative;
   display: grid;
   gap: 0.35rem;
   font-size: 0.85rem;
@@ -540,6 +634,37 @@ const handleSelectFollowUp = (submission) => {
 .followup-filter-input:focus {
   outline: 2px solid rgba(59, 130, 246, 0.4);
   border-color: #3b82f6;
+}
+
+.followup-filter-menu {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  left: 0;
+  right: 0;
+  max-height: 220px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
+  padding: 0.3rem;
+  z-index: 5;
+}
+
+.followup-filter-option {
+  width: 100%;
+  border: none;
+  background: transparent;
+  text-align: left;
+  padding: 0.45rem 0.6rem;
+  border-radius: 8px;
+  color: #0f172a;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.followup-filter-option:hover {
+  background: #f1f5f9;
 }
 
 .followup-modal-eyebrow {
