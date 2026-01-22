@@ -1562,15 +1562,6 @@ const handleUpdateTaskSubmission = async (req, res, id) => {
       sendJson(res, 400, { success: false, message: '關聯用戶不存在' })
       return
     }
-    const allowedAssignees = new Set(relatedUserMails)
-    const invalidAssignees = followUps
-      .flatMap((item) => item.assignees || [])
-      .filter((mail) => !allowedAssignees.has(mail))
-    if (invalidAssignees.length > 0) {
-      await connection.rollback()
-      sendJson(res, 400, { success: false, message: '跟進人必須為任務關聯用戶' })
-      return
-    }
     const [result] = await connection.query(
       `UPDATE task_submissions
        SET client_name = ?, vendor_name = ?, product_name = ?,
