@@ -30,3 +30,4 @@ export const filterUserOptions = (users = [], query = '') => {
     `${user.username || ''}${user.mail || ''}`.toLowerCase().includes(keyword)
   )
 }
+
