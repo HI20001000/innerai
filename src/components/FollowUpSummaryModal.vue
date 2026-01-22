@@ -122,10 +122,11 @@ const isOverdue = (submission) => {
 const matchesStatusFilter = (followUp, submission) => {
   if (!followUp) return false
   const statusName = followUp.status_name || '進行中'
-  if (props.statusFilter === 'completed') return statusName === '已完成'
   if (props.statusFilter === 'incomplete') {
+    if (statusName === '已完成') return false
     return statusName === '未完成' || isOverdue(submission)
   }
+  if (props.statusFilter === 'completed') return statusName === '已完成'
   if (props.statusFilter === 'in_progress') {
     if (isOverdue(submission)) return false
     return statusName !== '已完成' && statusName !== '未完成'
