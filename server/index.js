@@ -7,6 +7,7 @@ import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import mammoth from 'mammoth'
 import createHealthStatusFetcher from './scripts/healthChecks.js'
+import createLogger from './scripts/logger.js'
 
 const loadEnvFile = async (path) => {
   let content = ''
@@ -59,6 +60,8 @@ const TABLES = {
   tag: 'task_tags',
 }
 
+const logger = createLogger()
+
 const withCors = (res) => {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS')
@@ -85,13 +88,14 @@ const parseBody = async (req) => {
 }
 
 const createConnection = async (withDatabase = false) => {
-  return mysql.createConnection({
+  const connection = await mysql.createConnection({
     host: MYSQL_HOST,
     port: Number(MYSQL_PORT),
     user: MYSQL_USER,
     password: MYSQL_PASSWORD,
     database: withDatabase ? DATABASE_NAME : undefined,
   })
+  return connection
 }
 
 const ensureDatabase = async () => {
@@ -1738,6 +1742,14 @@ const getBearerToken = (req) => {
   return authHeader.slice(7).trim()
 }
 
+const getClientIp = (req) => {
+  const forwarded = req.headers['x-forwarded-for']
+  if (typeof forwarded === 'string' && forwarded.trim()) {
+    return forwarded.split(',')[0].trim()
+  }
+  return req.socket?.remoteAddress || 'unknown'
+}
+
 const createAuthToken = async (email) => {
   const token = crypto.randomBytes(32).toString('hex')
   const tokenHash = hashToken(token)
@@ -1859,9 +1871,42 @@ const loginUser = async (req, res) => {
         role: user.role,
       },
     })
+    await logger.info(`User login: ${user.mail} (${user.username}) from ${getClientIp(req)}`)
   } catch (error) {
     console.error(error)
     sendJson(res, 500, { message: 'Failed to login' })
+  }
+}
+
+const logoutUser = async (req, res) => {
+  const token = getBearerToken(req)
+  if (!token) {
+    sendJson(res, 401, { message: 'Auth token is required' })
+    return
+  }
+  try {
+    const tokenHash = hashToken(token)
+    const connection = await getConnection()
+    const [rows] = await connection.query(
+      `SELECT auth_tokens.mail, users.username
+       FROM auth_tokens
+       JOIN users ON users.mail = auth_tokens.mail
+       WHERE auth_tokens.token_hash = ?
+       LIMIT 1`,
+      [tokenHash]
+    )
+    if (!rows[0]) {
+      sendJson(res, 401, { message: 'Invalid or expired token' })
+      return
+    }
+    await connection.query('DELETE FROM auth_tokens WHERE token_hash = ?', [tokenHash])
+    await logger.info(
+      `User logout: ${rows[0].mail} (${rows[0].username}) from ${getClientIp(req)}`
+    )
+    sendJson(res, 200, { message: 'Logged out' })
+  } catch (error) {
+    console.error(error)
+    sendJson(res, 500, { message: 'Failed to logout' })
   }
 }
 
@@ -1898,6 +1943,7 @@ const verifyAuthToken = async (req, res) => {
         role: record.role,
       },
     })
+    await logger.info(`User auto login: ${record.mail} (${record.username}) from ${getClientIp(req)}`)
   } catch (error) {
     console.error(error)
     sendJson(res, 500, { message: 'Failed to verify token' })
@@ -2135,6 +2181,10 @@ const start = async () => {
       await loginUser(req, res)
       return
     }
+    if (url.pathname === '/api/auth/logout' && req.method === 'POST') {
+      await logoutUser(req, res)
+      return
+    }
     if (url.pathname === '/api/auth/verify' && req.method === 'POST') {
       await verifyAuthToken(req, res)
       return
@@ -2146,7 +2196,7 @@ const start = async () => {
     sendJson(res, 404, { message: 'Not found' })
   })
   server.listen(port, () => {
-    console.log(`Server listening on ${port}`)
+    logger.info(`Server listening on ${port}`)
   })
 }
 
