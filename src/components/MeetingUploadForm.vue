@@ -330,7 +330,10 @@ defineExpose({
         <div class="field select-field-wrapper">
           <div class="field-header">
             <span>客戶</span>
-            <button class="ghost-mini" type="button" @click="openModal('client')">編輯</button>
+            <div class="field-actions">
+              <button class="ghost-mini" type="button" @click="openModal('client')">編輯</button>
+              <span v-if="!selectedClient" class="missing-text">請選擇</span>
+            </div>
           </div>
           <button class="select-field" type="button" @click="openList('client')">
             {{ selectedClient || '選擇客戶' }}
@@ -351,7 +354,10 @@ defineExpose({
         <div class="field select-field-wrapper">
           <div class="field-header">
             <span>廠家</span>
-            <button class="ghost-mini" type="button" @click="openModal('vendor')">編輯</button>
+            <div class="field-actions">
+              <button class="ghost-mini" type="button" @click="openModal('vendor')">編輯</button>
+              <span v-if="!selectedVendor" class="missing-text">請選擇</span>
+            </div>
           </div>
           <button class="select-field" type="button" @click="openList('vendor')">
             {{ selectedVendor || '選擇廠家' }}
@@ -372,7 +378,10 @@ defineExpose({
         <div class="field select-field-wrapper">
           <div class="field-header">
             <span>廠家產品</span>
-            <button class="ghost-mini" type="button" @click="openModal('product')">編輯</button>
+            <div class="field-actions">
+              <button class="ghost-mini" type="button" @click="openModal('product')">編輯</button>
+              <span v-if="!selectedProduct" class="missing-text">請選擇</span>
+            </div>
           </div>
           <button class="select-field" type="button" @click="openList('product')">
             {{ selectedProduct || '選擇產品' }}
@@ -391,12 +400,18 @@ defineExpose({
           </div>
         </div>
         <label class="field">
-          <span>會議記錄時間</span>
+          <span class="field-label">
+            會議記錄時間
+            <span v-if="!meetingTime" class="missing-text">請選擇</span>
+          </span>
           <input v-model="meetingTime" type="datetime-local" class="text-input" />
           <p v-if="showRequiredHints && !meetingTime" class="required-hint">必填</p>
         </label>
         <label class="field wide">
-          <span>會議記錄資料夾</span>
+          <span class="field-label">
+            會議記錄資料夾
+            <span v-if="selectedFiles.length === 0" class="missing-text">請選擇</span>
+          </span>
           <label class="file-picker">
             <input
               type="file"
@@ -564,6 +579,18 @@ defineExpose({
   justify-content: space-between;
 }
 
+.field-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.field-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
 .select-field {
   border: 1px solid #e2e8f0;
   background: #fff;
@@ -652,6 +679,12 @@ defineExpose({
 .required-hint {
   color: #ef4444;
   font-size: 0.85rem;
+}
+
+.missing-text {
+  color: #dc2626;
+  font-size: 0.85rem;
+  font-weight: 600;
 }
 
 .modal-overlay {

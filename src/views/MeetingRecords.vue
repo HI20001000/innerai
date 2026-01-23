@@ -49,14 +49,6 @@ const uploadPrefill = ref({
   vendor: '',
   product: '',
 })
-const missingSelectionHints = computed(() => {
-  const missing = []
-  if (!activeClient.value) missing.push('客戶')
-  if (!activeVendor.value) missing.push('廠家')
-  if (!activeProduct.value) missing.push('廠家產品')
-  return missing
-})
-
 const goToNewTask = () => router?.push('/tasks/new')
 const goToTaskList = () => router?.push('/tasks/view')
 const goToMeetingRecords = () => router?.push('/meetings')
@@ -804,22 +796,6 @@ onMounted(fetchMeetingRecords)
           </div>
           <button class="ghost-mini" type="button" @click="closeUploadModal">關閉</button>
         </div>
-        <div class="modal-hints">
-          <div class="hint-block">
-            <h3>尚未選擇的欄位</h3>
-            <p v-if="missingSelectionHints.length === 0">已完成客戶、廠家與廠家產品的選擇。</p>
-            <ul v-else class="hint-list">
-              <li v-for="item in missingSelectionHints" :key="item">{{ item }}</li>
-            </ul>
-          </div>
-          <div class="hint-block">
-            <h3>必填欄位</h3>
-            <ul class="hint-list">
-              <li>會議記錄時間</li>
-              <li>會議記錄資料夾</li>
-            </ul>
-          </div>
-        </div>
         <MeetingUploadForm
           compact
           :initial-client="uploadPrefill.client"
@@ -1277,34 +1253,6 @@ onMounted(fetchMeetingRecords)
 .modal-header h2 {
   margin: 0.4rem 0 0;
   font-size: 1.5rem;
-}
-
-.modal-hints {
-  display: grid;
-  gap: 1.2rem;
-  padding: 1.2rem;
-  background: #f8fafc;
-  border-radius: 16px;
-  border: 1px solid #e2e8f0;
-}
-
-.hint-block h3 {
-  margin: 0 0 0.6rem;
-  font-size: 1rem;
-  color: #0f172a;
-}
-
-.hint-block p {
-  margin: 0;
-  color: #64748b;
-}
-
-.hint-list {
-  margin: 0;
-  padding-left: 1.2rem;
-  color: #475569;
-  display: grid;
-  gap: 0.35rem;
 }
 
 @media (max-width: 720px) {
