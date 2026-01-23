@@ -271,7 +271,7 @@ const syncPrefillValues = () => {
   selectedClient.value = props.initialClient || ''
   selectedVendor.value = props.initialVendor || ''
   selectedProduct.value = props.initialProduct || ''
-  meetingTime.value = props.initialMeetingTime || meetingTime.value || getTaipeiDateTimeLocal()
+  meetingTime.value = props.initialMeetingTime || ''
   showRequiredHints.value = false
   activeList.value = null
 }
@@ -286,7 +286,7 @@ onMounted(() => {
   fetchOptions('client').catch(() => {})
   fetchOptions('vendor').catch(() => {})
   fetchOptions('product').catch(() => {})
-  meetingTime.value = meetingTime.value || getTaipeiDateTimeLocal()
+  meetingTime.value = meetingTime.value || ''
 })
 
 defineExpose({
@@ -657,7 +657,7 @@ defineExpose({
 }
 
 .file-count {
-  color: #64748b;
+  color: #3867ff;
   font-weight: 600;
 }
 
