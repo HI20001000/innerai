@@ -301,10 +301,9 @@ const updateFollowUpStatus = async (followUp, status) => {
   }
 }
 
-const updateFollowUpAssignees = async (followUp, assignees, relatedUsers) => {
+const updateFollowUpAssignees = async (followUp, assignees, relatedUsers = []) => {
   const auth = readAuthStorage()
-  if (!auth || !followUp) return
-  const normalizedAssignees = normalizeAssigneeMails(assignees)
+  if (!auth) return
   const response = await fetch(`${apiBaseUrl}/api/task-submission-followups/${followUp.id}`, {
     method: 'PUT',
     headers: {
@@ -315,9 +314,10 @@ const updateFollowUpAssignees = async (followUp, assignees, relatedUsers) => {
   })
   const data = await response.json()
   if (!response.ok || !data?.success) return
-  followUp.assignees = normalizeUserOptions(relatedUsers).filter((user) =>
-    normalizedAssignees.includes(user.mail)
+  const selected = normalizeUserOptions(relatedUsers).filter((user) =>
+    assignees.includes(user.mail)
   )
+  followUp.assignees = selected
 }
 
 const toggleAssignee = async (followUp, user, relatedUsers) => {
@@ -367,11 +367,6 @@ const getAssigneeButtonText = (followUp) => {
   }
   const names = assignees.map((user) => user.username || user.mail).filter(Boolean)
   return names.length > 0 ? names.join('、') : '選擇跟進人'
-}
-
-const getAssigneeText = (followUp) => {
-  const names = formatAssigneeLabels(followUp?.assignees || [])
-  return names.length > 0 ? names.join('、') : '未指派'
 }
 
 const handleSelectFollowUp = (submission) => {
