@@ -82,8 +82,9 @@ const submissionsSource = computed(() =>
 const selectedMonth = ref(new Date())
 
 const syncMonthWithSelectedDate = (value) => {
-  if (!value) return
-  const [year, month] = String(value).split('-').map(Number)
+  const dateKey = toDateKey(value)
+  if (!dateKey) return
+  const [year, month] = dateKey.split('-').map(Number)
   if (!year || !month) return
   const current = selectedMonth.value
   if (current.getFullYear() === year && current.getMonth() === month - 1) return
