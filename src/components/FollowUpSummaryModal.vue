@@ -51,6 +51,24 @@ const activeFilterMenu = ref(null)
 
 const currentUserMail = computed(() => readUserProfile()?.mail?.toLowerCase() || '')
 
+const normalizeAssigneeMails = (assignees = []) =>
+  Array.isArray(assignees)
+    ? assignees
+        .map((item) => (typeof item === 'string' ? item : item?.mail))
+        .filter((mail) => typeof mail === 'string' && mail.trim())
+    : []
+
+const formatAssigneeLabels = (assignees = []) =>
+  Array.isArray(assignees)
+    ? assignees
+        .map((item) => {
+          if (!item) return null
+          if (typeof item === 'string') return item
+          return item.username || item.mail || null
+        })
+        .filter(Boolean)
+    : []
+
 const scopedSubmissions = computed(() => {
   const items = props.submissions || []
   if (!props.userScoped) return items
@@ -286,18 +304,19 @@ const updateFollowUpStatus = async (followUp, status) => {
 const updateFollowUpAssignees = async (followUp, assignees, relatedUsers) => {
   const auth = readAuthStorage()
   if (!auth || !followUp) return
+  const normalizedAssignees = normalizeAssigneeMails(assignees)
   const response = await fetch(`${apiBaseUrl}/api/task-submission-followups/${followUp.id}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${auth.token}`,
     },
-    body: JSON.stringify({ assignees }),
+    body: JSON.stringify({ assignees: normalizedAssignees }),
   })
   const data = await response.json()
   if (!response.ok || !data?.success) return
   followUp.assignees = normalizeUserOptions(relatedUsers).filter((user) =>
-    assignees.includes(user.mail)
+    normalizedAssignees.includes(user.mail)
   )
 }
 
@@ -305,7 +324,7 @@ const toggleAssignee = async (followUp, user, relatedUsers) => {
   const mail = user?.mail
   if (!mail) return
   const current = Array.isArray(followUp?.assignees) ? followUp.assignees : []
-  const mails = current.map((assignee) => assignee.mail)
+  const mails = normalizeAssigneeMails(current)
   const next = mails.includes(mail) ? mails.filter((item) => item !== mail) : [...mails, mail]
   await updateFollowUpAssignees(followUp, next, relatedUsers)
 }
@@ -320,8 +339,13 @@ const toggleAssigneeMenu = (followUpId) => {
   activeAssigneeMenu.value = activeAssigneeMenu.value === followUpId ? null : followUpId
 }
 
-const isAssigneeSelected = (followUp, mail) =>
-  Array.isArray(followUp?.assignees) && followUp.assignees.some((user) => user.mail === mail)
+const isAssigneeSelected = (followUp, mail) => {
+  if (!mail) return false
+  const normalizedMail = String(mail).trim().toLowerCase()
+  return normalizeAssigneeMails(followUp?.assignees).some(
+    (assignee) => assignee.trim().toLowerCase() === normalizedMail
+  )
+}
 
 const filteredStatuses = computed(() => {
   const query = statusSearch.value.trim().toLowerCase()
@@ -337,14 +361,12 @@ const getFilteredRelatedUsers = (submission) => {
 const getAssigneeButtonText = (followUp) => {
   const assignees = followUp?.assignees || []
   if (assignees.length === 0) return '選擇跟進人'
-  const names = assignees.map((user) => user.username || user.mail).filter(Boolean)
+  const names = formatAssigneeLabels(assignees)
   return names.length > 0 ? names.join('、') : '選擇跟進人'
 }
 
 const getAssigneeText = (followUp) => {
-  const names = (followUp?.assignees || [])
-    .map((user) => user.username || user.mail)
-    .filter(Boolean)
+  const names = formatAssigneeLabels(followUp?.assignees || [])
   return names.length > 0 ? names.join('、') : '未指派'
 }
 
