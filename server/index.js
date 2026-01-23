@@ -2221,13 +2221,6 @@ const start = async () => {
     }
     sendJson(res, 404, { message: 'Not found' })
   })
-  server.on('connection', (socket) => {
-    const ip = normalizeIp(socket.remoteAddress)
-    logger.info(`Backend connection from ${ip}`)
-    socket.on('close', () => {
-      logger.info(`Backend disconnected from ${ip}`)
-    })
-  })
   server.listen(port, () => {
     logger.info(`Server listening on ${port}`)
   })
