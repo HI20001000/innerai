@@ -87,26 +87,6 @@ const parseBody = async (req) => {
   }
 }
 
-const formatQuery = (sql, params) => {
-  if (typeof sql === 'string') {
-    return mysql.format(sql, params)
-  }
-  if (sql?.sql) {
-    return mysql.format(sql.sql, sql.values ?? params)
-  }
-  return String(sql)
-}
-
-const wrapConnectionLogging = (connection) => {
-  const originalQuery = connection.query.bind(connection)
-  connection.query = async (sql, params) => {
-    const formatted = formatQuery(sql, params)
-    await logger.info(`DB QUERY: ${formatted}`)
-    return originalQuery(sql, params)
-  }
-  return connection
-}
-
 const createConnection = async (withDatabase = false) => {
   const connection = await mysql.createConnection({
     host: MYSQL_HOST,
@@ -119,7 +99,7 @@ const createConnection = async (withDatabase = false) => {
 }
 
 const ensureDatabase = async () => {
-  const connection = wrapConnectionLogging(await createConnection(false))
+  const connection = await createConnection(false)
   await connection.query(`CREATE DATABASE IF NOT EXISTS \`${DATABASE_NAME}\``)
   await connection.end()
 }
@@ -437,7 +417,7 @@ const seedDefaults = async (connection) => {
 
 const initDatabase = async () => {
   await ensureDatabase()
-  const connection = wrapConnectionLogging(await createConnection(true))
+  const connection = await createConnection(true)
   await ensureTables(connection)
   await seedDefaults(connection)
   return connection
@@ -454,11 +434,9 @@ const getConnection = async () => {
   try {
     await dbConnection.ping()
   } catch (error) {
-    console.warn('Reconnecting to database after closed connection.', error?.message ?? error)
     try {
       await dbConnection.end()
     } catch (closeError) {
-      console.warn('Failed to close stale database connection.', closeError?.message ?? closeError)
     }
     dbConnection = await initDatabase()
   }
@@ -1859,7 +1837,12 @@ const loginUser = async (req, res) => {
   const body = await parseBody(req)
   const email = body?.email?.trim()
   const password = body?.password
+  const clientIp = getClientIp(req)
+  const loginMethod = 'password'
   if (!email || !password) {
+    await logger.warn(
+      `Login failed from ${clientIp} via ${loginMethod}: missing credentials`
+    )
     sendJson(res, 400, { message: 'Email and password are required' })
     return
   }
@@ -1871,11 +1854,13 @@ const loginUser = async (req, res) => {
     )
     const user = rows[0]
     if (!user) {
+      await logger.warn(`Login failed from ${clientIp} via ${loginMethod} for ${email}`)
       sendJson(res, 401, { message: 'Invalid credentials' })
       return
     }
     const passwordHash = await hashPassword(password, user.password_salt)
     if (passwordHash !== user.password_hash) {
+      await logger.warn(`Login failed from ${clientIp} via ${loginMethod} for ${email}`)
       sendJson(res, 401, { message: 'Invalid credentials' })
       return
     }
@@ -1891,9 +1876,11 @@ const loginUser = async (req, res) => {
         role: user.role,
       },
     })
-    await logger.info(`${getClientIp(req)} login in with ${user.mail}`)
+    await logger.info(`Login success from ${clientIp} via ${loginMethod} for ${user.mail}`)
   } catch (error) {
-    console.error(error)
+    await logger.error(
+      `Login error from ${clientIp} via ${loginMethod} for ${email || 'unknown'}: ${error?.message || error}`
+    )
     sendJson(res, 500, { message: 'Failed to login' })
   }
 }
