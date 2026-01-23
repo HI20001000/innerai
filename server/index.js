@@ -1740,12 +1740,33 @@ const getBearerToken = (req) => {
   return authHeader.slice(7).trim()
 }
 
+const normalizeIp = (ip) => {
+  if (!ip) return 'unknown'
+  let normalized = ip.trim()
+  if (normalized === '::1') return '127.0.0.1'
+  if (normalized.startsWith('::ffff:')) {
+    normalized = normalized.slice(7)
+  }
+  if (normalized.includes('.') && normalized.includes(':')) {
+    const lastColon = normalized.lastIndexOf(':')
+    const maybePort = normalized.slice(lastColon + 1)
+    if (/^\d+$/.test(maybePort)) {
+      normalized = normalized.slice(0, lastColon)
+    }
+  }
+  return normalized
+}
+
 const getClientIp = (req) => {
   const forwarded = req.headers['x-forwarded-for']
   if (typeof forwarded === 'string' && forwarded.trim()) {
-    return forwarded.split(',')[0].trim()
+    return normalizeIp(forwarded.split(',')[0].trim())
   }
-  return req.socket?.remoteAddress || 'unknown'
+  const realIp = req.headers['x-real-ip']
+  if (typeof realIp === 'string' && realIp.trim()) {
+    return normalizeIp(realIp)
+  }
+  return normalizeIp(req.socket?.remoteAddress)
 }
 
 const createAuthToken = async (email) => {
@@ -2201,7 +2222,7 @@ const start = async () => {
     sendJson(res, 404, { message: 'Not found' })
   })
   server.on('connection', (socket) => {
-    const ip = socket.remoteAddress || 'unknown'
+    const ip = normalizeIp(socket.remoteAddress)
     logger.info(`Backend connection from ${ip}`)
     socket.on('close', () => {
       logger.info(`Backend disconnected from ${ip}`)
