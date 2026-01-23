@@ -449,7 +449,7 @@ const { getHealthStatus } = createHealthStatusFetcher({
   difyUrl: DIFY_URL,
 })
 
-const handleGetOptions = async (type, res) => {
+const handleGetOptions = async (type, req, res) => {
   const table = TABLES[type]
   if (!table) {
     sendJson(res, 400, { message: 'Unknown option type' })
@@ -2075,7 +2075,7 @@ const start = async () => {
     if (url.pathname.startsWith('/api/options/')) {
       const type = url.pathname.split('/').pop()
       if (req.method === 'GET') {
-        await handleGetOptions(type, res)
+        await handleGetOptions(type, req, res)
         return
       }
       if (req.method === 'POST') {
