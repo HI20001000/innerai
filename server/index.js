@@ -1980,6 +1980,29 @@ const verifyAuthToken = async (req, res) => {
   }
 }
 
+const handleNavigationTelemetry = async (req, res) => {
+  const body = await parseBody(req)
+  const event = body?.event
+  if (!event) {
+    sendJson(res, 400, { message: 'Event is required' })
+    return
+  }
+  let user = null
+  try {
+    user = await getAuthenticatedUser(req)
+  } catch (error) {
+    console.warn('Failed to resolve auth user for telemetry:', error)
+  }
+  const fallbackUser = body?.user || {}
+  const identifier = user?.mail || fallbackUser?.mail || 'unknown'
+  await logger.info(
+    `${getClientIp(req)} navigation ${event} (${body?.navigationType || 'unknown'}) ` +
+      `from=${body?.from || '-'} to=${body?.to || body?.route || '-'} ` +
+      `user=${identifier}${fallbackUser?.username ? ` (${fallbackUser.username})` : ''}`
+  )
+  sendJson(res, 200, { success: true })
+}
+
 const updateUser = async (req, res) => {
   const body = await parseBody(req)
   const email = body?.email?.trim()
@@ -2217,6 +2240,10 @@ const start = async () => {
     }
     if (url.pathname === '/api/auth/verify' && req.method === 'POST') {
       await verifyAuthToken(req, res)
+      return
+    }
+    if (url.pathname === '/api/telemetry/navigation' && req.method === 'POST') {
+      await handleNavigationTelemetry(req, res)
       return
     }
     if (url.pathname === '/api/users/update' && req.method === 'POST') {
