@@ -57,13 +57,6 @@ const appendLog = async (line) => {
 const logWithLevel = async (level, message) => {
   const { timestamp } = formatTaipeiDate(new Date())
   const line = `[${timestamp}] [${level}] ${message}`
-  if (level === 'ERROR') {
-    console.error(line)
-  } else if (level === 'WARN') {
-    console.warn(line)
-  } else {
-    console.log(line)
-  }
   try {
     await appendLog(line)
   } catch (error) {
