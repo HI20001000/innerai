@@ -449,7 +449,7 @@ const { getHealthStatus } = createHealthStatusFetcher({
   difyUrl: DIFY_URL,
 })
 
-const handleGetOptions = async (type, res) => {
+const handleGetOptions = async (type, req, res) => {
   const table = TABLES[type]
   if (!table) {
     sendJson(res, 400, { message: 'Unknown option type' })
@@ -518,7 +518,6 @@ const getAuthenticatedUser = async (req) => {
   if (!token) return null
   const tokenHash = hashToken(token)
   const connection = await getRequestConnection(req)
-  await connection.query('DELETE FROM auth_tokens WHERE expires_at < NOW()')
   const [rows] = await connection.query(
     `SELECT auth_tokens.expires_at, users.mail
      FROM auth_tokens
@@ -1951,7 +1950,6 @@ const verifyAuthToken = async (req, res) => {
   try {
     const tokenHash = hashToken(token)
     const connection = await getRequestConnection(req)
-    await connection.query('DELETE FROM auth_tokens WHERE expires_at < NOW()')
     const [rows] = await connection.query(
       `SELECT auth_tokens.expires_at, users.mail, users.icon, users.icon_bg, users.username, users.role
        FROM auth_tokens
@@ -2075,7 +2073,7 @@ const start = async () => {
     if (url.pathname.startsWith('/api/options/')) {
       const type = url.pathname.split('/').pop()
       if (req.method === 'GET') {
-        await handleGetOptions(type, res)
+        await handleGetOptions(type, req, res)
         return
       }
       if (req.method === 'POST') {
