@@ -43,13 +43,12 @@ const uploadInput = ref(null)
 const activeReport = ref(null)
 const activeReportMeta = ref(null)
 const reportLoadingIds = ref(new Set())
-const showUploadPanel = ref(false)
+const showUploadModal = ref(false)
 const uploadPrefill = ref({
   client: '',
   vendor: '',
   product: '',
 })
-
 const goToNewTask = () => router?.push('/tasks/new')
 const goToTaskList = () => router?.push('/tasks/view')
 const goToMeetingRecords = () => router?.push('/meetings')
@@ -153,7 +152,7 @@ const selectClient = (clientName) => {
   activeRecordMeta.value = null
   activeReport.value = null
   activeReportMeta.value = null
-  showUploadPanel.value = false
+  showUploadModal.value = false
 }
 
 const selectVendor = (vendorName) => {
@@ -164,7 +163,7 @@ const selectVendor = (vendorName) => {
   activeRecordMeta.value = null
   activeReport.value = null
   activeReportMeta.value = null
-  showUploadPanel.value = false
+  showUploadModal.value = false
 }
 
 const selectProduct = (productName) => {
@@ -178,7 +177,7 @@ const selectProduct = (productName) => {
   activeRecordMeta.value = null
   activeReport.value = null
   activeReportMeta.value = null
-  showUploadPanel.value = false
+  showUploadModal.value = false
 }
 
 const selectMeeting = (meeting) => {
@@ -187,7 +186,7 @@ const selectMeeting = (meeting) => {
   activeRecordMeta.value = null
   activeReport.value = null
   activeReportMeta.value = null
-  showUploadPanel.value = false
+  showUploadModal.value = false
 }
 
 const resetSelections = () => {
@@ -199,7 +198,7 @@ const resetSelections = () => {
   activeRecordMeta.value = null
   activeReport.value = null
   activeReportMeta.value = null
-  showUploadPanel.value = false
+  showUploadModal.value = false
   searchQuery.value.client = ''
   searchQuery.value.vendor = ''
   searchQuery.value.product = ''
@@ -232,7 +231,7 @@ const setActiveRecord = (record, meeting) => {
   activeRecordMeta.value = meeting || activeMeeting.value
   activeReport.value = null
   activeReportMeta.value = null
-  showUploadPanel.value = false
+  showUploadModal.value = false
 }
 
 const setActiveReport = (meeting, report) => {
@@ -240,7 +239,7 @@ const setActiveReport = (meeting, report) => {
   activeReportMeta.value = meeting
   activeRecord.value = null
   activeRecordMeta.value = null
-  showUploadPanel.value = false
+  showUploadModal.value = false
 }
 
 const isReportLoading = (meetingId) => reportLoadingIds.value.has(meetingId)
@@ -386,26 +385,26 @@ const handleMeetingReportAction = (meeting) => {
   }
 }
 
-const openUploadPanel = () => {
+const openUploadModal = () => {
   uploadPrefill.value = {
     client: activeClient.value || '',
     vendor: activeVendor.value || '',
     product: activeProduct.value || '',
   }
-  showUploadPanel.value = true
+  showUploadModal.value = true
   activeRecord.value = null
   activeRecordMeta.value = null
   activeReport.value = null
   activeReportMeta.value = null
 }
 
-const closeUploadPanel = () => {
-  showUploadPanel.value = false
+const closeUploadModal = () => {
+  showUploadModal.value = false
 }
 
 const handleUploadSuccess = async () => {
   await fetchMeetingRecords()
-  showUploadPanel.value = false
+  showUploadModal.value = false
 }
 
 const deleteMeetingRecord = async (record) => {
@@ -576,8 +575,8 @@ onMounted(fetchMeetingRecords)
                 <h2>客戶</h2>
               </div>
               <div>
-                <button class="ghost-mini" type="button" @click="openUploadPanel">
-                  編輯
+                <button class="ghost-mini" type="button" @click="openUploadModal">
+                  上傳
                 </button>
                 <button class="ghost-mini" type="button" @click="resetSelections">
                   取消
@@ -761,18 +760,10 @@ onMounted(fetchMeetingRecords)
           <ScrollPanel height="calc(100vh - 240px)">
           <div class="panel-section">
             <div class="panel-header">
-              <h2>{{ showUploadPanel ? '上傳會議記錄' : previewTitle }}</h2>
+              <h2>{{ previewTitle }}</h2>
               <div class="panel-actions">
                 <button
-                  v-if="showUploadPanel"
-                  class="ghost-mini"
-                  type="button"
-                  @click="closeUploadPanel"
-                >
-                  返回預覽
-                </button>
-                <button
-                  v-else-if="activeReport"
+                  v-if="activeReport"
                   class="ghost-mini"
                   type="button"
                   :disabled="!activeReportMeta || isReportLoading(activeReportMeta.id)"
@@ -782,29 +773,38 @@ onMounted(fetchMeetingRecords)
                 </button>
               </div>
             </div>
-            <MeetingUploadForm
-              v-if="showUploadPanel"
-              compact
-              :initial-client="uploadPrefill.client"
-              :initial-vendor="uploadPrefill.vendor"
-              :initial-product="uploadPrefill.product"
-              @uploaded="handleUploadSuccess"
-            />
-            <template v-else>
-              <p v-if="previewMeta" class="meta">
-                會議時間：{{ formatDateTimeDisplay(previewMeta.meeting_time) }}｜建立者：{{
-                  previewMeta.created_by_email
-                }}｜建立時間：{{ formatDateTimeDisplay(previewMeta.created_at) }}
-              </p>
-              <pre class="record-content">
+            <p v-if="previewMeta" class="meta">
+              會議時間：{{ formatDateTimeDisplay(previewMeta.meeting_time) }}｜建立者：{{
+                previewMeta.created_by_email
+              }}｜建立時間：{{ formatDateTimeDisplay(previewMeta.created_at) }}
+            </p>
+            <pre class="record-content">
 {{ previewContent }}
-              </pre>
-            </template>
+            </pre>
           </div>
           </ScrollPanel>
         </aside>
       </div>
     </section>
+
+    <div v-if="showUploadModal" class="modal-overlay" @click.self="closeUploadModal">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">上傳會議記錄</p>
+            <h2>確認欄位與資料夾</h2>
+          </div>
+          <button class="ghost-mini" type="button" @click="closeUploadModal">關閉</button>
+        </div>
+        <MeetingUploadForm
+          compact
+          :initial-client="uploadPrefill.client"
+          :initial-vendor="uploadPrefill.vendor"
+          :initial-product="uploadPrefill.product"
+          @uploaded="handleUploadSuccess"
+        />
+      </div>
+    </div>
 
     <ResultModal
       :is-open="showResult"
@@ -1220,6 +1220,41 @@ onMounted(fetchMeetingRecords)
   color: #64748b;
   font-weight: 500;
 }
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.4);
+  display: grid;
+  place-items: center;
+  padding: 2rem;
+  z-index: 30;
+}
+
+.modal-card {
+  background: #fff;
+  border-radius: 24px;
+  padding: 2rem;
+  width: min(760px, 100%);
+  max-height: calc(100vh - 120px);
+  overflow: auto;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.2);
+  display: grid;
+  gap: 1.5rem;
+}
+
+.modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.5rem;
+}
+
+.modal-header h2 {
+  margin: 0.4rem 0 0;
+  font-size: 1.5rem;
+}
+
 @media (max-width: 720px) {
   .meeting-records-page {
     padding: 2.5rem 6vw 3.5rem;
