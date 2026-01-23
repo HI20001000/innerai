@@ -304,6 +304,7 @@ const updateFollowUpStatus = async (followUp, status) => {
 const updateFollowUpAssignees = async (followUp, assignees, relatedUsers = []) => {
   const auth = readAuthStorage()
   if (!auth) return
+  const normalizedAssignees = normalizeAssigneeMails(assignees)
   const response = await fetch(`${apiBaseUrl}/api/task-submission-followups/${followUp.id}`, {
     method: 'PUT',
     headers: {
