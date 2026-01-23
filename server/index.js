@@ -87,26 +87,6 @@ const parseBody = async (req) => {
   }
 }
 
-const formatQuery = (sql, params) => {
-  if (typeof sql === 'string') {
-    return mysql.format(sql, params)
-  }
-  if (sql?.sql) {
-    return mysql.format(sql.sql, sql.values ?? params)
-  }
-  return String(sql)
-}
-
-const wrapConnectionLogging = (connection) => {
-  const originalQuery = connection.query.bind(connection)
-  connection.query = async (sql, params) => {
-    const formatted = formatQuery(sql, params)
-    await logger.info(`DB QUERY: ${formatted}`)
-    return originalQuery(sql, params)
-  }
-  return connection
-}
-
 const createConnection = async (withDatabase = false) => {
   const connection = await mysql.createConnection({
     host: MYSQL_HOST,
@@ -119,7 +99,7 @@ const createConnection = async (withDatabase = false) => {
 }
 
 const ensureDatabase = async () => {
-  const connection = wrapConnectionLogging(await createConnection(false))
+  const connection = await createConnection(false)
   await connection.query(`CREATE DATABASE IF NOT EXISTS \`${DATABASE_NAME}\``)
   await connection.end()
 }
