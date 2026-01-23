@@ -286,18 +286,23 @@ const updateFollowUpStatus = async (followUp, status) => {
 const updateFollowUpAssignees = async (followUp, assignees, relatedUsers) => {
   const auth = readAuthStorage()
   if (!auth || !followUp) return
+  const normalizedAssignees = Array.isArray(assignees)
+    ? assignees
+        .map((item) => (typeof item === 'string' ? item : item?.mail))
+        .filter((mail) => typeof mail === 'string' && mail.trim())
+    : []
   const response = await fetch(`${apiBaseUrl}/api/task-submission-followups/${followUp.id}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${auth.token}`,
     },
-    body: JSON.stringify({ assignees }),
+    body: JSON.stringify({ assignees: normalizedAssignees }),
   })
   const data = await response.json()
   if (!response.ok || !data?.success) return
   followUp.assignees = normalizeUserOptions(relatedUsers).filter((user) =>
-    assignees.includes(user.mail)
+    normalizedAssignees.includes(user.mail)
   )
 }
 
@@ -305,7 +310,9 @@ const toggleAssignee = async (followUp, user, relatedUsers) => {
   const mail = user?.mail
   if (!mail) return
   const current = Array.isArray(followUp?.assignees) ? followUp.assignees : []
-  const mails = current.map((assignee) => assignee.mail)
+  const mails = current
+    .map((assignee) => (typeof assignee === 'string' ? assignee : assignee?.mail))
+    .filter(Boolean)
   const next = mails.includes(mail) ? mails.filter((item) => item !== mail) : [...mails, mail]
   await updateFollowUpAssignees(followUp, next, relatedUsers)
 }
