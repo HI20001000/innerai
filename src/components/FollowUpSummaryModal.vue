@@ -264,8 +264,9 @@ const openFilterMenu = (menu) => {
   activeFilterMenu.value = menu
 }
 
-const closeFilterMenu = () => {
+const closeFilterMenu = (menu) => {
   window.setTimeout(() => {
+    if (activeFilterMenu.value !== menu) return
     activeFilterMenu.value = null
   }, 100)
 }
@@ -424,7 +425,7 @@ onBeforeUnmount(() => {
             placeholder="搜尋客戶"
             @focus="openFilterMenu('client')"
             @input="openFilterMenu('client')"
-            @blur="closeFilterMenu"
+            @blur="closeFilterMenu('client')"
           />
           <div
             v-if="activeFilterMenu === 'client'"
@@ -450,7 +451,7 @@ onBeforeUnmount(() => {
             placeholder="搜尋廠家"
             @focus="openFilterMenu('vendor')"
             @input="openFilterMenu('vendor')"
-            @blur="closeFilterMenu"
+            @blur="closeFilterMenu('vendor')"
           />
           <div
             v-if="activeFilterMenu === 'vendor'"
@@ -476,7 +477,7 @@ onBeforeUnmount(() => {
             placeholder="搜尋產品"
             @focus="openFilterMenu('product')"
             @input="openFilterMenu('product')"
-            @blur="closeFilterMenu"
+            @blur="closeFilterMenu('product')"
           />
           <div
             v-if="activeFilterMenu === 'product'"
