@@ -1859,7 +1859,12 @@ const loginUser = async (req, res) => {
   const body = await parseBody(req)
   const email = body?.email?.trim()
   const password = body?.password
+  const clientIp = getClientIp(req)
+  const loginMethod = 'password'
   if (!email || !password) {
+    await logger.warn(
+      `Login failed from ${clientIp} via ${loginMethod}: missing credentials`
+    )
     sendJson(res, 400, { message: 'Email and password are required' })
     return
   }
@@ -1871,11 +1876,13 @@ const loginUser = async (req, res) => {
     )
     const user = rows[0]
     if (!user) {
+      await logger.warn(`Login failed from ${clientIp} via ${loginMethod} for ${email}`)
       sendJson(res, 401, { message: 'Invalid credentials' })
       return
     }
     const passwordHash = await hashPassword(password, user.password_salt)
     if (passwordHash !== user.password_hash) {
+      await logger.warn(`Login failed from ${clientIp} via ${loginMethod} for ${email}`)
       sendJson(res, 401, { message: 'Invalid credentials' })
       return
     }
@@ -1891,9 +1898,11 @@ const loginUser = async (req, res) => {
         role: user.role,
       },
     })
-    await logger.info(`${getClientIp(req)} login in with ${user.mail}`)
+    await logger.info(`Login success from ${clientIp} via ${loginMethod} for ${user.mail}`)
   } catch (error) {
-    console.error(error)
+    await logger.error(
+      `Login error from ${clientIp} via ${loginMethod} for ${email || 'unknown'}: ${error?.message || error}`
+    )
     sendJson(res, 500, { message: 'Failed to login' })
   }
 }
