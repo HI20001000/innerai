@@ -331,12 +331,20 @@ const toggleAssignee = async (followUp, user, relatedUsers) => {
 
 const toggleStatusMenu = (followUpId) => {
   statusSearch.value = ''
-  activeStatusMenu.value = activeStatusMenu.value === followUpId ? null : followUpId
+  const nextValue = activeStatusMenu.value === followUpId ? null : followUpId
+  activeStatusMenu.value = nextValue
+  if (nextValue) {
+    activeAssigneeMenu.value = null
+  }
 }
 
 const toggleAssigneeMenu = (followUpId) => {
   assigneeSearch.value = ''
-  activeAssigneeMenu.value = activeAssigneeMenu.value === followUpId ? null : followUpId
+  const nextValue = activeAssigneeMenu.value === followUpId ? null : followUpId
+  activeAssigneeMenu.value = nextValue
+  if (nextValue) {
+    activeStatusMenu.value = null
+  }
 }
 
 const isAssigneeSelected = (followUp, mail) => {
