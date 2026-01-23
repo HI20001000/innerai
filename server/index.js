@@ -417,7 +417,7 @@ const seedDefaults = async (connection) => {
 
 const initDatabase = async () => {
   await ensureDatabase()
-  const connection = wrapConnectionLogging(await createConnection(true))
+  const connection = await createConnection(true)
   await ensureTables(connection)
   await seedDefaults(connection)
   return connection
@@ -434,11 +434,9 @@ const getConnection = async () => {
   try {
     await dbConnection.ping()
   } catch (error) {
-    console.warn('Reconnecting to database after closed connection.', error?.message ?? error)
     try {
       await dbConnection.end()
     } catch (closeError) {
-      console.warn('Failed to close stale database connection.', closeError?.message ?? closeError)
     }
     dbConnection = await initDatabase()
   }
