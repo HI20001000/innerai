@@ -8,6 +8,7 @@ import { promisify } from 'node:util'
 import mammoth from 'mammoth'
 import createHealthStatusFetcher from './scripts/healthChecks.js'
 import createLogger from './scripts/logger.js'
+import createSqlAuditWrapper from './scripts/sqlAudit.js'
 
 const loadEnvFile = async (path) => {
   let content = ''
@@ -87,26 +88,6 @@ const parseBody = async (req) => {
   }
 }
 
-const formatQuery = (sql, params) => {
-  if (typeof sql === 'string') {
-    return mysql.format(sql, params)
-  }
-  if (sql?.sql) {
-    return mysql.format(sql.sql, sql.values ?? params)
-  }
-  return String(sql)
-}
-
-const wrapConnectionLogging = (connection) => {
-  const originalQuery = connection.query.bind(connection)
-  connection.query = async (sql, params) => {
-    const formatted = formatQuery(sql, params)
-    await logger.info(`DB QUERY: ${formatted}`)
-    return originalQuery(sql, params)
-  }
-  return connection
-}
-
 const createConnection = async (withDatabase = false) => {
   const connection = await mysql.createConnection({
     host: MYSQL_HOST,
@@ -119,7 +100,7 @@ const createConnection = async (withDatabase = false) => {
 }
 
 const ensureDatabase = async () => {
-  const connection = wrapConnectionLogging(await createConnection(false))
+  const connection = await createConnection(false)
   await connection.query(`CREATE DATABASE IF NOT EXISTS \`${DATABASE_NAME}\``)
   await connection.end()
 }
@@ -437,7 +418,7 @@ const seedDefaults = async (connection) => {
 
 const initDatabase = async () => {
   await ensureDatabase()
-  const connection = wrapConnectionLogging(await createConnection(true))
+  const connection = await createConnection(true)
   await ensureTables(connection)
   await seedDefaults(connection)
   return connection
@@ -454,11 +435,9 @@ const getConnection = async () => {
   try {
     await dbConnection.ping()
   } catch (error) {
-    console.warn('Reconnecting to database after closed connection.', error?.message ?? error)
     try {
       await dbConnection.end()
     } catch (closeError) {
-      console.warn('Failed to close stale database connection.', closeError?.message ?? closeError)
     }
     dbConnection = await initDatabase()
   }
@@ -470,14 +449,14 @@ const { getHealthStatus } = createHealthStatusFetcher({
   difyUrl: DIFY_URL,
 })
 
-const handleGetOptions = async (type, res) => {
+const handleGetOptions = async (type, req, res) => {
   const table = TABLES[type]
   if (!table) {
     sendJson(res, 400, { message: 'Unknown option type' })
     return
   }
   try {
-    const connection = await getConnection()
+    const connection = await getRequestConnection(req)
     const [rows] = await connection.query(`SELECT name FROM \`${table}\` ORDER BY name ASC`)
     sendJson(res, 200, rows.map((row) => row.name))
   } catch (error) {
@@ -499,7 +478,7 @@ const handlePostOptions = async (type, req, res) => {
     return
   }
   try {
-    const connection = await getConnection()
+    const connection = await getRequestConnection(req)
     await connection.query(`INSERT INTO \`${table}\` (name) VALUES (?)`, [name.trim()])
     sendJson(res, 201, { name: name.trim() })
   } catch (error) {
@@ -525,7 +504,7 @@ const handleDeleteOptions = async (type, req, res) => {
     return
   }
   try {
-    const connection = await getConnection()
+    const connection = await getRequestConnection(req)
     await connection.query(`DELETE FROM \`${table}\` WHERE name = ?`, [name])
     sendJson(res, 200, { name })
   } catch (error) {
@@ -538,7 +517,7 @@ const getAuthenticatedUser = async (req) => {
   const token = getBearerToken(req)
   if (!token) return null
   const tokenHash = hashToken(token)
-  const connection = await getConnection()
+  const connection = await getRequestConnection(req)
   await connection.query('DELETE FROM auth_tokens WHERE expires_at < NOW()')
   const [rows] = await connection.query(
     `SELECT auth_tokens.expires_at, users.mail
@@ -682,7 +661,7 @@ const handlePostTaskSubmission = async (req, res) => {
   }
   let connection = null
   try {
-    connection = await getConnection()
+    connection = await getRequestConnection(req)
     await connection.beginTransaction()
     const [users] = await connection.query('SELECT mail FROM users WHERE mail IN (?)', [
       relatedUserMails,
@@ -772,7 +751,7 @@ const handleGetTaskSubmissions = async (req, res) => {
   const user = await getRequiredAuthUser(req, res)
   if (!user) return
   try {
-    const connection = await getConnection()
+    const connection = await getRequestConnection(req)
     const [rows] = await connection.query(
       `SELECT task_submissions.id, task_submissions.client_name, task_submissions.vendor_name,
         task_submissions.product_name, task_submissions.start_at, task_submissions.end_at,
@@ -888,7 +867,7 @@ const handleGetUsersList = async (req, res) => {
   const user = await getRequiredAuthUser(req, res)
   if (!user) return
   try {
-    const connection = await getConnection()
+    const connection = await getRequestConnection(req)
     const [rows] = await connection.query(
       'SELECT mail, icon, icon_bg, username FROM users ORDER BY username ASC'
     )
@@ -903,7 +882,7 @@ const handleGetFollowUpStatusesList = async (req, res) => {
   const user = await getRequiredAuthUser(req, res)
   if (!user) return
   try {
-    const connection = await getConnection()
+    const connection = await getRequestConnection(req)
     const [rows] = await connection.query(
       'SELECT id, name, bg_color FROM follow_up_statuses ORDER BY id ASC'
     )
@@ -929,7 +908,7 @@ const handlePostFollowUpStatus = async (req, res) => {
     return
   }
   try {
-    const connection = await getConnection()
+    const connection = await getRequestConnection(req)
     try {
       const [result] = await connection.query(
         'INSERT INTO follow_up_statuses (name, bg_color) VALUES (?, ?)',
@@ -976,7 +955,7 @@ const handleUpdateFollowUpStatus = async (req, res, id) => {
     return
   }
   try {
-    const connection = await getConnection()
+    const connection = await getRequestConnection(req)
     const [result] = await connection.query(
       'UPDATE follow_up_statuses SET name = ?, bg_color = ? WHERE id = ?',
       [name, bgColor || '#e2e8f0', id]
@@ -1003,7 +982,7 @@ const handleDeleteFollowUpStatus = async (req, res, id) => {
   const user = await getRequiredAuthUser(req, res)
   if (!user) return
   try {
-    const connection = await getConnection()
+    const connection = await getRequestConnection(req)
     const [result] = await connection.query('DELETE FROM follow_up_statuses WHERE id = ?', [id])
     if (result.affectedRows === 0) {
       sendJson(res, 404, { success: false, message: '找不到狀態' })
@@ -1028,7 +1007,7 @@ const handleUpdateTaskSubmissionFollowupStatus = async (req, res, id) => {
     : null
   let connection
   try {
-    connection = await getConnection()
+    connection = await getRequestConnection(req)
     if (hasStatusUpdate && statusId !== null) {
       const [rows] = await connection.query(
         'SELECT id FROM follow_up_statuses WHERE id = ?',
@@ -1130,7 +1109,7 @@ const handlePostMeetingRecords = async (req, res) => {
   const normalizedMeetingTime = normalizeDateTime(meetingTime)
   let connection = null
   try {
-    connection = await getConnection()
+    connection = await getRequestConnection(req)
     await connection.beginTransaction()
     const [folderResult] = await connection.query(
       `INSERT INTO meeting_folders
@@ -1219,7 +1198,7 @@ const handleAppendMeetingRecords = async (req, res, folderId) => {
     return
   }
   try {
-    const connection = await getConnection()
+    const connection = await getRequestConnection(req)
     const [folders] = await connection.query('SELECT id FROM meeting_folders WHERE id = ?', [
       folderId,
     ])
@@ -1243,7 +1222,7 @@ const handleDeleteMeetingRecord = async (req, res, recordId) => {
   const user = await getRequiredAuthUser(req, res)
   if (!user) return
   try {
-    const connection = await getConnection()
+    const connection = await getRequestConnection(req)
     const [result] = await connection.query('DELETE FROM meeting_records WHERE id = ?', [
       recordId,
     ])
@@ -1263,7 +1242,7 @@ const handleDeleteMeetingFolder = async (req, res, folderId) => {
   if (!user) return
   let connection = null
   try {
-    connection = await getConnection()
+    connection = await getRequestConnection(req)
     await connection.beginTransaction()
     await connection.query('DELETE FROM meeting_records WHERE folder_id = ?', [folderId])
     await connection.query('DELETE FROM meeting_reports WHERE folder_id = ?', [folderId])
@@ -1301,7 +1280,7 @@ const handleGenerateMeetingReport = async (req, res, folderId) => {
     return
   }
   try {
-    const connection = await getConnection()
+    const connection = await getRequestConnection(req)
     const [records] = await connection.query(
       'SELECT file_name, content_text FROM meeting_records WHERE folder_id = ? ORDER BY id ASC',
       [folderId]
@@ -1355,7 +1334,7 @@ const handleGetMeetingRecords = async (req, res) => {
   const user = await getRequiredAuthUser(req, res)
   if (!user) return
   try {
-    const connection = await getConnection()
+    const connection = await getRequestConnection(req)
     const [clientVendors] = await connection.query(
       'SELECT client_name, vendor_name FROM client_vendor_links'
     )
@@ -1576,7 +1555,7 @@ const handleUpdateTaskSubmission = async (req, res, id) => {
   const normalizedEndAt = endAt ? normalizeDateTime(endAt) : null
   let connection = null
   try {
-    connection = await getConnection()
+    connection = await getRequestConnection(req)
     await connection.beginTransaction()
     const [users] = await connection.query('SELECT mail FROM users WHERE mail IN (?)', [
       relatedUserMails,
@@ -1672,7 +1651,7 @@ const handleDeleteTaskSubmission = async (req, res, id) => {
   const user = await getRequiredAuthUser(req, res)
   if (!user) return
   try {
-    const connection = await getConnection()
+    const connection = await getRequestConnection(req)
     await connection.beginTransaction()
     const [followRows] = await connection.query(
       'SELECT id FROM task_submission_followups WHERE submission_id = ?',
@@ -1762,19 +1741,45 @@ const getBearerToken = (req) => {
   return authHeader.slice(7).trim()
 }
 
+const normalizeIp = (ip) => {
+  if (!ip) return 'unknown'
+  let normalized = ip.trim()
+  if (normalized === '::1') return '127.0.0.1'
+  if (normalized.startsWith('::ffff:')) {
+    normalized = normalized.slice(7)
+  }
+  if (normalized.includes('.') && normalized.includes(':')) {
+    const lastColon = normalized.lastIndexOf(':')
+    const maybePort = normalized.slice(lastColon + 1)
+    if (/^\d+$/.test(maybePort)) {
+      normalized = normalized.slice(0, lastColon)
+    }
+  }
+  return normalized
+}
+
 const getClientIp = (req) => {
   const forwarded = req.headers['x-forwarded-for']
   if (typeof forwarded === 'string' && forwarded.trim()) {
-    return forwarded.split(',')[0].trim()
+    return normalizeIp(forwarded.split(',')[0].trim())
   }
-  return req.socket?.remoteAddress || 'unknown'
+  const realIp = req.headers['x-real-ip']
+  if (typeof realIp === 'string' && realIp.trim()) {
+    return normalizeIp(realIp)
+  }
+  return normalizeIp(req.socket?.remoteAddress)
 }
 
-const createAuthToken = async (email) => {
+const wrapConnectionWithSqlLogging = createSqlAuditWrapper({ logger, getClientIp })
+
+const getRequestConnection = async (req) =>
+  req ? wrapConnectionWithSqlLogging(await getConnection(), req) : getConnection()
+
+const createAuthToken = async (email, req) => {
   const token = crypto.randomBytes(32).toString('hex')
   const tokenHash = hashToken(token)
   const expiresAt = new Date(Date.now() + TOKEN_TTL_MS)
-  const connection = await getConnection()
+  const connection = await getRequestConnection(req)
   await connection.query('DELETE FROM auth_tokens WHERE mail = ? OR expires_at < NOW()', [email])
   await connection.query('INSERT INTO auth_tokens (mail, token_hash, expires_at) VALUES (?, ?, ?)', [
     email,
@@ -1837,7 +1842,7 @@ const registerUser = async (req, res) => {
   try {
     const salt = crypto.randomBytes(16).toString('hex')
     const passwordHash = await hashPassword(password, salt)
-    const connection = await getConnection()
+    const connection = await getRequestConnection(req)
     const username = email.split('@')[0] || 'hi'
     await connection.query(
       'INSERT INTO users (mail, password_hash, password_salt, icon, icon_bg, username, role) VALUES (?, ?, ?, ?, ?, ?, ?)',
@@ -1859,27 +1864,34 @@ const loginUser = async (req, res) => {
   const body = await parseBody(req)
   const email = body?.email?.trim()
   const password = body?.password
+  const clientIp = getClientIp(req)
+  const loginMethod = 'password'
   if (!email || !password) {
+    await logger.warn(
+      `Login failed from ${clientIp} via ${loginMethod}: missing credentials`
+    )
     sendJson(res, 400, { message: 'Email and password are required' })
     return
   }
   try {
-    const connection = await getConnection()
+    const connection = await getRequestConnection(req)
     const [rows] = await connection.query(
       'SELECT mail, password_hash, password_salt, icon, icon_bg, username, role FROM users WHERE mail = ? LIMIT 1',
       [email]
     )
     const user = rows[0]
     if (!user) {
+      await logger.warn(`Login failed from ${clientIp} via ${loginMethod} for ${email}`)
       sendJson(res, 401, { message: 'Invalid credentials' })
       return
     }
     const passwordHash = await hashPassword(password, user.password_salt)
     if (passwordHash !== user.password_hash) {
+      await logger.warn(`Login failed from ${clientIp} via ${loginMethod} for ${email}`)
       sendJson(res, 401, { message: 'Invalid credentials' })
       return
     }
-    const tokenData = await createAuthToken(user.mail)
+    const tokenData = await createAuthToken(user.mail, req)
     sendJson(res, 200, {
       token: tokenData.token,
       expiresAt: tokenData.expiresAt,
@@ -1891,9 +1903,11 @@ const loginUser = async (req, res) => {
         role: user.role,
       },
     })
-    await logger.info(`${getClientIp(req)} login in with ${user.mail}`)
+    await logger.info(`Login success from ${clientIp} via ${loginMethod} for ${user.mail}`)
   } catch (error) {
-    console.error(error)
+    await logger.error(
+      `Login error from ${clientIp} via ${loginMethod} for ${email || 'unknown'}: ${error?.message || error}`
+    )
     sendJson(res, 500, { message: 'Failed to login' })
   }
 }
@@ -1906,7 +1920,7 @@ const logoutUser = async (req, res) => {
   }
   try {
     const tokenHash = hashToken(token)
-    const connection = await getConnection()
+    const connection = await getRequestConnection(req)
     const [rows] = await connection.query(
       `SELECT auth_tokens.mail, users.username
        FROM auth_tokens
@@ -1936,7 +1950,7 @@ const verifyAuthToken = async (req, res) => {
   }
   try {
     const tokenHash = hashToken(token)
-    const connection = await getConnection()
+    const connection = await getRequestConnection(req)
     await connection.query('DELETE FROM auth_tokens WHERE expires_at < NOW()')
     const [rows] = await connection.query(
       `SELECT auth_tokens.expires_at, users.mail, users.icon, users.icon_bg, users.username, users.role
@@ -2000,7 +2014,7 @@ const updateUser = async (req, res) => {
       sendJson(res, 400, { message: 'Current and new password are required' })
       return
     }
-    const connection = await getConnection()
+    const connection = await getRequestConnection(req)
     const [rows] = await connection.query(
       'SELECT password_hash, password_salt FROM users WHERE mail = ? LIMIT 1',
       [email]
@@ -2025,7 +2039,7 @@ const updateUser = async (req, res) => {
     return
   }
   try {
-    const connection = await getConnection()
+    const connection = await getRequestConnection(req)
     values.push(email)
     await connection.query(`UPDATE users SET ${updates.join(', ')} WHERE mail = ?`, values)
     sendJson(res, 200, { message: 'User updated' })
@@ -2061,7 +2075,7 @@ const start = async () => {
     if (url.pathname.startsWith('/api/options/')) {
       const type = url.pathname.split('/').pop()
       if (req.method === 'GET') {
-        await handleGetOptions(type, res)
+        await handleGetOptions(type, req, res)
         return
       }
       if (req.method === 'POST') {
@@ -2212,13 +2226,6 @@ const start = async () => {
       return
     }
     sendJson(res, 404, { message: 'Not found' })
-  })
-  server.on('connection', (socket) => {
-    const ip = socket.remoteAddress || 'unknown'
-    logger.info(`Backend connection from ${ip}`)
-    socket.on('close', () => {
-      logger.info(`Backend disconnected from ${ip}`)
-    })
   })
   server.listen(port, () => {
     logger.info(`Server listening on ${port}`)
