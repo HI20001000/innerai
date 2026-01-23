@@ -1963,6 +1963,7 @@ const verifyAuthToken = async (req, res) => {
         role: record.role,
       },
     })
+    await logger.info(`User auto login: ${record.mail} (${record.username}) from ${getClientIp(req)}`)
   } catch (error) {
     console.error(error)
     sendJson(res, 500, { message: 'Failed to verify token' })
