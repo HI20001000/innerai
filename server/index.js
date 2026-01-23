@@ -1891,7 +1891,7 @@ const loginUser = async (req, res) => {
         role: user.role,
       },
     })
-    await logger.info(`User login: ${user.mail} (${user.username}) from ${getClientIp(req)}`)
+    await logger.info(`${getClientIp(req)} login in with ${user.mail}`)
   } catch (error) {
     console.error(error)
     sendJson(res, 500, { message: 'Failed to login' })
@@ -1920,9 +1920,7 @@ const logoutUser = async (req, res) => {
       return
     }
     await connection.query('DELETE FROM auth_tokens WHERE token_hash = ?', [tokenHash])
-    await logger.info(
-      `User logout: ${rows[0].mail} (${rows[0].username}) from ${getClientIp(req)}`
-    )
+    await logger.info(`${getClientIp(req)} sign out with ${rows[0].mail}`)
     sendJson(res, 200, { message: 'Logged out' })
   } catch (error) {
     console.error(error)
