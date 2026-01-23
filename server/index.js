@@ -87,6 +87,26 @@ const parseBody = async (req) => {
   }
 }
 
+const formatQuery = (sql, params) => {
+  if (typeof sql === 'string') {
+    return mysql.format(sql, params)
+  }
+  if (sql?.sql) {
+    return mysql.format(sql.sql, sql.values ?? params)
+  }
+  return String(sql)
+}
+
+const wrapConnectionLogging = (connection) => {
+  const originalQuery = connection.query.bind(connection)
+  connection.query = async (sql, params) => {
+    const formatted = formatQuery(sql, params)
+    await logger.info(`DB QUERY: ${formatted}`)
+    return originalQuery(sql, params)
+  }
+  return connection
+}
+
 const createConnection = async (withDatabase = false) => {
   const connection = await mysql.createConnection({
     host: MYSQL_HOST,
@@ -99,7 +119,7 @@ const createConnection = async (withDatabase = false) => {
 }
 
 const ensureDatabase = async () => {
-  const connection = await createConnection(false)
+  const connection = wrapConnectionLogging(await createConnection(false))
   await connection.query(`CREATE DATABASE IF NOT EXISTS \`${DATABASE_NAME}\``)
   await connection.end()
 }
@@ -417,7 +437,7 @@ const seedDefaults = async (connection) => {
 
 const initDatabase = async () => {
   await ensureDatabase()
-  const connection = await createConnection(true)
+  const connection = wrapConnectionLogging(await createConnection(true))
   await ensureTables(connection)
   await seedDefaults(connection)
   return connection
@@ -1941,6 +1961,7 @@ const verifyAuthToken = async (req, res) => {
         role: record.role,
       },
     })
+    await logger.info(`User auto login: ${record.mail} (${record.username}) from ${getClientIp(req)}`)
   } catch (error) {
     console.error(error)
     sendJson(res, 500, { message: 'Failed to verify token' })
@@ -2192,8 +2213,15 @@ const start = async () => {
     }
     sendJson(res, 404, { message: 'Not found' })
   })
+  server.on('connection', (socket) => {
+    const ip = socket.remoteAddress || 'unknown'
+    logger.info(`Backend connection from ${ip}`)
+    socket.on('close', () => {
+      logger.info(`Backend disconnected from ${ip}`)
+    })
+  })
   server.listen(port, () => {
-    console.log(`Server listening on ${port}`)
+    logger.info(`Server listening on ${port}`)
   })
 }
 
