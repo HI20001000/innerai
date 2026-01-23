@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { getTaipeiTodayKey, toDateKey } from '../scripts/time.js'
 import { buildFollowUpStatusByDate, countPendingForFollowUps } from '../scripts/followUps.js'
 import { apiBaseUrl } from '../scripts/apiBaseUrl.js'
@@ -80,6 +80,16 @@ const submissionsSource = computed(() =>
 )
 
 const selectedMonth = ref(new Date())
+
+const syncMonthWithSelectedDate = (value) => {
+  const dateKey = toDateKey(value)
+  if (!dateKey) return
+  const [year, month] = dateKey.split('-').map(Number)
+  if (!year || !month) return
+  const current = selectedMonth.value
+  if (current.getFullYear() === year && current.getMonth() === month - 1) return
+  selectedMonth.value = new Date(year, month - 1, 1)
+}
 
 const monthLabel = computed(() => {
   const year = selectedMonth.value.getFullYear()
@@ -184,6 +194,14 @@ onMounted(() => {
     fetchSubmissions()
   }
 })
+
+watch(
+  () => props.selectedDate,
+  (value) => {
+    syncMonthWithSelectedDate(value)
+  },
+  { immediate: true }
+)
 </script>
 
 <template>

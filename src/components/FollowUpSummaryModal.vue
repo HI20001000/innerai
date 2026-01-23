@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { formatDateTimeDisplay, toDateKey } from '../scripts/time.js'
 import { apiBaseUrl } from '../scripts/apiBaseUrl.js'
 import UserOptionItem from './UserOptionItem.vue'
@@ -264,8 +264,9 @@ const openFilterMenu = (menu) => {
   activeFilterMenu.value = menu
 }
 
-const closeFilterMenu = () => {
+const closeFilterMenu = (menu) => {
   window.setTimeout(() => {
+    if (activeFilterMenu.value !== menu) return
     activeFilterMenu.value = null
   }, 100)
 }
@@ -304,6 +305,7 @@ const updateFollowUpStatus = async (followUp, status) => {
 const updateFollowUpAssignees = async (followUp, assignees, relatedUsers = []) => {
   const auth = readAuthStorage()
   if (!auth) return
+  const normalizedAssignees = normalizeAssigneeMails(assignees)
   const response = await fetch(`${apiBaseUrl}/api/task-submission-followups/${followUp.id}`, {
     method: 'PUT',
     headers: {
@@ -331,12 +333,20 @@ const toggleAssignee = async (followUp, user, relatedUsers) => {
 
 const toggleStatusMenu = (followUpId) => {
   statusSearch.value = ''
-  activeStatusMenu.value = activeStatusMenu.value === followUpId ? null : followUpId
+  const nextValue = activeStatusMenu.value === followUpId ? null : followUpId
+  activeStatusMenu.value = nextValue
+  if (nextValue) {
+    activeAssigneeMenu.value = null
+  }
 }
 
 const toggleAssigneeMenu = (followUpId) => {
   assigneeSearch.value = ''
-  activeAssigneeMenu.value = activeAssigneeMenu.value === followUpId ? null : followUpId
+  const nextValue = activeAssigneeMenu.value === followUpId ? null : followUpId
+  activeAssigneeMenu.value = nextValue
+  if (nextValue) {
+    activeStatusMenu.value = null
+  }
 }
 
 const isAssigneeSelected = (followUp, mail) => {
@@ -375,6 +385,23 @@ const handleSelectFollowUp = (submission) => {
   emit('select-date', dateKey)
   emit('close')
 }
+
+const handleOutsideMenuClick = (event) => {
+  if (!activeStatusMenu.value && !activeAssigneeMenu.value) return
+  const target = event.target
+  if (!(target instanceof Element)) return
+  if (target.closest('.status-select') || target.closest('.assignee-select')) return
+  activeStatusMenu.value = null
+  activeAssigneeMenu.value = null
+}
+
+onMounted(() => {
+  window.addEventListener('click', handleOutsideMenuClick)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('click', handleOutsideMenuClick)
+})
 </script>
 
 <template>
@@ -398,7 +425,7 @@ const handleSelectFollowUp = (submission) => {
             placeholder="搜尋客戶"
             @focus="openFilterMenu('client')"
             @input="openFilterMenu('client')"
-            @blur="closeFilterMenu"
+            @blur="closeFilterMenu('client')"
           />
           <div
             v-if="activeFilterMenu === 'client'"
@@ -424,7 +451,7 @@ const handleSelectFollowUp = (submission) => {
             placeholder="搜尋廠家"
             @focus="openFilterMenu('vendor')"
             @input="openFilterMenu('vendor')"
-            @blur="closeFilterMenu"
+            @blur="closeFilterMenu('vendor')"
           />
           <div
             v-if="activeFilterMenu === 'vendor'"
@@ -450,7 +477,7 @@ const handleSelectFollowUp = (submission) => {
             placeholder="搜尋產品"
             @focus="openFilterMenu('product')"
             @input="openFilterMenu('product')"
-            @blur="closeFilterMenu"
+            @blur="closeFilterMenu('product')"
           />
           <div
             v-if="activeFilterMenu === 'product'"
@@ -476,7 +503,13 @@ const handleSelectFollowUp = (submission) => {
             <template v-for="product in vendor.products" :key="product.productName">
               <div v-for="task in product.tasks" :key="task.taskLabel" class="followup-task">
                 <div class="followup-task-header">
-                  <span class="followup-task-title">{{ task.taskLabel }}</span>
+                  <button
+                    type="button"
+                    class="followup-task-title"
+                    @click="handleSelectFollowUp(task.submission)"
+                  >
+                    {{ task.taskLabel }}
+                  </button>
                   <span v-if="task.tags?.length" class="followup-task-tags">
                     <span
                       v-for="tag in task.tags"
@@ -496,13 +529,9 @@ const handleSelectFollowUp = (submission) => {
                     :key="followUp.id || followUp.content"
                     class="followup-item"
                   >
-                    <button
-                      type="button"
-                      class="followup-item-content"
-                      @click="handleSelectFollowUp(task.submission)"
-                    >
+                    <div class="followup-item-content">
                       {{ followUp.content || '跟進任務' }}
-                    </button>
+                    </div>
                     <div class="followup-item-meta">
                       <div class="followup-actions">
                         <div class="status-select">
@@ -765,9 +794,18 @@ const handleSelectFollowUp = (submission) => {
 }
 
 .followup-task-title {
+  border: none;
+  background: transparent;
+  padding: 0;
+  font: inherit;
   font-size: 1rem;
   font-weight: 700;
   color: #0f172a;
+  cursor: pointer;
+}
+
+.followup-task-title:hover {
+  text-decoration: underline;
 }
 
 .followup-task-tags {
@@ -810,7 +848,6 @@ const handleSelectFollowUp = (submission) => {
   text-align: left;
   font-weight: 600;
   color: #0f172a;
-  cursor: pointer;
 }
 
 .followup-item-meta {
