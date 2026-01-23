@@ -331,8 +331,8 @@ defineExpose({
           <div class="field-header">
             <span>客戶</span>
             <div class="field-actions">
-              <button class="ghost-mini" type="button" @click="openModal('client')">編輯</button>
               <span v-if="!selectedClient" class="missing-text">請選擇</span>
+              <button class="ghost-mini" type="button" @click="openModal('client')">編輯</button>
             </div>
           </div>
           <button class="select-field" type="button" @click="openList('client')">
@@ -355,8 +355,8 @@ defineExpose({
           <div class="field-header">
             <span>廠家</span>
             <div class="field-actions">
-              <button class="ghost-mini" type="button" @click="openModal('vendor')">編輯</button>
               <span v-if="!selectedVendor" class="missing-text">請選擇</span>
+              <button class="ghost-mini" type="button" @click="openModal('vendor')">編輯</button>
             </div>
           </div>
           <button class="select-field" type="button" @click="openList('vendor')">
@@ -379,8 +379,8 @@ defineExpose({
           <div class="field-header">
             <span>廠家產品</span>
             <div class="field-actions">
-              <button class="ghost-mini" type="button" @click="openModal('product')">編輯</button>
               <span v-if="!selectedProduct" class="missing-text">請選擇</span>
+              <button class="ghost-mini" type="button" @click="openModal('product')">編輯</button>
             </div>
           </div>
           <button class="select-field" type="button" @click="openList('product')">
@@ -657,7 +657,7 @@ defineExpose({
 }
 
 .file-count {
-  color: #111827;
+  color: #64748b;
   font-weight: 600;
 }
 
