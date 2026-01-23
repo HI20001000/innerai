@@ -60,14 +60,29 @@ const resolveRoute = (path) => {
 
 const currentRoute = shallowRef(resolveRoute(currentPath.value))
 
-const updatePath = (path) => {
+const emitNavigation = (from, to, trigger) => {
+  window.dispatchEvent(
+    new CustomEvent('innerai:navigation', {
+      detail: {
+        from,
+        to,
+        trigger,
+      },
+    })
+  )
+}
+
+const updatePath = (path, trigger = 'unknown') => {
   const nextPath = enforceAuth(normalizePath(path))
+  if (nextPath === currentPath.value) return
+  const previousPath = currentPath.value
   currentPath.value = nextPath
   currentRoute.value = resolveRoute(nextPath)
+  emitNavigation(previousPath, nextPath, trigger)
 }
 
 window.addEventListener('popstate', () => {
-  updatePath(window.location.pathname || '/')
+  updatePath(window.location.pathname || '/', 'popstate')
 })
 
 const RouterView = {
@@ -102,7 +117,7 @@ const router = {
     const nextPath = enforceAuth(normalizePath(path))
     if (nextPath === currentPath.value) return
     window.history.pushState({}, '', nextPath)
-    updatePath(nextPath)
+    updatePath(nextPath, 'push')
   },
 }
 
