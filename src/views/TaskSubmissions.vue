@@ -282,9 +282,14 @@ const startEdit = (submission) => {
           }
           const content = normalizeFollowUpText(entry.content ?? entry)
           if (!content) return null
+          const assignees = Array.isArray(entry.assignees)
+            ? entry.assignees
+                .map((item) => (typeof item === 'string' ? item : item?.mail))
+                .filter((mail) => typeof mail === 'string' && mail.trim())
+            : []
           return {
             content,
-            assignees: Array.isArray(entry.assignees) ? entry.assignees : [],
+            assignees,
           }
         })
         .filter((entry) => entry?.content)
@@ -316,7 +321,11 @@ const saveEdit = async (id) => {
   const relatedUserMails = selectedRelatedUsers.value.map((user) => user.mail)
   const followUpPayload = followUpItems.value.map((item) => ({
     content: item.content,
-    assignees: Array.isArray(item.assignees) ? item.assignees : [],
+    assignees: Array.isArray(item.assignees)
+      ? item.assignees
+          .map((assignee) => (typeof assignee === 'string' ? assignee : assignee?.mail))
+          .filter((mail) => typeof mail === 'string' && mail.trim())
+      : [],
   }))
   if (
     !editForm.value.client?.trim() ||
