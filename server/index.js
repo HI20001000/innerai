@@ -518,7 +518,6 @@ const getAuthenticatedUser = async (req) => {
   if (!token) return null
   const tokenHash = hashToken(token)
   const connection = await getRequestConnection(req)
-  await connection.query('DELETE FROM auth_tokens WHERE expires_at < NOW()')
   const [rows] = await connection.query(
     `SELECT auth_tokens.expires_at, users.mail
      FROM auth_tokens
@@ -1951,7 +1950,6 @@ const verifyAuthToken = async (req, res) => {
   try {
     const tokenHash = hashToken(token)
     const connection = await getRequestConnection(req)
-    await connection.query('DELETE FROM auth_tokens WHERE expires_at < NOW()')
     const [rows] = await connection.query(
       `SELECT auth_tokens.expires_at, users.mail, users.icon, users.icon_bg, users.username, users.role
        FROM auth_tokens
