@@ -448,27 +448,30 @@ const deleteMeetingRecord = async (record) => {
   }
 }
 
-const deleteMeetingFolder = async () => {
-  if (!activeMeeting.value) return
+const deleteMeetingFolder = async (meetings = []) => {
+  const targets = meetings.length > 0 ? meetings : activeMeeting.value ? [activeMeeting.value] : []
+  if (targets.length === 0) return
   const auth = readAuthStorage()
   if (!auth) return
   try {
-    const response = await fetch(`${apiBaseUrl}/api/meeting-folders/${activeMeeting.value.id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${auth.token}` },
-    })
-    const data = await response.json()
-    if (!response.ok || !data?.success) {
-      resultTitle.value = '刪除失敗'
-      resultMessage.value = data?.message || '會議資料夾刪除失敗'
-      showResult.value = true
-      return
+    for (const meeting of targets) {
+      const response = await fetch(`${apiBaseUrl}/api/meeting-folders/${meeting.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${auth.token}` },
+      })
+      const data = await response.json()
+      if (!response.ok || !data?.success) {
+        resultTitle.value = '刪除失敗'
+        resultMessage.value = data?.message || '會議資料夾刪除失敗'
+        showResult.value = true
+        return
+      }
     }
-    const removedId = activeMeeting.value.id
+    const removedIds = new Set(targets.map((meeting) => meeting.id))
     const vendor = getVendors().find((item) => item.name === activeVendor.value)
     const product = vendor?.products.find((item) => item.name === activeProduct.value)
     if (product) {
-      product.meetings = (product.meetings || []).filter((meeting) => meeting.id !== removedId)
+      product.meetings = (product.meetings || []).filter((meeting) => !removedIds.has(meeting.id))
     }
     activeMeeting.value = null
     activeRecord.value = null
@@ -700,7 +703,7 @@ onMounted(fetchMeetingRecords)
                     <button
                       type="button"
                       class="meeting-action"
-                      @click.stop="activeMeeting = meeting; activeRecord = null; activeRecordMeta = null; activeReport = null; activeReportMeta = null; deleteMeetingFolder()"
+                      @click.stop="activeMeeting = meeting; activeRecord = null; activeRecordMeta = null; activeReport = null; activeReportMeta = null; deleteMeetingFolder(getMeetings())"
                     >
                       −
                     </button>
