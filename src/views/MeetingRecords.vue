@@ -432,6 +432,14 @@ const deleteMeetingRecord = async (record) => {
       activeRecord.value = null
       activeRecordMeta.value = null
     }
+    if (activeMeeting.value && (activeMeeting.value.records || []).length === 0) {
+      activeMeeting.value = null
+      activeRecord.value = null
+      activeRecordMeta.value = null
+      activeReport.value = null
+      activeReportMeta.value = null
+      await fetchMeetingRecords()
+    }
   } catch (error) {
     console.error(error)
     resultTitle.value = '刪除失敗'
@@ -467,6 +475,7 @@ const deleteMeetingFolder = async () => {
     activeRecordMeta.value = null
     activeReport.value = null
     activeReportMeta.value = null
+    await fetchMeetingRecords()
   } catch (error) {
     console.error(error)
     resultTitle.value = '刪除失敗'
