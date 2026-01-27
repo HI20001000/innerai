@@ -329,9 +329,11 @@ defineExpose({
       <div class="field-grid">
         <div class="field select-field-wrapper">
           <div class="field-header">
-            <span>客戶</span>
+            <span>
+              客戶
+              <span v-if="!selectedClient" class="missing-text">*</span>
+            </span>
             <div class="field-actions">
-              <span v-if="!selectedClient" class="missing-text">請選擇</span>
               <button class="ghost-mini" type="button" @click="openModal('client')">編輯</button>
             </div>
           </div>
@@ -353,9 +355,11 @@ defineExpose({
         </div>
         <div class="field select-field-wrapper">
           <div class="field-header">
-            <span>廠家</span>
+            <span>
+              廠家
+              <span v-if="!selectedVendor" class="missing-text">*</span>
+            </span>
             <div class="field-actions">
-              <span v-if="!selectedVendor" class="missing-text">請選擇</span>
               <button class="ghost-mini" type="button" @click="openModal('vendor')">編輯</button>
             </div>
           </div>
@@ -377,9 +381,11 @@ defineExpose({
         </div>
         <div class="field select-field-wrapper">
           <div class="field-header">
-            <span>廠家產品</span>
+            <span>
+              廠家產品
+              <span v-if="!selectedProduct" class="missing-text">*</span>
+            </span>
             <div class="field-actions">
-              <span v-if="!selectedProduct" class="missing-text">請選擇</span>
               <button class="ghost-mini" type="button" @click="openModal('product')">編輯</button>
             </div>
           </div>
@@ -402,7 +408,7 @@ defineExpose({
         <label class="field">
           <span class="field-label">
             會議記錄時間
-            <span v-if="!meetingTime" class="missing-text">請選擇</span>
+            <span v-if="!meetingTime" class="missing-text">*</span>
           </span>
           <input v-model="meetingTime" type="datetime-local" class="text-input" />
           <p v-if="showRequiredHints && !meetingTime" class="required-hint">必填</p>
@@ -410,7 +416,7 @@ defineExpose({
         <label class="field wide">
           <span class="field-label">
             會議記錄資料夾
-            <span v-if="selectedFiles.length === 0" class="missing-text">請選擇</span>
+            <span v-if="selectedFiles.length === 0" class="missing-text">*</span>
           </span>
           <label class="file-picker">
             <input
