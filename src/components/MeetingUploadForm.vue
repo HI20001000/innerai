@@ -160,23 +160,22 @@ const isAllowedMeetingFile = (file) => {
   return name.endsWith('.txt') || name.endsWith('.docx')
 }
 
-const parseFolderDate = (files) => {
-  const file = files?.find((item) => item?.webkitRelativePath)
-  const folder = file?.webkitRelativePath?.split('/')?.[0] || ''
-  if (!/^\d{8}$/.test(folder)) return ''
-  const year = folder.slice(0, 4)
-  const month = folder.slice(4, 6)
-  const day = folder.slice(6, 8)
-  return `${year}-${month}-${day}T00:00`
+const parseMeetingTimeFromFiles = (files) => {
+  for (const file of files || []) {
+    const name = file?.name || ''
+    const match = name.match(/(20\d{2})[\\/_-]?(0[1-9]|1[0-2])[\\/_-]?(0[1-9]|[12]\d|3[01])/)
+    if (!match) continue
+    const [, year, month, day] = match
+    return `${year}-${month}-${day}T00:00`
+  }
+  return ''
 }
 
 const handleFileChange = async (event) => {
   const files = Array.from(event.target.files || [])
   selectedFiles.value = files.filter(isAllowedMeetingFile)
-  const parsedMeetingTime = parseFolderDate(files)
-  if (parsedMeetingTime) {
-    meetingTime.value = parsedMeetingTime
-  }
+  const parsedMeetingTime = parseMeetingTimeFromFiles(files)
+  meetingTime.value = parsedMeetingTime || ''
 }
 
 const getTaipeiDateTimeLocal = () => getTaipeiNowInput()
@@ -299,8 +298,8 @@ defineExpose({
     <header v-if="!props.compact" class="form-header">
       <div>
         <p class="eyebrow">上傳會議記錄</p>
-        <h1 class="headline">會議記錄資料夾</h1>
-        <p class="subhead">選擇客戶、廠家與產品後，上傳包含多個會議記錄的資料夾。</p>
+        <h1 class="headline">會議記錄檔案</h1>
+        <p class="subhead">選擇客戶、廠家與產品後，上傳一個或多個會議記錄檔案。</p>
       </div>
       <div v-if="props.showInternalSubmit" class="header-actions">
         <button class="primary-button" type="button" :disabled="isSubmitting" @click="submitMeetingRecords">
@@ -312,7 +311,7 @@ defineExpose({
     <div v-else class="compact-header">
       <div>
         <h2>上傳會議記錄</h2>
-        <p>選擇客戶、廠家與產品後，上傳包含多個會議記錄的資料夾。</p>
+        <p>選擇客戶、廠家與產品後，上傳一個或多個會議記錄檔案。</p>
       </div>
       <button
         v-if="props.showInternalSubmit"
@@ -415,20 +414,18 @@ defineExpose({
         </label>
         <label class="field wide">
           <span class="field-label">
-            會議記錄資料夾
+            會議記錄檔案
             <span v-if="selectedFiles.length === 0" class="missing-text">*</span>
           </span>
           <label class="file-picker">
             <input
               type="file"
               multiple
-              webkitdirectory
-              directory
               @change="handleFileChange"
             />
-            <span>選擇資料夾</span>
+            <span>選擇檔案</span>
           </label>
-          <p class="hint">請選擇包含多個會議記錄的資料夾。</p>
+          <p class="hint">請選擇一個或多個會議記錄檔案。</p>
           <p v-if="selectedFiles.length > 0" class="file-count">
             已選擇 {{ selectedFiles.length }} 個檔案：{{ selectedFileNames }}
           </p>
