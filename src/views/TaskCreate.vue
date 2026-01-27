@@ -472,6 +472,20 @@ const normalizeFollowUpContent = (value) => {
   return ''
 }
 
+const resetOptionalFields = () => {
+  selectedStartAt.value = ''
+  selectedEndAt.value = ''
+  followUpInput.value = ''
+  followUpItems.value = []
+  editingFollowUpIndex.value = null
+  followUpEditValue.value = ''
+  activeFollowUpAssigneeMenu.value = null
+  activeQuickAssignMenu.value = false
+  activeList.value = null
+  searchQuery.user = ''
+  showRequiredHints.value = false
+}
+
 const submitTask = async () => {
   if (isSubmitting.value) return
   const payload = {
@@ -533,6 +547,7 @@ const submitTask = async () => {
     resultMessage.value = data?.message || '任務建立成功'
     showResult.value = true
     window.localStorage.removeItem(draftKey)
+    resetOptionalFields()
   } catch (error) {
     console.error(error)
     resultTitle.value = '建立失敗'
