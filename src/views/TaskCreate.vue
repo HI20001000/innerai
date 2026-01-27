@@ -309,6 +309,12 @@ const applyQuickAssign = (user) => {
 const isFollowUpAssigneeSelected = (item, user) =>
   (item.assignees || []).includes(user.mail)
 
+const isQuickAssignSelected = (user) => {
+  if (!user?.mail) return false
+  if (followUpItems.value.length === 0) return false
+  return followUpItems.value.every((item) => (item.assignees || []).includes(user.mail))
+}
+
 const toggleFollowUpAssignee = (item, user) => {
   if (!user?.mail) return
   followUpItems.value = followUpItems.value.map((followUpItem) => {
@@ -466,6 +472,20 @@ const normalizeFollowUpContent = (value) => {
   return ''
 }
 
+const resetOptionalFields = () => {
+  selectedStartAt.value = ''
+  selectedEndAt.value = ''
+  followUpInput.value = ''
+  followUpItems.value = []
+  editingFollowUpIndex.value = null
+  followUpEditValue.value = ''
+  activeFollowUpAssigneeMenu.value = null
+  activeQuickAssignMenu.value = false
+  activeList.value = null
+  searchQuery.user = ''
+  showRequiredHints.value = false
+}
+
 const submitTask = async () => {
   if (isSubmitting.value) return
   const payload = {
@@ -527,6 +547,7 @@ const submitTask = async () => {
     resultMessage.value = data?.message || '任務建立成功'
     showResult.value = true
     window.localStorage.removeItem(draftKey)
+    resetOptionalFields()
   } catch (error) {
     console.error(error)
     resultTitle.value = '建立失敗'
@@ -627,7 +648,7 @@ const closeMenusOnOutsideClick = (event) => {
   const withinAssignee = target.closest('.follow-up-assignee')
   const withinAssigneeMenu = target.closest('.assignee-list')
 
-  if (!withinSelectField) {
+  if (!withinSelectField && !withinQuickAssign && !withinAssignee && !withinAssigneeMenu) {
     activeList.value = null
   }
   if (activeQuickAssignMenu.value && !withinQuickAssign) {
@@ -880,6 +901,14 @@ onBeforeUnmount(() => {
           <label class="field wide">
             <span>需跟進內容</span>
             <div class="follow-up-input">
+              <input
+                v-model="followUpInput"
+                type="text"
+                placeholder="輸入需跟進內容並加入"
+              />
+              <button type="button" class="primary-button small" @click="addFollowUpItem">
+                新增
+              </button>
               <div class="quick-assign-wrapper">
                 <button
                   type="button"
@@ -912,17 +941,10 @@ onBeforeUnmount(() => {
                     <span class="user-label">
                       {{ user.username || 'user' }}
                     </span>
+                    <span v-if="isQuickAssignSelected(user)" class="user-selected">已選</span>
                   </button>
                 </div>
               </div>
-              <input
-                v-model="followUpInput"
-                type="text"
-                placeholder="輸入需跟進內容並加入"
-              />
-              <button type="button" class="primary-button small" @click="addFollowUpItem">
-                新增
-              </button>
             </div>
             <div v-if="followUpItems.length > 0" class="follow-up-list">
               <div
