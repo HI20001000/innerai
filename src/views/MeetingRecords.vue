@@ -448,36 +448,36 @@ const deleteMeetingRecord = async (record) => {
   }
 }
 
-const deleteMeetingFolder = async (meetings = []) => {
-  const targets = meetings.length > 0 ? meetings : activeMeeting.value ? [activeMeeting.value] : []
-  if (targets.length === 0) return
+const deleteMeetingFolder = async (meeting = null) => {
+  const targetMeeting = meeting || activeMeeting.value
+  if (!targetMeeting) return
   const auth = readAuthStorage()
   if (!auth) return
   try {
-    for (const meeting of targets) {
-      const response = await fetch(`${apiBaseUrl}/api/meeting-folders/${meeting.id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${auth.token}` },
-      })
-      const data = await response.json()
-      if (!response.ok || !data?.success) {
-        resultTitle.value = '刪除失敗'
-        resultMessage.value = data?.message || '會議資料夾刪除失敗'
-        showResult.value = true
-        return
-      }
+    const response = await fetch(`${apiBaseUrl}/api/meeting-folders/${targetMeeting.id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${auth.token}` },
+    })
+    const data = await response.json()
+    if (!response.ok || !data?.success) {
+      resultTitle.value = '刪除失敗'
+      resultMessage.value = data?.message || '會議資料夾刪除失敗'
+      showResult.value = true
+      return
     }
-    const removedIds = new Set(targets.map((meeting) => meeting.id))
+    const removedId = targetMeeting.id
     const vendor = getVendors().find((item) => item.name === activeVendor.value)
     const product = vendor?.products.find((item) => item.name === activeProduct.value)
     if (product) {
       product.meetings = (product.meetings || []).filter((meeting) => !removedIds.has(meeting.id))
     }
-    activeMeeting.value = null
-    activeRecord.value = null
-    activeRecordMeta.value = null
-    activeReport.value = null
-    activeReportMeta.value = null
+    if (activeMeeting.value?.id === removedId) {
+      activeMeeting.value = null
+      activeRecord.value = null
+      activeRecordMeta.value = null
+      activeReport.value = null
+      activeReportMeta.value = null
+    }
     await fetchMeetingRecords()
   } catch (error) {
     console.error(error)
@@ -703,7 +703,7 @@ onMounted(fetchMeetingRecords)
                     <button
                       type="button"
                       class="meeting-action"
-                      @click.stop="activeMeeting = meeting; activeRecord = null; activeRecordMeta = null; activeReport = null; activeReportMeta = null; deleteMeetingFolder(getMeetings())"
+                      @click.stop="activeMeeting = meeting; activeRecord = null; activeRecordMeta = null; activeReport = null; activeReportMeta = null; deleteMeetingFolder(meeting)"
                     >
                       −
                     </button>
