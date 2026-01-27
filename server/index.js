@@ -1220,17 +1220,39 @@ const handleAppendMeetingRecords = async (req, res, folderId) => {
 const handleDeleteMeetingRecord = async (req, res, recordId) => {
   const user = await getRequiredAuthUser(req, res)
   if (!user) return
+  let connection = null
   try {
-    const connection = await getRequestConnection(req)
-    const [result] = await connection.query('DELETE FROM meeting_records WHERE id = ?', [
-      recordId,
-    ])
-    if (result.affectedRows === 0) {
+    connection = await getRequestConnection(req)
+    await connection.beginTransaction()
+    const [records] = await connection.query(
+      'SELECT folder_id FROM meeting_records WHERE id = ?',
+      [recordId]
+    )
+    if (records.length === 0) {
+      await connection.rollback()
       sendJson(res, 404, { success: false, message: '找不到會議記錄' })
       return
     }
+    const folderId = records[0].folder_id
+    await connection.query('DELETE FROM meeting_records WHERE id = ?', [recordId])
+    const [remaining] = await connection.query(
+      'SELECT COUNT(*) AS count FROM meeting_records WHERE folder_id = ?',
+      [folderId]
+    )
+    if (remaining[0].count === 0) {
+      await connection.query('DELETE FROM meeting_reports WHERE folder_id = ?', [folderId])
+      await connection.query('DELETE FROM meeting_folders WHERE id = ?', [folderId])
+    }
+    await connection.commit()
     sendJson(res, 200, { success: true, message: '會議記錄已刪除' })
   } catch (error) {
+    if (connection) {
+      try {
+        await connection.rollback()
+      } catch (rollbackError) {
+        console.error(rollbackError)
+      }
+    }
     console.error(error)
     sendJson(res, 500, { success: false, message: '會議記錄刪除失敗' })
   }
