@@ -432,6 +432,14 @@ const deleteMeetingRecord = async (record) => {
       activeRecord.value = null
       activeRecordMeta.value = null
     }
+    if (activeMeeting.value && (activeMeeting.value.records || []).length === 0) {
+      activeMeeting.value = null
+      activeRecord.value = null
+      activeRecordMeta.value = null
+      activeReport.value = null
+      activeReportMeta.value = null
+      await fetchMeetingRecords()
+    }
   } catch (error) {
     console.error(error)
     resultTitle.value = '刪除失敗'
@@ -440,12 +448,13 @@ const deleteMeetingRecord = async (record) => {
   }
 }
 
-const deleteMeetingFolder = async () => {
-  if (!activeMeeting.value) return
+const deleteMeetingFolder = async (meeting = null) => {
+  const targetMeeting = meeting || activeMeeting.value
+  if (!targetMeeting) return
   const auth = readAuthStorage()
   if (!auth) return
   try {
-    const response = await fetch(`${apiBaseUrl}/api/meeting-folders/${activeMeeting.value.id}`, {
+    const response = await fetch(`${apiBaseUrl}/api/meeting-folders/${targetMeeting.id}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${auth.token}` },
     })
@@ -456,17 +465,20 @@ const deleteMeetingFolder = async () => {
       showResult.value = true
       return
     }
-    const removedId = activeMeeting.value.id
+    const removedId = targetMeeting.id
     const vendor = getVendors().find((item) => item.name === activeVendor.value)
     const product = vendor?.products.find((item) => item.name === activeProduct.value)
     if (product) {
       product.meetings = (product.meetings || []).filter((meeting) => meeting.id !== removedId)
     }
-    activeMeeting.value = null
-    activeRecord.value = null
-    activeRecordMeta.value = null
-    activeReport.value = null
-    activeReportMeta.value = null
+    if (activeMeeting.value?.id === removedId) {
+      activeMeeting.value = null
+      activeRecord.value = null
+      activeRecordMeta.value = null
+      activeReport.value = null
+      activeReportMeta.value = null
+    }
+    await fetchMeetingRecords()
   } catch (error) {
     console.error(error)
     resultTitle.value = '刪除失敗'
@@ -691,7 +703,7 @@ onMounted(fetchMeetingRecords)
                     <button
                       type="button"
                       class="meeting-action"
-                      @click.stop="activeMeeting = meeting; activeRecord = null; activeRecordMeta = null; activeReport = null; activeReportMeta = null; deleteMeetingFolder()"
+                      @click.stop="activeMeeting = meeting; activeRecord = null; activeRecordMeta = null; activeReport = null; activeReportMeta = null; deleteMeetingFolder(meeting)"
                     >
                       −
                     </button>
