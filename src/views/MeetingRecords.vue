@@ -104,6 +104,26 @@ const previewContent = computed(() => {
   return '請先選擇會議記錄。'
 })
 
+const canDownloadPreview = computed(() => Boolean(previewMeta.value))
+
+const sanitizeFilename = (name) => name.replace(/[\\/:*?"<>|]/g, '_').trim()
+
+const downloadPreviewContent = () => {
+  if (!canDownloadPreview.value) return
+  const content = previewContent.value || ''
+  const baseName = activeReport.value ? '會議報告' : activeRecord.value?.file_name || 'meeting-preview'
+  const safeName = sanitizeFilename(baseName) || 'meeting-preview'
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
+  const link = document.createElement('a')
+  const url = URL.createObjectURL(blob)
+  link.href = url
+  link.download = `${safeName}.txt`
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+}
+
 const filteredClients = computed(() => {
   const query = searchQuery.value.client.trim().toLowerCase()
   if (!query) return records.value
@@ -808,6 +828,14 @@ onMounted(fetchMeetingRecords)
             <div class="panel-header">
               <h2>{{ previewTitle }}</h2>
               <div class="panel-actions">
+                <button
+                  class="ghost-mini"
+                  type="button"
+                  :disabled="!canDownloadPreview"
+                  @click="downloadPreviewContent"
+                >
+                  下載報告
+                </button>
                 <button
                   v-if="activeReport"
                   class="ghost-mini"
