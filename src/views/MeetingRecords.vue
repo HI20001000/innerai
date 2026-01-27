@@ -39,6 +39,7 @@ const showResult = ref(false)
 const resultTitle = ref('')
 const resultMessage = ref('')
 const isUploading = ref(false)
+const isDeletingMeeting = ref(false)
 const uploadInput = ref(null)
 const activeReport = ref(null)
 const activeReportMeta = ref(null)
@@ -450,16 +451,18 @@ const deleteMeetingRecord = async (record) => {
 
 const deleteMeetingFolder = async (meeting = null) => {
   const targetMeeting = meeting || activeMeeting.value
-  if (!targetMeeting) return
+  if (!targetMeeting || isDeletingMeeting.value) return
   const auth = readAuthStorage()
   if (!auth) return
+  isDeletingMeeting.value = true
   try {
     const response = await fetch(`${apiBaseUrl}/api/meeting-folders/${targetMeeting.id}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${auth.token}` },
     })
-    const data = await response.json()
-    if (!response.ok || !data?.success) {
+    const data = await parseJsonSafe(response)
+    const notFound = response.status === 404 || data?.message === '找不到會議資料夾'
+    if ((!response.ok || !data?.success) && !notFound) {
       resultTitle.value = '刪除失敗'
       resultMessage.value = data?.message || '會議資料夾刪除失敗'
       showResult.value = true
@@ -484,6 +487,8 @@ const deleteMeetingFolder = async (meeting = null) => {
     resultTitle.value = '刪除失敗'
     resultMessage.value = '會議資料夾刪除失敗'
     showResult.value = true
+  } finally {
+    isDeletingMeeting.value = false
   }
 }
 
@@ -723,7 +728,7 @@ onMounted(fetchMeetingRecords)
                     <button
                       type="button"
                       class="meeting-action"
-                      :disabled="isUploading"
+                      :disabled="isUploading || isDeletingMeeting"
                       @click.stop="activeMeeting = meeting; activeRecord = null; activeRecordMeta = null; activeReport = null; activeReportMeta = null; triggerUpload()"
                     >
                       ＋
@@ -731,6 +736,7 @@ onMounted(fetchMeetingRecords)
                     <button
                       type="button"
                       class="meeting-action"
+                      :disabled="isDeletingMeeting"
                       @click.stop="activeMeeting = meeting; activeRecord = null; activeRecordMeta = null; activeReport = null; activeReportMeta = null; deleteMeetingFolder(meeting)"
                     >
                       −
