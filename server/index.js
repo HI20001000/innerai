@@ -1234,6 +1234,10 @@ const handleDeleteMeetingRecord = async (req, res, recordId) => {
       return
     }
     const folderId = records[0].folder_id
+    const [folderDetails] = await connection.query(
+      'SELECT client_name, vendor_name, product_name FROM meeting_folders WHERE id = ?',
+      [folderId]
+    )
     await connection.query('DELETE FROM meeting_records WHERE id = ?', [recordId])
     const [remaining] = await connection.query(
       'SELECT COUNT(*) AS count FROM meeting_records WHERE folder_id = ?',
@@ -1241,7 +1245,34 @@ const handleDeleteMeetingRecord = async (req, res, recordId) => {
     )
     if (remaining[0].count === 0) {
       await connection.query('DELETE FROM meeting_reports WHERE folder_id = ?', [folderId])
+      await connection.query('DELETE FROM product_meeting_links WHERE meeting_folder_id = ?', [
+        folderId,
+      ])
       await connection.query('DELETE FROM meeting_folders WHERE id = ?', [folderId])
+      if (folderDetails.length > 0) {
+        const { client_name: clientName, vendor_name: vendorName, product_name: productName } =
+          folderDetails[0]
+        const [clientVendorMeetings] = await connection.query(
+          'SELECT COUNT(*) AS count FROM meeting_folders WHERE client_name = ? AND vendor_name = ?',
+          [clientName, vendorName]
+        )
+        if (clientVendorMeetings[0].count === 0) {
+          await connection.query(
+            'DELETE FROM client_vendor_links WHERE client_name = ? AND vendor_name = ?',
+            [clientName, vendorName]
+          )
+        }
+        const [vendorProductMeetings] = await connection.query(
+          'SELECT COUNT(*) AS count FROM meeting_folders WHERE vendor_name = ? AND product_name = ?',
+          [vendorName, productName]
+        )
+        if (vendorProductMeetings[0].count === 0) {
+          await connection.query(
+            'DELETE FROM vendor_product_links WHERE vendor_name = ? AND product_name = ?',
+            [vendorName, productName]
+          )
+        }
+      }
     }
     await connection.commit()
     sendJson(res, 200, { success: true, message: '會議記錄已刪除' })
