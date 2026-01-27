@@ -472,7 +472,7 @@ const deleteMeetingFolder = async (meeting = null) => {
     const vendor = getVendors().find((item) => item.name === activeVendor.value)
     const product = vendor?.products.find((item) => item.name === activeProduct.value)
     if (product) {
-      product.meetings = (product.meetings || []).filter((meeting) => !removedIds.has(meeting.id))
+      product.meetings = (product.meetings || []).filter((meeting) => meeting.id !== removedId)
     }
     if (activeMeeting.value?.id === removedId) {
       activeMeeting.value = null
