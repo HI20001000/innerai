@@ -148,7 +148,12 @@ const getMeetings = () => {
   const products = getProducts()
   if (!activeProduct.value) return []
   const product = products.find((item) => item.name === activeProduct.value)
-  return product?.meetings || []
+  const meetings = product?.meetings || []
+  return [...meetings].sort((a, b) => {
+    const timeA = a?.meeting_time ? new Date(a.meeting_time).getTime() : 0
+    const timeB = b?.meeting_time ? new Date(b.meeting_time).getTime() : 0
+    return timeB - timeA
+  })
 }
 
 const findMeetingById = (items, meetingId) => {
