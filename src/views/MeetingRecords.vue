@@ -533,15 +533,43 @@ const fetchMeetingRecords = async () => {
         }
       }
     }
-    if (activeClient.value && !nextRecords.some((client) => client.name === activeClient.value)) {
-      activeClient.value = ''
-      activeVendor.value = ''
-      activeProduct.value = ''
-      activeMeeting.value = null
-      activeRecord.value = null
-      activeRecordMeta.value = null
-      activeReport.value = null
-      activeReportMeta.value = null
+    if (activeClient.value) {
+      const currentClient = nextRecords.find((client) => client.name === activeClient.value)
+      if (!currentClient) {
+        activeClient.value = ''
+        activeVendor.value = ''
+        activeProduct.value = ''
+        activeMeeting.value = null
+        activeRecord.value = null
+        activeRecordMeta.value = null
+        activeReport.value = null
+        activeReportMeta.value = null
+      } else if (activeVendor.value) {
+        const currentVendor = (currentClient.vendors || []).find(
+          (vendor) => vendor.name === activeVendor.value
+        )
+        if (!currentVendor) {
+          activeVendor.value = ''
+          activeProduct.value = ''
+          activeMeeting.value = null
+          activeRecord.value = null
+          activeRecordMeta.value = null
+          activeReport.value = null
+          activeReportMeta.value = null
+        } else if (activeProduct.value) {
+          const currentProduct = (currentVendor.products || []).find(
+            (product) => product.name === activeProduct.value
+          )
+          if (!currentProduct) {
+            activeProduct.value = ''
+            activeMeeting.value = null
+            activeRecord.value = null
+            activeRecordMeta.value = null
+            activeReport.value = null
+            activeReportMeta.value = null
+          }
+        }
+      }
     }
   } catch (error) {
     console.error(error)
