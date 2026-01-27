@@ -842,6 +842,23 @@ onMounted(fetchMeetingRecords)
               <h2>{{ previewTitle }}</h2>
               <div class="panel-actions">
                 <button
+                  class="ghost-mini"
+                  type="button"
+                  :disabled="!canDownloadPreview"
+                  @click="downloadPreviewContent"
+                >
+                  下載報告
+                </button>
+                <button
+                  v-if="activeReport"
+                  class="ghost-mini"
+                  type="button"
+                  :disabled="!canDownloadPreview"
+                  @click="downloadPreviewContent"
+                >
+                  下載報告
+                </button>
+                <button
                   v-if="activeReport"
                   class="ghost-mini"
                   type="button"
