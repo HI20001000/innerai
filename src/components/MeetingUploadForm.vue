@@ -45,6 +45,8 @@ const selectedFiles = ref([])
 const selectedFileNames = computed(() =>
   selectedFiles.value.map((file) => file.name).filter(Boolean).join('、')
 )
+const fileInputRef = ref(null)
+const hasTriggeredUpload = ref(false)
 const activeList = ref(null)
 const showRequiredHints = ref(false)
 
@@ -176,6 +178,12 @@ const handleFileChange = async (event) => {
   selectedFiles.value = files.filter(isAllowedMeetingFile)
   const parsedMeetingTime = parseMeetingTimeFromFiles(files)
   meetingTime.value = parsedMeetingTime || ''
+  hasTriggeredUpload.value = true
+}
+
+const triggerFilePicker = () => {
+  hasTriggeredUpload.value = true
+  fileInputRef.value?.click()
 }
 
 const getTaipeiDateTimeLocal = () => getTaipeiNowInput()
@@ -301,8 +309,13 @@ defineExpose({
         <h1 class="headline">會議記錄檔案</h1>
         <p class="subhead">選擇客戶、廠家與產品後，上傳一個或多個會議記錄檔案。</p>
       </div>
-      <div v-if="props.showInternalSubmit" class="header-actions">
-        <button class="primary-button" type="button" :disabled="isSubmitting" @click="submitMeetingRecords">
+      <div v-if="props.showInternalSubmit && hasTriggeredUpload" class="header-actions">
+        <button
+          class="primary-button"
+          type="button"
+          :disabled="isSubmitting || selectedFiles.length === 0"
+          @click="submitMeetingRecords"
+        >
           {{ isSubmitting ? '上傳中...' : '上傳會議記錄' }}
         </button>
       </div>
@@ -314,10 +327,10 @@ defineExpose({
         <p>選擇客戶、廠家與產品後，上傳一個或多個會議記錄檔案。</p>
       </div>
       <button
-        v-if="props.showInternalSubmit"
+        v-if="props.showInternalSubmit && hasTriggeredUpload"
         class="primary-button"
         type="button"
-        :disabled="isSubmitting"
+        :disabled="isSubmitting || selectedFiles.length === 0"
         @click="submitMeetingRecords"
       >
         {{ isSubmitting ? '上傳中...' : '上傳會議記錄' }}
@@ -417,14 +430,16 @@ defineExpose({
             會議記錄檔案
             <span v-if="selectedFiles.length === 0" class="missing-text">*</span>
           </span>
-          <label class="file-picker">
-            <input
-              type="file"
-              multiple
-              @change="handleFileChange"
-            />
+          <input
+            ref="fileInputRef"
+            class="file-input"
+            type="file"
+            multiple
+            @change="handleFileChange"
+          />
+          <button class="file-picker" type="button" @click="triggerFilePicker">
             <span>選擇檔案</span>
-          </label>
+          </button>
           <p class="hint">請選擇一個或多個會議記錄檔案。</p>
           <p v-if="selectedFiles.length > 0" class="file-count">
             已選擇 {{ selectedFiles.length }} 個檔案：{{ selectedFileNames }}
@@ -673,9 +688,19 @@ defineExpose({
   padding: 0.6rem 0.8rem;
   cursor: pointer;
   width: fit-content;
+  background: transparent;
+  color: #0f172a;
+  font-weight: 600;
+  transition: border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease;
 }
 
-.file-picker input {
+.file-picker:hover {
+  border-color: #7c9dff;
+  background: #eef2ff;
+  color: #1d4ed8;
+}
+
+.file-input {
   display: none;
 }
 

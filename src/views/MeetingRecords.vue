@@ -425,6 +425,19 @@ const closeUploadModal = () => {
 
 const handleUploadSuccess = async () => {
   await fetchMeetingRecords()
+  const meetings = getMeetings()
+  if (meetings.length > 0) {
+    const [firstMeeting] = meetings
+    activeMeeting.value = firstMeeting
+    if ((firstMeeting.records || []).length > 0) {
+      setActiveRecord(firstMeeting.records[0], firstMeeting)
+    } else {
+      activeRecord.value = null
+      activeRecordMeta.value = null
+      activeReport.value = null
+      activeReportMeta.value = null
+    }
+  }
   showUploadModal.value = false
 }
 
@@ -829,6 +842,15 @@ onMounted(fetchMeetingRecords)
               <h2>{{ previewTitle }}</h2>
               <div class="panel-actions">
                 <button
+                  class="ghost-mini"
+                  type="button"
+                  :disabled="!canDownloadPreview"
+                  @click="downloadPreviewContent"
+                >
+                  下載報告
+                </button>
+                <button
+                  v-if="activeReport"
                   class="ghost-mini"
                   type="button"
                   :disabled="!canDownloadPreview"
