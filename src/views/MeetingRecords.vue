@@ -840,6 +840,15 @@ onMounted(fetchMeetingRecords)
                   v-if="activeReport"
                   class="ghost-mini"
                   type="button"
+                  :disabled="!canDownloadPreview"
+                  @click="downloadPreviewContent"
+                >
+                  下載報告
+                </button>
+                <button
+                  v-if="activeReport"
+                  class="ghost-mini"
+                  type="button"
                   :disabled="!activeReportMeta || isReportLoading(activeReportMeta.id)"
                   @click="handleGenerateMeetingReport(activeReportMeta)"
                 >
