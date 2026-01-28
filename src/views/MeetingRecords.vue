@@ -139,7 +139,6 @@ const stripMarkdown = (line) =>
     .replace(/`(.*?)`/g, '$1')
     .replace(/\[(.*?)\]\((.*?)\)/g, '$1')
     .replace(/^>\s?/, '')
-    .trim()
 
 const escapeXml = (text) =>
   text
@@ -149,27 +148,43 @@ const escapeXml = (text) =>
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;')
 
-const buildDocxParagraphs = (markdown = '') => {
-  const lines = markdown.split(/\r?\n/)
-  const paragraphs = []
-  let buffer = []
-  const flushBuffer = () => {
-    if (buffer.length === 0) return
-    paragraphs.push(buffer.join(' '))
-    buffer = []
-  }
+const normalizeReportContent = (text) => text.replace(/\\n/g, '\n')
 
-  lines.forEach((line) => {
-    const trimmed = line.trim()
-    if (!trimmed) {
-      flushBuffer()
-      paragraphs.push('')
-      return
+const formatListLine = (line) => {
+  const trimmed = line.trim()
+  if (trimmed.startsWith('- ')) {
+    return `• ${trimmed.slice(2).trim()}`
+  }
+  if (trimmed.startsWith('•')) return trimmed
+  return line
+}
+
+const buildDocxRuns = (line) => {
+  const segments = line.split('\t')
+  return segments
+    .map((segment, index) => {
+      const escaped = escapeXml(segment)
+      if (index === 0) {
+        return `<w:t xml:space="preserve">${escaped}</w:t>`
+      }
+      return `<w:tab/><w:t xml:space="preserve">${escaped}</w:t>`
+    })
+    .join('')
+}
+
+const buildDocxParagraphs = (markdown = '') => {
+  const lines = normalizeReportContent(markdown).split(/\r?\n/)
+  const paragraphs = lines.map((rawLine) => {
+    const stripped = stripMarkdown(rawLine)
+    const formatted = formatListLine(stripped)
+    if (!formatted.trim()) {
+      return '<w:p><w:r><w:t xml:space="preserve"></w:t></w:r></w:p>'
     }
-    buffer.push(stripMarkdown(line))
+    return `<w:p><w:r>${buildDocxRuns(formatted)}</w:r></w:p>`
   })
-  flushBuffer()
-  return paragraphs.length ? paragraphs : ['']
+  return paragraphs.length
+    ? paragraphs.join('')
+    : '<w:p><w:r><w:t xml:space="preserve"></w:t></w:r></w:p>'
 }
 
 const downloadPreviewContent = async () => {
@@ -178,15 +193,14 @@ const downloadPreviewContent = async () => {
   const baseName = '會議報告'
   const safeName = sanitizeFilename(baseName) || 'meeting-report'
   const paragraphXml = buildDocxParagraphs(content)
-    .map(
-      (paragraph) =>
-        `<w:p><w:r><w:t xml:space="preserve">${escapeXml(paragraph)}</w:t></w:r></w:p>`
-    )
-    .join('')
   const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
   <w:body>
     ${paragraphXml}
+    <w:sectPr>
+      <w:pgSz w:w="11906" w:h="16838"/>
+      <w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="708" w:footer="708" w:gutter="0"/>
+    </w:sectPr>
   </w:body>
 </w:document>`
   const contentTypesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
