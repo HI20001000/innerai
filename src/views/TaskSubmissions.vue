@@ -676,18 +676,22 @@ onUnmounted(() => {
               </td>
               <td class="action-cell">
                 <template v-if="editingId === item.id">
-                  <button class="ghost-button" type="button" @click="cancelEdit">取消</button>
-                  <button class="primary-button" type="button" @click="saveEdit(item.id)">
-                    儲存
-                  </button>
+                  <div class="action-buttons">
+                    <button class="ghost-button" type="button" @click="cancelEdit">取消</button>
+                    <button class="primary-button" type="button" @click="saveEdit(item.id)">
+                      儲存
+                    </button>
+                  </div>
                 </template>
                 <template v-else>
-                  <button class="ghost-button" type="button" @click="startEdit(item)">
-                    編輯
-                  </button>
-                  <button class="danger-button" type="button" @click="deleteSubmission(item.id)">
-                    刪除
-                  </button>
+                  <div class="action-buttons">
+                    <button class="ghost-button" type="button" @click="startEdit(item)">
+                      編輯
+                    </button>
+                    <button class="danger-button" type="button" @click="deleteSubmission(item.id)">
+                      刪除
+                    </button>
+                  </div>
                 </template>
               </td>
             </tr>
@@ -940,7 +944,11 @@ onUnmounted(() => {
 }
 
 .action-cell {
-  display: flex;
+  vertical-align: middle;
+}
+
+.action-buttons {
+  display: inline-flex;
   gap: 0.5rem;
   flex-wrap: nowrap;
   align-items: center;
