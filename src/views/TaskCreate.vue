@@ -1177,6 +1177,10 @@ onBeforeUnmount(() => {
   gap: 2rem;
 }
 
+.task-form-scroll {
+  overflow-x: hidden;
+}
+
 .task-form {
   background: #fff;
   padding: 2rem;
