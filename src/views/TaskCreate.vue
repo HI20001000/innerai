@@ -909,42 +909,6 @@ onBeforeUnmount(() => {
               <button type="button" class="primary-button small" @click="addFollowUpItem">
                 新增
               </button>
-              <div class="quick-assign-wrapper">
-                <button
-                  type="button"
-                  class="ghost-button small"
-                  :disabled="selectedRelatedUsers.length === 0 || followUpItems.length === 0"
-                  @click="toggleQuickAssignMenu"
-                >
-                  一鍵指派
-                </button>
-                <div v-if="activeQuickAssignMenu" class="option-list assignee-list user-multi-options">
-                  <input
-                    v-model="searchQuery.user"
-                    class="option-search"
-                    type="text"
-                    placeholder="搜尋用戶"
-                  />
-                  <button
-                    v-for="user in getFilteredRelatedUsers()"
-                    :key="user.mail"
-                    type="button"
-                    class="option-item user-option"
-                    @click="applyQuickAssign(user)"
-                  >
-                    <span
-                      class="user-avatar"
-                      :style="{ backgroundColor: user.icon_bg || '#e2e8f0' }"
-                    >
-                      {{ user.icon || '🙂' }}
-                    </span>
-                    <span class="user-label">
-                      {{ user.username || 'user' }}
-                    </span>
-                    <span v-if="isQuickAssignSelected(user)" class="user-selected">已選</span>
-                  </button>
-                </div>
-              </div>
             </div>
             <div v-if="followUpItems.length > 0" class="follow-up-list">
               <div
@@ -1016,6 +980,44 @@ onBeforeUnmount(() => {
                       ×
                     </button>
                   </div>
+                </div>
+              </div>
+            </div>
+            <div class="follow-up-quick-assign">
+              <div class="quick-assign-wrapper">
+                <button
+                  type="button"
+                  class="ghost-button small"
+                  :disabled="selectedRelatedUsers.length === 0 || followUpItems.length === 0"
+                  @click="toggleQuickAssignMenu"
+                >
+                  一鍵指派
+                </button>
+                <div v-if="activeQuickAssignMenu" class="option-list assignee-list user-multi-options">
+                  <input
+                    v-model="searchQuery.user"
+                    class="option-search"
+                    type="text"
+                    placeholder="搜尋用戶"
+                  />
+                  <button
+                    v-for="user in getFilteredRelatedUsers()"
+                    :key="user.mail"
+                    type="button"
+                    class="option-item user-option"
+                    @click="applyQuickAssign(user)"
+                  >
+                    <span
+                      class="user-avatar"
+                      :style="{ backgroundColor: user.icon_bg || '#e2e8f0' }"
+                    >
+                      {{ user.icon || '🙂' }}
+                    </span>
+                    <span class="user-label">
+                      {{ user.username || 'user' }}
+                    </span>
+                    <span v-if="isQuickAssignSelected(user)" class="user-selected">已選</span>
+                  </button>
                 </div>
               </div>
             </div>
@@ -1404,6 +1406,12 @@ onBeforeUnmount(() => {
 
 .follow-up-assignee {
   position: relative;
+}
+
+.follow-up-quick-assign {
+  margin-top: 0.6rem;
+  display: flex;
+  justify-content: flex-start;
 }
 
 .follow-up-content {
