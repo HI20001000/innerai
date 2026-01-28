@@ -1,5 +1,5 @@
 <script setup>
-import { computed, getCurrentInstance, onMounted, reactive, ref } from 'vue'
+import { computed, getCurrentInstance, onMounted, onUnmounted, reactive, ref } from 'vue'
 import WorkspaceSidebar from '../components/WorkspaceSidebar.vue'
 import ResultModal from '../components/ResultModal.vue'
 import RelatedUsersTooltip from '../components/RelatedUsersTooltip.vue'
@@ -402,10 +402,25 @@ const deleteSubmission = async (id) => {
   }
 }
 
+const handleOutsideClick = (event) => {
+  if (!activeList.value && activeFollowUpAssigneeMenu.value === null) return
+  const target = event.target
+  if (!(target instanceof Element)) return
+  if (target.closest('.option-list') || target.closest('.select-field')) return
+  if (target.closest('.follow-up-assignee')) return
+  activeList.value = null
+  activeFollowUpAssigneeMenu.value = null
+}
+
 onMounted(() => {
   fetchSubmissions()
   fetchTagOptions()
   fetchUsers()
+  document.addEventListener('click', handleOutsideClick)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleOutsideClick)
 })
 </script>
 
