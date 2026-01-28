@@ -425,7 +425,7 @@ defineExpose({
           <input v-model="meetingTime" type="datetime-local" class="text-input" />
           <p v-if="showRequiredHints && !meetingTime" class="required-hint">必填</p>
         </label>
-        <label class="field wide">
+        <div class="field wide">
           <span class="field-label">
             會議記錄檔案
             <span v-if="selectedFiles.length === 0" class="missing-text">*</span>
@@ -444,7 +444,7 @@ defineExpose({
           <p v-if="selectedFiles.length > 0" class="file-count">
             已選擇 {{ selectedFiles.length }} 個檔案：{{ selectedFileNames }}
           </p>
-        </label>
+        </div>
       </div>
     </form>
 

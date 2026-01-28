@@ -428,7 +428,16 @@ const closeUploadModal = () => {
   showUploadModal.value = false
 }
 
-const handleUploadSuccess = async () => {
+const handleUploadSuccess = async (payload = {}) => {
+  if (payload.client) {
+    activeClient.value = payload.client
+  }
+  if (payload.vendor) {
+    activeVendor.value = payload.vendor
+  }
+  if (payload.product) {
+    activeProduct.value = payload.product
+  }
   await fetchMeetingRecords()
   const meetings = getMeetings()
   if (meetings.length > 0) {
@@ -849,37 +858,18 @@ onMounted(fetchMeetingRecords)
                 <button
                   class="ghost-mini"
                   type="button"
-                  :disabled="!canDownloadPreview"
-                  @click="downloadPreviewContent"
+                  :disabled="!activeMeeting || isUploading"
+                  @click="openUploadModal"
                 >
-                  下載報告
+                  重新上傳
                 </button>
                 <button
-                  v-if="activeReport"
                   class="ghost-mini"
                   type="button"
                   :disabled="!canDownloadPreview"
                   @click="downloadPreviewContent"
                 >
                   下載報告
-                </button>
-                <button
-                  v-if="activeReport"
-                  class="ghost-mini"
-                  type="button"
-                  :disabled="!canDownloadPreview"
-                  @click="downloadPreviewContent"
-                >
-                  下載報告
-                </button>
-                <button
-                  v-if="activeReport"
-                  class="ghost-mini"
-                  type="button"
-                  :disabled="!activeReportMeta || isReportLoading(activeReportMeta.id)"
-                  @click="handleGenerateMeetingReport(activeReportMeta)"
-                >
-                  重新生成
                 </button>
               </div>
             </div>
