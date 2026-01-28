@@ -942,7 +942,9 @@ onUnmounted(() => {
 .action-cell {
   display: flex;
   gap: 0.5rem;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  align-items: center;
+  min-height: 44px;
 }
 
 .follow-up-edit {
