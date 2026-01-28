@@ -21,7 +21,6 @@ const props = defineProps({
 }
 
 .scroll-panel__body {
-  overflow-y: auto;
   padding-right: 0.4rem;
 }
 
