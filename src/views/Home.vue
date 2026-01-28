@@ -358,9 +358,16 @@ const handleTimelineOutsideClick = (event) => {
   if (!activeStatusMenu.value && !activeAssigneeMenu.value) return
   const target = event.target
   if (!(target instanceof Element)) return
-  if (target.closest('.follow-up-actions')) return
-  activeStatusMenu.value = null
-  activeAssigneeMenu.value = null
+  const withinStatusMenu = target.closest('.status-menu')
+  const withinStatusSelect = target.closest('.status-select')
+  const withinAssigneeMenu = target.closest('.option-list')
+  const withinAssigneeSelect = target.closest('.assignee-select')
+  if (activeStatusMenu.value && !withinStatusMenu && !withinStatusSelect) {
+    activeStatusMenu.value = null
+  }
+  if (activeAssigneeMenu.value && !withinAssigneeMenu && !withinAssigneeSelect) {
+    activeAssigneeMenu.value = null
+  }
 }
 
 const isAssigneeSelected = (followUp, mail) =>
