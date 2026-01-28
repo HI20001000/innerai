@@ -428,7 +428,16 @@ const closeUploadModal = () => {
   showUploadModal.value = false
 }
 
-const handleUploadSuccess = async () => {
+const handleUploadSuccess = async (payload = {}) => {
+  if (payload.client) {
+    activeClient.value = payload.client
+  }
+  if (payload.vendor) {
+    activeVendor.value = payload.vendor
+  }
+  if (payload.product) {
+    activeProduct.value = payload.product
+  }
   await fetchMeetingRecords()
   const meetings = getMeetings()
   if (meetings.length > 0) {
