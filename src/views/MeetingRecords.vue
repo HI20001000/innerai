@@ -104,20 +104,188 @@ const previewContent = computed(() => {
   return '請先選擇會議記錄。'
 })
 
-const canDownloadPreview = computed(() => Boolean(previewMeta.value))
+const showPanelActions = computed(() => Boolean(activeRecord.value || activeReport.value))
+const previewMeeting = computed(
+  () => activeReportMeta.value || activeRecordMeta.value || activeMeeting.value
+)
+const canDownloadReport = computed(() => Boolean(activeReport.value && previewContent.value))
 
 const sanitizeFilename = (name) => name.replace(/[\\/:*?"<>|]/g, '_').trim()
 
-const downloadPreviewContent = () => {
-  if (!canDownloadPreview.value) return
+const textEncoder = new TextEncoder()
+const crcTable = new Uint32Array(256).map((_, index) => {
+  let value = index
+  for (let step = 0; step < 8; step += 1) {
+    value = value & 1 ? 0xedb88320 ^ (value >>> 1) : value >>> 1
+  }
+  return value >>> 0
+})
+
+const crc32 = (data) => {
+  let crc = 0xffffffff
+  for (const byte of data) {
+    crc = crcTable[(crc ^ byte) & 0xff] ^ (crc >>> 8)
+  }
+  return (crc ^ 0xffffffff) >>> 0
+}
+
+const stripMarkdown = (line) =>
+  line
+    .replace(/^#{1,6}\s*/, '')
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/__(.*?)__/g, '$1')
+    .replace(/\*(.*?)\*/g, '$1')
+    .replace(/_(.*?)_/g, '$1')
+    .replace(/`(.*?)`/g, '$1')
+    .replace(/\[(.*?)\]\((.*?)\)/g, '$1')
+    .replace(/^>\s?/, '')
+
+const escapeXml = (text) =>
+  text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;')
+
+const normalizeReportContent = (text) => text.replace(/\\n/g, '\n')
+
+const formatListLine = (line) => {
+  const trimmed = line.trim()
+  if (trimmed.startsWith('- ')) {
+    return `• ${trimmed.slice(2).trim()}`
+  }
+  if (trimmed.startsWith('•')) return trimmed
+  return line
+}
+
+const buildDocxRuns = (line) => {
+  const segments = line.split('\t')
+  return segments
+    .map((segment, index) => {
+      const escaped = escapeXml(segment)
+      if (index === 0) {
+        return `<w:t xml:space="preserve">${escaped}</w:t>`
+      }
+      return `<w:tab/><w:t xml:space="preserve">${escaped}</w:t>`
+    })
+    .join('')
+}
+
+const buildDocxParagraphs = (markdown = '') => {
+  const lines = normalizeReportContent(markdown).split(/\r?\n/)
+  const paragraphs = lines.map((rawLine) => {
+    const stripped = stripMarkdown(rawLine)
+    const formatted = formatListLine(stripped)
+    if (!formatted.trim()) {
+      return '<w:p><w:r><w:t xml:space="preserve"></w:t></w:r></w:p>'
+    }
+    return `<w:p><w:r>${buildDocxRuns(formatted)}</w:r></w:p>`
+  })
+  return paragraphs.length
+    ? paragraphs.join('')
+    : '<w:p><w:r><w:t xml:space="preserve"></w:t></w:r></w:p>'
+}
+
+const downloadPreviewContent = async () => {
+  if (!canDownloadReport.value) return
   const content = previewContent.value || ''
-  const baseName = activeReport.value ? '會議報告' : activeRecord.value?.file_name || 'meeting-preview'
-  const safeName = sanitizeFilename(baseName) || 'meeting-preview'
-  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
+  const baseName = '會議報告'
+  const safeName = sanitizeFilename(baseName) || 'meeting-report'
+  const paragraphXml = buildDocxParagraphs(content)
+  const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    ${paragraphXml}
+    <w:sectPr>
+      <w:pgSz w:w="11906" w:h="16838"/>
+      <w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="708" w:footer="708" w:gutter="0"/>
+    </w:sectPr>
+  </w:body>
+</w:document>`
+  const contentTypesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>`
+  const relationshipsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`
+  const files = [
+    { name: '[Content_Types].xml', content: contentTypesXml },
+    { name: '_rels/.rels', content: relationshipsXml },
+    { name: 'word/document.xml', content: documentXml },
+  ]
+  const parts = []
+  const entries = []
+  let offset = 0
+
+  files.forEach((file) => {
+    const nameBytes = textEncoder.encode(file.name)
+    const dataBytes =
+      typeof file.content === 'string' ? textEncoder.encode(file.content) : file.content
+    const crc = crc32(dataBytes)
+    const localHeader = new DataView(new ArrayBuffer(30))
+    localHeader.setUint32(0, 0x04034b50, true)
+    localHeader.setUint16(4, 20, true)
+    localHeader.setUint16(6, 0, true)
+    localHeader.setUint16(8, 0, true)
+    localHeader.setUint16(10, 0, true)
+    localHeader.setUint16(12, 0, true)
+    localHeader.setUint32(14, crc, true)
+    localHeader.setUint32(18, dataBytes.length, true)
+    localHeader.setUint32(22, dataBytes.length, true)
+    localHeader.setUint16(26, nameBytes.length, true)
+    localHeader.setUint16(28, 0, true)
+    parts.push(new Uint8Array(localHeader.buffer), nameBytes, dataBytes)
+    entries.push({ nameBytes, crc, size: dataBytes.length, offset })
+    offset += 30 + nameBytes.length + dataBytes.length
+  })
+
+  const centralParts = []
+  let centralSize = 0
+  entries.forEach((entry) => {
+    const centralHeader = new DataView(new ArrayBuffer(46))
+    centralHeader.setUint32(0, 0x02014b50, true)
+    centralHeader.setUint16(4, 20, true)
+    centralHeader.setUint16(6, 20, true)
+    centralHeader.setUint16(8, 0, true)
+    centralHeader.setUint16(10, 0, true)
+    centralHeader.setUint16(12, 0, true)
+    centralHeader.setUint16(14, 0, true)
+    centralHeader.setUint32(16, entry.crc, true)
+    centralHeader.setUint32(20, entry.size, true)
+    centralHeader.setUint32(24, entry.size, true)
+    centralHeader.setUint16(28, entry.nameBytes.length, true)
+    centralHeader.setUint16(30, 0, true)
+    centralHeader.setUint16(32, 0, true)
+    centralHeader.setUint16(34, 0, true)
+    centralHeader.setUint16(36, 0, true)
+    centralHeader.setUint32(38, 0, true)
+    centralHeader.setUint32(42, entry.offset, true)
+    centralParts.push(new Uint8Array(centralHeader.buffer), entry.nameBytes)
+    centralSize += 46 + entry.nameBytes.length
+  })
+
+  const endRecord = new DataView(new ArrayBuffer(22))
+  endRecord.setUint32(0, 0x06054b50, true)
+  endRecord.setUint16(4, 0, true)
+  endRecord.setUint16(6, 0, true)
+  endRecord.setUint16(8, entries.length, true)
+  endRecord.setUint16(10, entries.length, true)
+  endRecord.setUint32(12, centralSize, true)
+  endRecord.setUint32(16, offset, true)
+  endRecord.setUint16(20, 0, true)
+
+  const blob = new Blob([...parts, ...centralParts, new Uint8Array(endRecord.buffer)], {
+    type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  })
   const link = document.createElement('a')
   const url = URL.createObjectURL(blob)
   link.href = url
-  link.download = `${safeName}.txt`
+  link.download = `${safeName}.docx`
   document.body.appendChild(link)
   link.click()
   link.remove()
@@ -854,19 +1022,19 @@ onMounted(fetchMeetingRecords)
           <div class="panel-section">
             <div class="panel-header">
               <h2>{{ previewTitle }}</h2>
-              <div class="panel-actions">
+              <div v-if="showPanelActions" class="panel-actions">
                 <button
                   class="ghost-mini"
                   type="button"
-                  :disabled="!activeMeeting || isUploading"
-                  @click="openUploadModal"
+                  :disabled="!previewMeeting || isReportLoading(previewMeeting.id)"
+                  @click="handleGenerateMeetingReport(previewMeeting)"
                 >
-                  重新上傳
+                  重新生成
                 </button>
                 <button
                   class="ghost-mini"
                   type="button"
-                  :disabled="!canDownloadPreview"
+                  :disabled="!canDownloadReport"
                   @click="downloadPreviewContent"
                 >
                   下載報告
