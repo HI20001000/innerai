@@ -500,15 +500,7 @@ const handleUploadChange = async (event) => {
     resultTitle.value = '上傳成功'
     resultMessage.value = data?.message || '會議記錄已更新'
     showResult.value = true
-    const baseId = Date.now()
-    const appendedRecords = filesPayload.map((file, index) => ({
-      id: `${baseId}-${index}-${file.name}`,
-      file_name: file.name,
-      file_path: file.path || file.name,
-      mime_type: file.type,
-      content_text: null,
-    }))
-    activeMeeting.value.records = [...(activeMeeting.value.records || []), ...appendedRecords]
+    await fetchMeetingRecords()
   } catch (error) {
     console.error(error)
     resultTitle.value = '上傳失敗'
