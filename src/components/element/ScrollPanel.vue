@@ -18,6 +18,7 @@ const props = defineProps({
 <style scoped>
 .scroll-panel {
   overflow-x: visible;
+  overflow-y: auto;
 }
 
 .scroll-panel__body {
