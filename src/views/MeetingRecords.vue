@@ -500,15 +500,7 @@ const handleUploadChange = async (event) => {
     resultTitle.value = '上傳成功'
     resultMessage.value = data?.message || '會議記錄已更新'
     showResult.value = true
-    const baseId = Date.now()
-    const appendedRecords = filesPayload.map((file, index) => ({
-      id: `${baseId}-${index}-${file.name}`,
-      file_name: file.name,
-      file_path: file.path || file.name,
-      mime_type: file.type,
-      content_text: null,
-    }))
-    activeMeeting.value.records = [...(activeMeeting.value.records || []), ...appendedRecords]
+    await fetchMeetingRecords()
   } catch (error) {
     console.error(error)
     resultTitle.value = '上傳失敗'
@@ -609,10 +601,19 @@ const handleUploadSuccess = async (payload = {}) => {
   await fetchMeetingRecords()
   const meetings = getMeetings()
   if (meetings.length > 0) {
-    const [firstMeeting] = meetings
-    activeMeeting.value = firstMeeting
-    if ((firstMeeting.records || []).length > 0) {
-      setActiveRecord(firstMeeting.records[0], firstMeeting)
+    const targetMeeting =
+      meetings.find((meeting) => meeting.id === payload.meetingId) ||
+      meetings.find((meeting) => {
+        if (!payload.meetingTime) return false
+        const meetingTime = new Date(meeting.meeting_time || '').getTime()
+        const payloadTime = new Date(payload.meetingTime).getTime()
+        if (!Number.isFinite(meetingTime) || !Number.isFinite(payloadTime)) return false
+        return meetingTime === payloadTime
+      }) ||
+      meetings[0]
+    activeMeeting.value = targetMeeting
+    if ((targetMeeting.records || []).length > 0) {
+      setActiveRecord(targetMeeting.records[0], targetMeeting)
     } else {
       activeRecord.value = null
       activeRecordMeta.value = null

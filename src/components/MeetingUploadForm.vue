@@ -263,6 +263,8 @@ const submitMeetingRecords = async () => {
       client: selectedClient.value,
       vendor: selectedVendor.value,
       product: selectedProduct.value,
+      meetingTime: meetingTime.value,
+      meetingId: data?.data?.id ?? null,
     })
   } catch (error) {
     console.error(error)
