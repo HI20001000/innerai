@@ -601,10 +601,19 @@ const handleUploadSuccess = async (payload = {}) => {
   await fetchMeetingRecords()
   const meetings = getMeetings()
   if (meetings.length > 0) {
-    const [firstMeeting] = meetings
-    activeMeeting.value = firstMeeting
-    if ((firstMeeting.records || []).length > 0) {
-      setActiveRecord(firstMeeting.records[0], firstMeeting)
+    const targetMeeting =
+      meetings.find((meeting) => meeting.id === payload.meetingId) ||
+      meetings.find((meeting) => {
+        if (!payload.meetingTime) return false
+        const meetingTime = new Date(meeting.meeting_time || '').getTime()
+        const payloadTime = new Date(payload.meetingTime).getTime()
+        if (!Number.isFinite(meetingTime) || !Number.isFinite(payloadTime)) return false
+        return meetingTime === payloadTime
+      }) ||
+      meetings[0]
+    activeMeeting.value = targetMeeting
+    if ((targetMeeting.records || []).length > 0) {
+      setActiveRecord(targetMeeting.records[0], targetMeeting)
     } else {
       activeRecord.value = null
       activeRecordMeta.value = null
