@@ -837,6 +837,7 @@ onUnmounted(() => {
   max-width: 100vw;
   box-sizing: border-box;
   overflow-x: hidden;
+  overflow-y: hidden;
 }
 
 .task-view-header {
@@ -979,6 +980,9 @@ onUnmounted(() => {
   width: 100%;
   max-width: 100%;
   overflow-x: auto;
+  max-height: calc(100vh - 260px);
+  margin-bottom: 1.5rem;
+  overflow-y: auto;
 }
 
 .empty-state {
