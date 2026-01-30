@@ -771,6 +771,10 @@ onUnmounted(() => {
   color: #0f172a;
   display: grid;
   gap: 2.5rem;
+  width: 100%;
+  max-width: 100vw;
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 .task-view-header {
@@ -778,6 +782,9 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: flex-end;
   gap: 2rem;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 .eyebrow {
@@ -804,6 +811,7 @@ onUnmounted(() => {
   display: grid;
   gap: 0.6rem;
   min-width: 320px;
+  max-width: 100%;
 }
 
 .filter-label {
@@ -885,6 +893,9 @@ onUnmounted(() => {
   padding: 1.5rem;
   border-radius: 24px;
   box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 .empty-state {
