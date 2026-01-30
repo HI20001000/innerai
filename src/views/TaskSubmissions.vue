@@ -1223,8 +1223,9 @@ onUnmounted(() => {
 }
 
 .col-followup {
-  width: auto;
-  min-width: 0;
+  width: 32rem;
+  min-width: 32rem;
+  white-space: nowrap;
 }
 
 .col-actions {
