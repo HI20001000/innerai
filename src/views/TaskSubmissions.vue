@@ -992,7 +992,7 @@ onUnmounted(() => {
 }
 
 .table-wrapper {
-  overflow-x: auto;
+  overflow-x: visible;
 }
 
 .task-table {
@@ -1223,7 +1223,8 @@ onUnmounted(() => {
 }
 
 .col-followup {
-  min-width: 280px;
+  width: auto;
+  min-width: 0;
 }
 
 .col-actions {
