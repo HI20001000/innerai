@@ -474,7 +474,7 @@ defineExpose({
             </button>
           </div>
         </div>
-        <input v-model="newOption" type="text" placeholder="新增項目名稱" />
+        <input v-model="newOption" type="text" class="text-input" placeholder="新增項目名稱" />
         <div class="modal-actions">
           <button class="ghost-button" type="button" @click="closeModal">取消</button>
           <button class="primary-button" type="button" @click="addOption">新增</button>
@@ -735,6 +735,10 @@ defineExpose({
   width: 100%;
   display: grid;
   gap: 1rem;
+}
+
+.modal-card .text-input {
+  width: 100%;
 }
 
 .modal-list {
