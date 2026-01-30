@@ -1174,7 +1174,7 @@ onUnmounted(() => {
 
 .followup-item {
   border-radius: 12px;
-  background: #f8fafc;
+  background: #f1f5f4;
   padding: 0.8rem;
   display: grid;
   gap: 0.6rem;
