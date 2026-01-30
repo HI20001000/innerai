@@ -1179,7 +1179,7 @@ onUnmounted(() => {
 
 .follow-up-row {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 0.6rem;
   align-items: start;
 }
@@ -1187,11 +1187,14 @@ onUnmounted(() => {
 .follow-up-main {
   display: grid;
   gap: 0.35rem;
+  min-width: 0;
+  overflow-x: auto;
 }
 
 .follow-up-text {
   color: #0f172a;
   font-size: 0.9rem;
+  white-space: nowrap;
 }
 
 .follow-up-index {
