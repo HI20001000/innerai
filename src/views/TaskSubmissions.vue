@@ -44,7 +44,7 @@ const showResult = ref(false)
 const resultTitle = ref('')
 const resultMessage = ref('')
 const filterState = reactive({
-  field: 'all',
+  fields: ['all'],
   query: '',
 })
 
@@ -63,10 +63,30 @@ const filteredSubmissions = computed(() => {
       creator: item.created_by_email ?? '',
       tag: tags,
     }
-    const target = fields[filterState.field] ?? fields.all
-    return target.toLowerCase().includes(query)
+    const activeFields = filterState.fields.length ? filterState.fields : ['all']
+    if (activeFields.includes('all')) {
+      return fields.all.toLowerCase().includes(query)
+    }
+    return activeFields.some((field) => (fields[field] ?? '').toLowerCase().includes(query))
   })
 })
+
+const toggleFilterField = (field) => {
+  const currentFields = filterState.fields
+  if (field === 'all') {
+    filterState.fields = ['all']
+    return
+  }
+  const nextFields = currentFields.filter((item) => item !== 'all')
+  if (nextFields.includes(field)) {
+    filterState.fields = nextFields.filter((item) => item !== field)
+  } else {
+    filterState.fields = [...nextFields, field]
+  }
+  if (filterState.fields.length === 0) {
+    filterState.fields = ['all']
+  }
+}
 
 const goToNewTask = () => {
   router?.push('/tasks/new')
@@ -469,14 +489,56 @@ onUnmounted(() => {
       <div class="task-filter">
         <label class="filter-label" for="task-filter-field">過濾條件</label>
         <div class="filter-controls">
-          <select id="task-filter-field" v-model="filterState.field" class="filter-select">
-            <option value="all">全部欄位</option>
-            <option value="client">客戶</option>
-            <option value="vendor">廠家</option>
-            <option value="product">產品</option>
-            <option value="creator">建立者</option>
-            <option value="tag">標籤</option>
-          </select>
+          <div id="task-filter-field" class="filter-options" role="group">
+            <button
+              type="button"
+              class="filter-chip"
+              :class="{ active: filterState.fields.includes('all') }"
+              @click="toggleFilterField('all')"
+            >
+              全部欄位
+            </button>
+            <button
+              type="button"
+              class="filter-chip"
+              :class="{ active: filterState.fields.includes('client') }"
+              @click="toggleFilterField('client')"
+            >
+              客戶
+            </button>
+            <button
+              type="button"
+              class="filter-chip"
+              :class="{ active: filterState.fields.includes('vendor') }"
+              @click="toggleFilterField('vendor')"
+            >
+              廠家
+            </button>
+            <button
+              type="button"
+              class="filter-chip"
+              :class="{ active: filterState.fields.includes('product') }"
+              @click="toggleFilterField('product')"
+            >
+              產品
+            </button>
+            <button
+              type="button"
+              class="filter-chip"
+              :class="{ active: filterState.fields.includes('creator') }"
+              @click="toggleFilterField('creator')"
+            >
+              建立者
+            </button>
+            <button
+              type="button"
+              class="filter-chip"
+              :class="{ active: filterState.fields.includes('tag') }"
+              @click="toggleFilterField('tag')"
+            >
+              標籤
+            </button>
+          </div>
           <input
             v-model="filterState.query"
             type="text"
@@ -827,13 +889,34 @@ onUnmounted(() => {
   flex-wrap: wrap;
 }
 
-.filter-select,
 .filter-input {
   border: 1px solid #e2e8f0;
   border-radius: 12px;
   padding: 0.45rem 0.6rem;
   font-size: 0.85rem;
   background: #fff;
+}
+
+.filter-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.filter-chip {
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #475569;
+  border-radius: 999px;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.filter-chip.active {
+  border-color: #111827;
+  background: #111827;
+  color: #fff;
 }
 
 .filter-input {
