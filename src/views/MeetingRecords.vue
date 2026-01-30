@@ -417,7 +417,12 @@ const fileToBase64 = (file) =>
 
 const useSelectedMeeting = () => {
   if (!props.onSelectRecords || !activeMeeting.value) return
-  props.onSelectRecords(activeMeeting.value.records || [])
+  props.onSelectRecords({
+    records: activeMeeting.value.records || [],
+    client: activeClient.value,
+    vendor: activeVendor.value,
+    product: activeProduct.value,
+  })
 }
 
 const setActiveRecord = (record, meeting) => {

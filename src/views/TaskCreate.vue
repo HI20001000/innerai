@@ -1177,10 +1177,17 @@ onBeforeUnmount(() => {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
   gap: 2rem;
+  align-items: stretch;
+  --panel-min-height: 520px;
 }
 
 .task-form-scroll {
   overflow-x: hidden;
+  min-height: var(--panel-min-height);
+}
+
+.task-form-scroll :deep(.scroll-panel__body) {
+  min-height: var(--panel-min-height);
 }
 
 .task-form {
@@ -1523,6 +1530,8 @@ onBeforeUnmount(() => {
 .task-summary {
   display: grid;
   gap: 1.5rem;
+  min-height: var(--panel-min-height);
+  align-content: start;
 }
 
 .summary-card {
