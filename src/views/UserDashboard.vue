@@ -606,19 +606,17 @@ const ganttSubmissions = computed(() => {
                     <div
                       v-for="(follow, index) in item.follow_ups"
                       :key="follow.id"
-                      class="follow-up-row"
+                      class="followup-item"
                     >
-                      <span class="follow-up-index">{{ index + 1 }}.</span>
-                      <div class="follow-up-main">
+                      <div class="followup-item-content">
+                        <span class="follow-up-index">{{ index + 1 }}.</span>
                         <span class="follow-up-text">{{ follow.content }}</span>
-                        <div class="follow-up-meta">
-                          <div class="follow-up-meta-item">
-                            <span class="meta-label">跟進人</span>
-                            <span class="meta-value">{{ getAssigneeNames(follow) }}</span>
-                          </div>
-                        </div>
                       </div>
-                      <div class="follow-up-actions">
+                      <div class="followup-item-meta">
+                        <div class="followup-meta-group">
+                          <span class="meta-label">跟進人</span>
+                          <span class="meta-value">{{ getAssigneeNames(follow) }}</span>
+                        </div>
                         <span class="status-chip" :style="getStatusChipStyle(follow)">
                           {{ follow.status_name || '進行中' }}
                         </span>
@@ -1012,6 +1010,7 @@ const ganttSubmissions = computed(() => {
 .timeline {
   display: grid;
   gap: 1.2rem;
+  overflow-x: auto;
 }
 
 .timeline-list {
@@ -1079,16 +1078,37 @@ const ganttSubmissions = computed(() => {
   gap: 0.5rem;
 }
 
-.follow-up-row {
+.followup-item {
+  border-radius: 12px;
+  background: #f1f5f4;
+  padding: 0.8rem;
   display: grid;
-  grid-template-columns: auto 1fr auto;
   gap: 0.6rem;
-  align-items: start;
+  border: 1px solid #e2e8f0;
 }
 
-.follow-up-main {
-  display: grid;
+.followup-item-content {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  color: #0f172a;
+  white-space: nowrap;
+}
+
+.followup-item-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  align-items: center;
+}
+
+.followup-meta-group {
+  display: flex;
+  align-items: center;
   gap: 0.35rem;
+  font-size: 0.8rem;
+  color: #94a3b8;
 }
 
 .follow-up-text {
@@ -1099,20 +1119,6 @@ const ganttSubmissions = computed(() => {
 .follow-up-index {
   font-weight: 600;
   color: #64748b;
-}
-
-.follow-up-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  font-size: 0.8rem;
-  color: #94a3b8;
-}
-
-.follow-up-meta-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
 }
 
 .meta-label {
