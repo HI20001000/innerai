@@ -35,7 +35,11 @@ const parseJsonPayload = (answer) => {
   }
 }
 
-const handleRecordsSelected = async (records) => {
+const handleRecordsSelected = async (selection) => {
+  const records = Array.isArray(selection) ? selection : selection?.records || []
+  const selectedClient = Array.isArray(selection) ? '' : selection?.client
+  const selectedVendor = Array.isArray(selection) ? '' : selection?.vendor
+  const selectedProduct = Array.isArray(selection) ? '' : selection?.product
   setMessage('')
   const contents = (records || [])
     .map((record) => record?.content_text || '')
@@ -62,7 +66,13 @@ const handleRecordsSelected = async (records) => {
       setMessage('無法解析 AI 回傳資料。', 'error')
       return
     }
-    props.onFill(parsed)
+    const nextPayload = {
+      ...parsed,
+      client: selectedClient || parsed.client,
+      vendor: selectedVendor || parsed.vendor,
+      product: selectedProduct || parsed.product,
+    }
+    props.onFill(nextPayload)
     setMessage('AI 提取完成', 'success')
   } catch (error) {
     console.error(error)
