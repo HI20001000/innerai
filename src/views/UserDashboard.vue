@@ -1090,13 +1090,16 @@ const ganttSubmissions = computed(() => {
   display: grid;
   gap: 0.35rem;
   min-width: 0;
-  overflow-x: auto;
 }
 
 .follow-up-text {
   color: #0f172a;
   font-size: 0.9rem;
   white-space: nowrap;
+}
+
+.time-card {
+  overflow-x: auto;
 }
 
 .follow-up-index {
