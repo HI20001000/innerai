@@ -558,20 +558,44 @@ const formatToTaipeiDateTime = (date) => {
 
 const formatToTaipeiIso = (date) => formatToTaipeiDateTime(date).replace(' ', 'T')
 
+const formatToUtcDateTime = (date) => {
+  const pad = (value) => String(value).padStart(2, '0')
+  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(
+    date.getUTCDate()
+  )} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(date.getUTCSeconds())}`
+}
+
+const parseTaipeiDateTimeInput = (value) => {
+  const normalized = value.replace('T', ' ').split('.')[0]
+  const [datePart, timePart = '00:00:00'] = normalized.split(' ')
+  const [year, month, day] = datePart.split('-').map((item) => Number(item))
+  const [hour, minute, second = '0'] = timePart.split(':')
+  if (!year || !month || !day) return null
+  const utcMs =
+    Date.UTC(year, month - 1, day, Number(hour || 0), Number(minute || 0), Number(second || 0)) -
+    8 * 60 * 60 * 1000
+  const parsed = new Date(utcMs)
+  if (Number.isNaN(parsed.getTime())) return null
+  return parsed
+}
+
 const normalizeDateTime = (value) => {
   if (typeof value !== 'string') return value
   if (value.includes('.')) {
     const [base] = value.split('.')
     if (base) return normalizeDateTime(base)
   }
-  if (value.endsWith('Z')) {
+  const hasTimezone = value.endsWith('Z') || /[+-]\d{2}:?\d{2}$/.test(value)
+  if (hasTimezone) {
     const parsed = new Date(value)
     if (!Number.isNaN(parsed.getTime())) {
-      return formatToTaipeiDateTime(parsed)
+      return formatToUtcDateTime(parsed)
     }
   }
-  if (!value.includes('T')) return value
-  return `${value.replace('T', ' ')}${value.length === 16 ? ':00' : ''}`
+  if (!value.includes('T') && !value.includes(' ')) return value
+  const parsedTaipei = parseTaipeiDateTimeInput(value)
+  if (!parsedTaipei) return value
+  return formatToUtcDateTime(parsedTaipei)
 }
 
 const handlePostTaskSubmission = async (req, res) => {
