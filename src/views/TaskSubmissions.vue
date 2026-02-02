@@ -1026,6 +1026,19 @@ onUnmounted(() => {
   font-weight: 600;
 }
 
+.task-table th.col-actions,
+.task-table td.col-actions {
+  position: sticky;
+  right: 0;
+  background: #fff;
+  z-index: 2;
+  box-shadow: -8px 0 12px rgba(15, 23, 42, 0.08);
+}
+
+.task-table td.col-actions {
+  z-index: 1;
+}
+
 .task-table input,
 .task-table textarea {
   width: 100%;
