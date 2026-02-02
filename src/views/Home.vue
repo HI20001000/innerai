@@ -1208,6 +1208,11 @@ onUnmounted(() => {
 .follow-up-text {
   color: #0f172a;
   font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.time-card {
+  overflow-x: auto;
 }
 
 .follow-up-index {
