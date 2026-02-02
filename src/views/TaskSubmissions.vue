@@ -43,6 +43,59 @@ const editForm = ref({
 const showResult = ref(false)
 const resultTitle = ref('')
 const resultMessage = ref('')
+const filterState = reactive({
+  fields: ['all'],
+  query: '',
+})
+
+const filteredSubmissions = computed(() => {
+  const query = filterState.query.trim().toLowerCase()
+  if (!query) return submissions.value
+  return submissions.value.filter((item) => {
+    const tags = Array.isArray(item.tags) ? item.tags.join(' ') : ''
+    const fields = {
+      all: `${item.client_name ?? ''} ${item.vendor_name ?? ''} ${item.product_name ?? ''} ${
+        item.created_by_email ?? ''
+      } ${tags}`,
+      client: item.client_name ?? '',
+      vendor: item.vendor_name ?? '',
+      product: item.product_name ?? '',
+      creator: item.created_by_email ?? '',
+      tag: tags,
+    }
+    const activeFields = filterState.fields.length ? filterState.fields : ['all']
+    if (activeFields.includes('all')) {
+      return fields.all.toLowerCase().includes(query)
+    }
+    return activeFields.some((field) => (fields[field] ?? '').toLowerCase().includes(query))
+  })
+})
+
+const normalizeDateTimeSubmit = (value) => {
+  if (!value) return ''
+  const normalized = value.includes('T') ? value.replace('T', ' ') : value
+  if (normalized.length === 16) {
+    return `${normalized}:00`
+  }
+  return normalized
+}
+
+const toggleFilterField = (field) => {
+  const currentFields = filterState.fields
+  if (field === 'all') {
+    filterState.fields = ['all']
+    return
+  }
+  const nextFields = currentFields.filter((item) => item !== 'all')
+  if (nextFields.includes(field)) {
+    filterState.fields = nextFields.filter((item) => item !== field)
+  } else {
+    filterState.fields = [...nextFields, field]
+  }
+  if (filterState.fields.length === 0) {
+    filterState.fields = ['all']
+  }
+}
 
 const goToNewTask = () => {
   router?.push('/tasks/new')
@@ -349,6 +402,8 @@ const saveEdit = async (id) => {
   try {
     const payload = {
       ...editForm.value,
+      start_at: normalizeDateTimeSubmit(editForm.value.start_at),
+      end_at: normalizeDateTimeSubmit(editForm.value.end_at),
       tag: tagItems,
       follow_up: followUpPayload,
       related_user_mail: relatedUserMails,
@@ -442,50 +497,122 @@ onUnmounted(() => {
         <h1 class="headline">任務提交清單</h1>
         <p class="subhead">檢視、編輯或刪除已提交的任務資料。</p>
       </div>
+      <div class="task-filter">
+        <label class="filter-label" for="task-filter-field">過濾條件</label>
+        <div class="filter-controls">
+          <div id="task-filter-field" class="filter-options" role="group">
+            <button
+              type="button"
+              class="filter-chip"
+              :class="{ active: filterState.fields.includes('all') }"
+              @click="toggleFilterField('all')"
+            >
+              全部欄位
+            </button>
+            <button
+              type="button"
+              class="filter-chip"
+              :class="{ active: filterState.fields.includes('client') }"
+              @click="toggleFilterField('client')"
+            >
+              客戶
+            </button>
+            <button
+              type="button"
+              class="filter-chip"
+              :class="{ active: filterState.fields.includes('vendor') }"
+              @click="toggleFilterField('vendor')"
+            >
+              廠家
+            </button>
+            <button
+              type="button"
+              class="filter-chip"
+              :class="{ active: filterState.fields.includes('product') }"
+              @click="toggleFilterField('product')"
+            >
+              產品
+            </button>
+            <button
+              type="button"
+              class="filter-chip"
+              :class="{ active: filterState.fields.includes('creator') }"
+              @click="toggleFilterField('creator')"
+            >
+              建立者
+            </button>
+            <button
+              type="button"
+              class="filter-chip"
+              :class="{ active: filterState.fields.includes('tag') }"
+              @click="toggleFilterField('tag')"
+            >
+              標籤
+            </button>
+          </div>
+          <input
+            v-model="filterState.query"
+            type="text"
+            class="filter-input"
+            placeholder="輸入關鍵字"
+          />
+          <button
+            class="ghost-button small"
+            type="button"
+            :disabled="!filterState.query"
+            @click="filterState.query = ''"
+          >
+            清除
+          </button>
+        </div>
+      </div>
     </header>
 
     <section class="task-table-section">
       <div v-if="!isLoading && submissions.length === 0" class="empty-state">
         尚無提交紀錄，請先新增任務。
       </div>
+      <div v-else-if="!isLoading && filteredSubmissions.length === 0" class="empty-state">
+        目前條件沒有符合的任務，請調整過濾條件。
+      </div>
       <div v-else class="table-wrapper">
         <table class="task-table">
           <thead>
             <tr>
-              <th>客戶</th>
-              <th>廠家</th>
-              <th>廠家產品</th>
-              <th>標籤</th>
+              <th class="col-client">客戶</th>
+              <th class="col-vendor">廠家</th>
+              <th class="col-product">廠家產品</th>
+              <th class="col-tags">標籤</th>
               <th>開始時間</th>
               <th>結束時間</th>
-              <th>需跟進內容</th>
+              <th class="col-followup">需跟進內容</th>
               <th>建立者</th>
               <th>建立時間</th>
-              <th>關聯用戶</th>
-              <th>操作</th>
+              <th class="col-users">關聯用戶</th>
+              <th class="col-actions">操作</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="item in submissions" :key="item.id">
-              <td>
+            <tr v-for="item in filteredSubmissions" :key="item.id">
+              <td class="col-client">
                 <template v-if="editingId === item.id">
                   <input v-model="editForm.client" type="text" />
                 </template>
                 <template v-else>{{ item.client_name }}</template>
               </td>
-              <td>
+              <td class="col-vendor">
                 <template v-if="editingId === item.id">
                   <input v-model="editForm.vendor" type="text" />
                 </template>
                 <template v-else>{{ item.vendor_name }}</template>
               </td>
-              <td>
+              <td class="col-product">
                 <template v-if="editingId === item.id">
                   <input v-model="editForm.product" type="text" />
                 </template>
                 <template v-else>{{ item.product_name }}</template>
               </td>
-              <td>
+              <td class="col-tags">
                 <template v-if="editingId === item.id">
                   <div class="inline-select">
                     <button class="select-field" type="button" @click="openList('tag')">
@@ -533,7 +660,7 @@ onUnmounted(() => {
                 </template>
                 <template v-else>{{ formatDateTimeDisplay(item.end_at) }}</template>
               </td>
-              <td>
+              <td class="col-followup">
                 <template v-if="editingId === item.id">
                   <div class="follow-up-edit">
                     <div class="follow-up-input">
@@ -634,7 +761,7 @@ onUnmounted(() => {
               </td>
               <td>{{ item.created_by_email }}</td>
               <td>{{ formatDateTimeDisplay(item.created_at) }}</td>
-              <td>
+              <td class="col-users">
                 <template v-if="editingId === item.id">
                   <div class="inline-select">
                     <button class="select-field" type="button" @click="openList('user')">
@@ -674,7 +801,7 @@ onUnmounted(() => {
                   <RelatedUsersTooltip :users="getRelatedUsers(item)" />
                 </template>
               </td>
-              <td class="action-cell">
+              <td class="action-cell col-actions">
                 <template v-if="editingId === item.id">
                   <div class="action-buttons">
                     <button class="ghost-button" type="button" @click="cancelEdit">取消</button>
@@ -717,6 +844,11 @@ onUnmounted(() => {
   color: #0f172a;
   display: grid;
   gap: 2.5rem;
+  width: 100%;
+  max-width: 100vw;
+  box-sizing: border-box;
+  overflow-x: hidden;
+  overflow-y: hidden;
 }
 
 .task-view-header {
@@ -724,6 +856,9 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: flex-end;
   gap: 2rem;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 .eyebrow {
@@ -746,6 +881,60 @@ onUnmounted(() => {
   max-width: 520px;
 }
 
+.task-filter {
+  display: grid;
+  gap: 0.6rem;
+  min-width: 320px;
+  max-width: 100%;
+}
+
+.filter-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.filter-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.filter-input {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.45rem 0.6rem;
+  font-size: 0.85rem;
+  background: #fff;
+}
+
+.filter-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.filter-chip {
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #475569;
+  border-radius: 999px;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.filter-chip.active {
+  border-color: #111827;
+  background: #111827;
+  color: #fff;
+}
+
+.filter-input {
+  min-width: 200px;
+}
+
 .primary-button {
   border: none;
   background: #111827;
@@ -764,6 +953,12 @@ onUnmounted(() => {
   font-weight: 600;
   cursor: pointer;
   color: #475569;
+}
+
+.ghost-button.small {
+  padding: 0.45rem 0.9rem;
+  border-radius: 10px;
+  font-size: 0.85rem;
 }
 
 .danger-button {
@@ -793,6 +988,12 @@ onUnmounted(() => {
   padding: 1.5rem;
   border-radius: 24px;
   box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  max-height: calc(100vh - 260px);
+  margin-bottom: 1.5rem;
+  overflow-y: auto;
 }
 
 .empty-state {
@@ -802,7 +1003,7 @@ onUnmounted(() => {
 }
 
 .table-wrapper {
-  overflow-x: auto;
+  overflow-x: visible;
 }
 
 .task-table {
@@ -828,6 +1029,7 @@ onUnmounted(() => {
 .task-table input,
 .task-table textarea {
   width: 100%;
+  min-width: 140px;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
   padding: 0.45rem 0.6rem;
@@ -842,6 +1044,7 @@ onUnmounted(() => {
 
 .select-field {
   width: 100%;
+  min-width: 160px;
   border: 1px solid #e2e8f0;
   background: #fff;
   border-radius: 12px;
@@ -1019,6 +1222,27 @@ onUnmounted(() => {
   font-size: 0.85rem;
 }
 
+.col-client,
+.col-vendor,
+.col-product {
+  min-width: 160px;
+}
+
+.col-tags,
+.col-users {
+  min-width: 220px;
+}
+
+.col-followup {
+  width: 32rem;
+  min-width: 32rem;
+  white-space: nowrap;
+}
+
+.col-actions {
+  min-width: 160px;
+}
+
 @media (max-width: 960px) {
   .task-view-page {
     padding: 2.5rem 6vw 3rem;
@@ -1027,6 +1251,10 @@ onUnmounted(() => {
   .task-view-header {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .task-filter {
+    width: 100%;
   }
 }
 </style>
