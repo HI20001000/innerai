@@ -1094,7 +1094,6 @@ onUnmounted(() => {
 .timeline {
   display: grid;
   gap: 1.2rem;
-  overflow-x: auto;
 }
 
 .timeline-list {
@@ -1174,11 +1173,9 @@ onUnmounted(() => {
 
 .followup-item {
   border-radius: 12px;
-  background: #f1f5f4;
   padding: 0.8rem;
   display: grid;
   gap: 0.6rem;
-  border: 1px solid #e2e8f0;
 }
 
 .followup-item-content {
@@ -1209,10 +1206,6 @@ onUnmounted(() => {
   color: #0f172a;
   font-size: 0.9rem;
   white-space: nowrap;
-}
-
-.time-card {
-  overflow-x: auto;
 }
 
 .follow-up-index {
