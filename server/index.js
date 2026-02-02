@@ -95,6 +95,7 @@ const createConnection = async (withDatabase = false) => {
     user: MYSQL_USER,
     password: MYSQL_PASSWORD,
     database: withDatabase ? DATABASE_NAME : undefined,
+    dateStrings: ['DATE', 'DATETIME'],
   })
   return connection
 }
