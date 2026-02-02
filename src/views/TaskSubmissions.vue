@@ -71,6 +71,15 @@ const filteredSubmissions = computed(() => {
   })
 })
 
+const normalizeDateTimeSubmit = (value) => {
+  if (!value) return ''
+  const normalized = value.includes('T') ? value.replace('T', ' ') : value
+  if (normalized.length === 16) {
+    return `${normalized}:00`
+  }
+  return normalized
+}
+
 const toggleFilterField = (field) => {
   const currentFields = filterState.fields
   if (field === 'all') {
@@ -393,6 +402,8 @@ const saveEdit = async (id) => {
   try {
     const payload = {
       ...editForm.value,
+      start_at: normalizeDateTimeSubmit(editForm.value.start_at),
+      end_at: normalizeDateTimeSubmit(editForm.value.end_at),
       tag: tagItems,
       follow_up: followUpPayload,
       related_user_mail: relatedUserMails,

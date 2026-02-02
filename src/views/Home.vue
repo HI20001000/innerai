@@ -1174,9 +1174,11 @@ onUnmounted(() => {
 
 .followup-item {
   border-radius: 12px;
+  background: #f1f5f4;
   padding: 0.8rem;
   display: grid;
   gap: 0.6rem;
+  border: 1px solid #e2e8f0;
 }
 
 .followup-item-content {
