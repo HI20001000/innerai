@@ -1396,11 +1396,8 @@ const handleGetMeetingRecords = async (req, res) => {
     const [vendorProducts] = await connection.query(
       'SELECT vendor_name, product_name FROM vendor_product_links'
     )
-    const [productMeetings] = await connection.query(
-      'SELECT product_name, meeting_folder_id FROM product_meeting_links'
-    )
     const [folders] = await connection.query(
-      'SELECT id, meeting_time, created_by_email, created_at FROM meeting_folders'
+      'SELECT id, client_name, vendor_name, product_name, meeting_time, created_by_email, created_at FROM meeting_folders'
     )
     const [records] = await connection.query(
       `SELECT id, folder_id, file_name, file_path, mime_type, content_text, file_content
@@ -1472,13 +1469,14 @@ const handleGetMeetingRecords = async (req, res) => {
     }
 
     const productMeetingsMap = new Map()
-    for (const link of productMeetings) {
-      if (!productMeetingsMap.has(link.product_name)) {
-        productMeetingsMap.set(link.product_name, [])
+    for (const folder of folders) {
+      const key = `${folder.client_name}__${folder.vendor_name}__${folder.product_name}`
+      if (!productMeetingsMap.has(key)) {
+        productMeetingsMap.set(key, [])
       }
-      const folder = foldersById.get(link.meeting_folder_id)
-      if (folder) {
-        productMeetingsMap.get(link.product_name).push(folder)
+      const meeting = foldersById.get(folder.id)
+      if (meeting) {
+        productMeetingsMap.get(key).push(meeting)
       }
     }
 
@@ -1503,7 +1501,8 @@ const handleGetMeetingRecords = async (req, res) => {
       const vendorNodes = vendors.map((vendorName) => {
         const products = vendorProductsMap.get(vendorName) || []
         const productNodes = products.map((productName) => {
-          const meetings = productMeetingsMap.get(productName) || []
+          const meetings =
+            productMeetingsMap.get(`${clientName}__${vendorName}__${productName}`) || []
           return {
             name: productName,
             meetings: meetings.map((meeting) => ({
